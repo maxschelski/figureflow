@@ -7797,6 +7797,8 @@ class FigurePanel():
         grouped_means.reset_index(inplace=True)
         statistic_vals = grouped_means.loc[:,grouped_columns]
         statistic_vals.loc[:,"mean"] = self.grouped_data.mean().reset_index()[self.y]
+        statistic_vals.loc[:,"min"] = self.grouped_data.min().reset_index()[self.y]
+        statistic_vals.loc[:,"max"] = self.grouped_data.max().reset_index()[self.y]
         statistic_vals.loc[:,"std"] = self.grouped_data.std().reset_index()[self.y]
         statistic_vals.loc[:,"sem"] = self.grouped_data.sem().reset_index()[self.y]
         if type(n_columns) == type(None):
@@ -7815,7 +7817,7 @@ class FigurePanel():
 
     def write_on_image(self, text, coords, only_show_in_rows = None,
                        only_show_in_columns = None, font_size="medium",
-                       color="white"):
+                       color="white", va="bottom", ha="left"):
         font_size_pt = FontProperties(size = font_size).get_size_in_points()
         for position, ax in self.all_axs.items():
 
@@ -7831,7 +7833,7 @@ class FigurePanel():
                                                                          position[1])
                 ax.annotate(xy=corrected_coords, text=text,
                             fontsize=font_size_pt, color=color,
-                            xycoords="data", va="bottom", ha="left")
+                            xycoords="data", va=va, ha=ha)
 
 
     def draw_on_image(self, targets, direction, images = None,
