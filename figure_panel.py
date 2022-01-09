@@ -705,6 +705,7 @@ class FigurePanel():
 
 
     def add_colorbars(self, site ="right", channels = None,
+                      tick_labels = None,
                       size = 0.1, tick_distance_from_edge = 0.2,
                       font_size_factor = 0.6,
                       padding = 0.2, tick_length = 1,
@@ -730,6 +731,9 @@ class FigurePanel():
                         only one of the channels has to be in the list
                         for it to be displayed.
                         default is that colorbars are shown for all channels
+        :param tick_labels: list of two strings, labels to put on left (first value)
+                            and right end (second value) of colorbar, instead
+                            of floats
         :param size: float, size of colorbar in fraction of axes it is added to
         :param tick_distance_from_edge: int, 0 to 0.4; relative distance
                                         from edge to indicate value on colorbar
@@ -755,6 +759,7 @@ class FigurePanel():
         self.add_colorbars_to_axs(site,
                                   channels,
                                   self.image_heights,
+                                  tick_labels,
                                   size,
                                   tick_distance_from_edge,
                                   font_size_factor,
@@ -4431,12 +4436,13 @@ class FigurePanel():
 
     def add_colorbars_to_axs(self, show_colorbar_at,
                              show_colorbar_for_channels,
-                             heights,
+                             heights, tick_labels,
                                  size, colorbar_tick_distance_from_edge,
                                 font_size_factor, colorbar_padding,
                                 tick_length,
                                 label_padding,
                              only_show_in_rows, only_show_in_columns):
+
         position_matrix = copy.copy(heights)
         position_matrix[heights > 0] = 1
         position_matrix[heights <= 0] = 0
@@ -4558,8 +4564,10 @@ class FigurePanel():
                 colorbar = plt.gcf().colorbar(ax.images[0], cax= cax,
                                               orientation=orientation)
 
+
                 # get min and max of image colormap
                 min, max = ax.images[0].get_clim()
+
                 # calculate range of colormap
                 range = max - min
                 # move ticks from outer edges more to the middle
@@ -4568,8 +4576,19 @@ class FigurePanel():
                 tick_min = np.round(min + tick_distance_edge, 0)
                 tick_max = np.round(max - tick_distance_edge, 0)
                 colorbar.set_ticks([tick_min, tick_max])
-                first_tick_label = np.round((tick_min - min)/(max - min),1)
-                second_tick_label = np.round((tick_max - min)/(max - min),1)
+
+                # if tick_labels are defined, set first and second tick labels
+                # as string tick labels defined in that list
+                if not self.is_none(tick_labels):
+                    first_tick_label, second_tick_label = tuple(tick_labels)
+                else:
+                    # otherwise set tick labels as normalized float
+                    # between 0.0 and 1.0, 
+                    # with user-defined distance from edge
+                    # (or default distance of 0.2)
+                    first_tick_label = np.round((tick_min - min)/(max - min),1)
+                    second_tick_label = np.round((tick_max - min)/(max - min),1)
+
                 colorbar.set_ticklabels([first_tick_label, second_tick_label])
                 # use a defined fraction of normal font size
                 colorbar_font_size = self.font_size * font_size_factor
@@ -4589,7 +4608,6 @@ class FigurePanel():
                 # if there is only one set of min_max values in all images
                 if len(all_min_max) == 1:
                     break
-                # get colorbar size (width and height
 
 
         if len(self.all_colorbars) == 0:
