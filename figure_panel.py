@@ -6927,6 +6927,7 @@ class FigurePanel():
             if "plot_type" in kwargs:
                 if kwargs["plot_type"] in plot_types_no_higher_pad_below:
                     increase_padding_below = False
+                self.plot_type = kwargs["plot_type"]
 
             if increase_padding_below:
                 if "col_order" in kwargs:
@@ -7763,7 +7764,8 @@ class FigurePanel():
                 self.test_result_list, ann_list)
 
     def get_basic_statistics(self, N_columns = "date", n_columns = None,
-                             show_stats=False, show_from_ungrouped_data=False):
+                             show_stats=False, show_from_ungrouped_data=None,
+                             show_from_grouped_data = None):
         """
 
         :param N_columns: is column or list of columns
@@ -7775,12 +7777,36 @@ class FigurePanel():
         if type(N_columns) == str:
             N_columns = [N_columns]
         # get values for combined data
+
+        if show_stats:
+            print(self.test_result_list)
+
+        continuous_plot_types = ["line", "regression", "scatter"]
+
+        #for continuous plots by default show only statistics of
+        #ungrouped data
+        #for other other plots by default only stats of
+        #grouped data
+        if self.plot_type in continuous_plot_types:
+            if self.is_none(show_from_ungrouped_data):
+                show_from_ungrouped_data = True
+            if self.is_none(show_from_grouped_data):
+                show_from_grouped_data = False
+        else:
+            if self.is_none(show_from_ungrouped_data):
+                show_from_ungrouped_data = False
+            if self.is_none(show_from_grouped_data):
+                show_from_grouped_data = True
+
         if show_from_ungrouped_data:
+            print("show from ungrouped data")
             columns = ["mean", "std", "sem", "n", "N"]
             data = self.grouped_data.obj
             combined_stat_vals = pd.DataFrame(columns=columns)
             combined_stat_vals.loc[0,"mean"] = data[self.y].mean()
             combined_stat_vals.loc[0,"std"] = data[self.y].std()
+            combined_stat_vals.loc[:,"min"] = self.data[self.y].min()
+            combined_stat_vals.loc[:,"max"] = self.data[self.y].max()
             combined_stat_vals.loc[0,"sem"] = data[self.y].sem()
             if type(n_columns) == type(None):
                 combined_stat_vals.loc[0,"n"] = data[self.y].count()
@@ -7790,6 +7816,9 @@ class FigurePanel():
             combined_stat_vals.loc[0,"N"] = len(data[N_columns]
                                                 .drop_duplicates())
             print(combined_stat_vals)
+
+        if not show_from_grouped_data:
+            return
 
         # get values for separate groups
         grouped_means = self.grouped_data.mean()
@@ -7811,8 +7840,6 @@ class FigurePanel():
                                                             len(x[N_columns]
                                                                 .drop_duplicates())).reset_index()[0]
         print(statistic_vals)
-        if show_stats:
-            print(self.test_result_list)
 
 
     def write_on_image(self, text, coords, only_show_in_rows = None,
