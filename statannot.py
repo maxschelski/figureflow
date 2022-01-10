@@ -2011,7 +2011,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         row_label_text=None, row_label_orientation = "vert",
                         auto_scale_group_padding = True,
                         plot_title = None, show_y_minor_ticks=False,
-                        borderaxespad_ = 0.5,
+                        borderaxespad_ = 0.2,
                         add_background_lines = True, vertical_lines=False,
                         show_stats_to_control_without_lines=False,
                         show_x_label_in_all_columns=True,

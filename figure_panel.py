@@ -6522,8 +6522,9 @@ class FigurePanel():
         # default for row label orientation in vert
         row_label_orientation = keyword_args.get("row_label_orientation",
                                                  "vert")
-        # get default value of borderaxespad_
-        borderaxespad_ = FigurePanel.default_in_statannot("borderaxespad_")
+        # get defined or default value of borderaxespad_
+        borderaxespad_def = FigurePanel.default_in_statannot("borderaxespad_")
+        borderaxespad_ = keyword_args.get("borderaxespad_", borderaxespad_def)
         borderaxespad_px = 10 * borderaxespad_ * plt.gcf().dpi / 72
         row_label = statannot.add_row_label(row_value, self.font_size,
                                   row_label_orientation, ax, x_start=0)
