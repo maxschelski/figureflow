@@ -2552,6 +2552,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     if add_background_lines:
         # add lines at yticks in background to allow for space between plots of different cols
         # otherwise there would not be grid lines between plots
-        add_background_grid_lines_to_plots(all_axs, col_order, line_width, letter)
+        add_background_grid_lines_to_plots(all_axs, col_order,
+                                           line_width, letter)
 
     return all_axs, axs_by_position, ax_annot, test_result_list, ann_list

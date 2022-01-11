@@ -424,7 +424,9 @@ class FigurePanel():
 
         allowed_categories = allowed_categories + list(additional_categories.keys())
 
-        self.map = self._get_map_of_categories(allowed_categories, order_of_categories)
+        (self.map, 
+         order_of_categories) = self._get_map_of_categories(allowed_categories, 
+                                                            order_of_categories)
 
         self.inv_map = { v : k for k, v in self.map.items() }
 
@@ -840,7 +842,7 @@ class FigurePanel():
         # order in which the categories are sorted
         #  when on the same axes (column or rows)
         # can be determined by changing mapping
-        if order_of_categories == None:
+        if self.is_none(order_of_categories):
             order_of_categories = allowed_categories
 
         for category in allowed_categories:
@@ -856,7 +858,7 @@ class FigurePanel():
                                  "{}.".format(category,
                                               ", ".join(allowed_categories) ))
             map[category] = nb
-        return map
+        return map, order_of_categories
 
     def _add_new_categories(self, additional_categories):
         sub_category_map = {}
@@ -979,11 +981,13 @@ class FigurePanel():
         return img
 
 
-    def _extract_images_from_tiff(self, map, channels, slices, frames):
+    def _extract_images_from_tiff(self, basic_map, channels, slices, frames):
         """
         Extract images according to channels, slices and frames from hyperstack
         tiff file from ImageJ
-        :param map: dictionary, mapping category name to number of category
+        :param basic_map: dictionary, mapping category name to number of category
+                            of basic categories
+                            (images, channels, slices, frames)
         :param channels: list of ints; channels which should be extracted
         :param slices: list of ints; slices which should be extracted
         :param frames: list of ints; frames which should be extracted
@@ -1096,7 +1100,7 @@ class FigurePanel():
                 # these properties will be added later
                 #  (they cannot be inferred from the image directly)
                 # map object that is given to the function is a basic map object
-                simple_inv_map = {v:k for k,v in map.items()}
+                simple_inv_map = {v:k for k,v in basic_map.items()}
                 pre_identity = [0 for _ in simple_inv_map]
                 for dim, cat_str in simple_inv_map.items():
                     if cat_str == "images":
@@ -1123,6 +1127,7 @@ class FigurePanel():
                                                                 dimension_dict,
                                                                 dimension_order_in_props,
                                                                 dimension_vals_to_include,
+                                                                    basic_map,
                                                                 img_nb)
 
             ranges = self.extract_img_ranges_from_file(file_path)
@@ -1138,7 +1143,8 @@ class FigurePanel():
                                     identity_val_map,
                                   dimensions, dimension_dict,
                                   dimension_order_in_props,
-                                  dimensions_vals_to_include, img_nb):
+                                  dimensions_vals_to_include,
+                                  basic_map, img_nb):
 
         dimension = dimension_order_in_props[dim_nb]
         # iterate through each dimension
@@ -1200,6 +1206,7 @@ class FigurePanel():
                                                                  dimension_dict,
                                                                  dimension_order_in_props,
                                                                  dimensions_vals_to_include,
+                                                                    basic_map,
                                                                  img_nb)
             else:
                 # if there is no further dimension to go down into,
@@ -1237,7 +1244,9 @@ class FigurePanel():
                 # since only one dimension can be used for overlay
                 # keep track that this is the case
                 overlay_dimension = np.nan
+
                 for dim_nb, dim_identity in enumerate(dimensions):
+
                     dim_val = current_dimension.get(dim_identity, np.nan)
 
                     if (type(dim_val) != list) & (type(dim_val) != tuple):
@@ -1286,7 +1295,7 @@ class FigurePanel():
                     #  get image of current dimension
 
                     for dim_in_order in dimension_order_in_props:
-                        idx_in_pre_identity = self.map[dim_in_order]
+                        idx_in_pre_identity = basic_map[dim_in_order]
                         if type(img) == type(None):
                             img = multi_img[sub_pre_identity[idx_in_pre_identity]]
                         else:
@@ -1883,7 +1892,7 @@ class FigurePanel():
                 variation_nbs = [1]
                 size_increase_is_focus = False
 
-        elif show_focus_in == "columns":
+        elif (show_focus_in.find("col") != -1):
             if enlarged_image_site == "left":
                 variation_nbs = [1]
                 size_increase_is_focus = False
@@ -2157,6 +2166,7 @@ class FigurePanel():
 
         nb_elements_to_add = size_factor - 1
         for image_to_enlarge in images_enlarge:
+
             image_to_enlarge = tuple(image_to_enlarge)
             #  new_increase_size_map = {}
 
@@ -2184,6 +2194,7 @@ class FigurePanel():
             #  create set to identify added identities / images
             #  save place holder identities to add after applying remapping
             #  at the end remove the images from the set again
+
             place_holder_image = all_images_by_identity[image_to_enlarge]
 
             # position of image in grid of two dimensions
@@ -4370,7 +4381,8 @@ class FigurePanel():
                                  for y_tick_value in tick_values]
                 ax.set_yticks(ticks=y_tick_values)
                 ax.set_yticklabels(tick_values)
-                ax.tick_params(axis="y", which="both", pad=axis_padding,
+                ax.tick_params(axis="y", which="both", labelpad=axis_padding,
+                               pad=axis_padding,
                                    length =tick_length, width=tick_width,
                                    direction="in", color=tick_color)
 
@@ -6716,6 +6728,11 @@ class FigurePanel():
         else:
             self.y = y
 
+        # get plot_type, needed for get_basic_statistics
+        # to know if it is a continuous data plot type
+        plot_type = self.default_in_statannot("plot_type")
+        self.plot_type = kwargs.get("plot_type", plot_type)
+
         # create copy of inner border
         # since it is changed along the script
         # and otherwise for videos
@@ -7171,8 +7188,6 @@ class FigurePanel():
 
         width_y_axis = max_y_axis_width_px / (fig_size[0] * plt.gcf().dpi)
 
-        #  even padding of 0 still leads to space between rows... Why?
-        #  as a temporary fix, used negative padding
         sub_padding = [self.padding[0],
                        self.padding[1] * self.sub_padding_y_factor]
                         #  self.padding[1] / 8
