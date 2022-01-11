@@ -1923,10 +1923,12 @@ def add_background_grid_lines_to_plots(all_axs, col_order, line_width, letter):
     ax_first = all_axs[col_order[0]]
     ax_last = all_axs[col_order[-1]]
 
-    add_background_grid_lines(ax_first, ax_last, line_width, letter, color="0.8")
+    add_background_grid_lines(ax_first, ax_last, line_width,
+                              letter, color="0.8")
 
 
-def add_background_grid_lines(ax_first, ax_last, line_width, letter, color, excluded_ytick_id = None):
+def add_background_grid_lines(ax_first, ax_last, line_width, letter, color,
+                              excluded_ytick_id = None):
     """
     :param excluded_ytick_ids: list of list-ids in yticks that should be removed from y_ticks
     """
@@ -1937,10 +1939,13 @@ def add_background_grid_lines(ax_first, ax_last, line_width, letter, color, excl
     yticks = ax_first.get_yticks()
     ylim_low = min(y_lim[0], y_lim[1])
     ylim_high = max(y_lim[0], y_lim[1])
-    yticks = [tick for tick in yticks if (tick >= ylim_low) & (tick <= ylim_high)]
+    yticks = [tick for tick in yticks
+              if (tick >= ylim_low) & (tick <= ylim_high)]
     grid_ax = fig.add_subplot(label="grid for letter " +letter,zorder=-1)
     grid_ax.set_ylim(y_lim[0],y_lim[1])
-    grid_ax.set_position([ax_first_coords.x0,ax_first_coords.y0,ax_last_coords.x1-ax_first_coords.x0,ax_first_coords.height])
+    grid_ax.set_position([ax_first_coords.x0, ax_first_coords.y0,
+                          ax_last_coords.x1 - ax_first_coords.x0,
+                          ax_first_coords.height])
     # grid_ax.set_axis_off()
     # remove border around axis
     grid_ax.spines['bottom'].set_color('None')
@@ -1954,7 +1959,8 @@ def add_background_grid_lines(ax_first, ax_last, line_width, letter, color, excl
         del yticks[excluded_ytick_id]
     for y_tick in yticks:
         line_x, line_y = [0, 1], [y_tick,y_tick]
-        line = lines.Line2D(line_x, line_y, c=color,  zorder=-1, lw=line_width, solid_capstyle="butt")
+        line = lines.Line2D(line_x, line_y, c=color,  zorder=-1,
+                            lw=line_width, solid_capstyle="butt")
         line.set_clip_on(False)
         grid_ax.add_line(line)
 
@@ -2509,11 +2515,11 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                     axis="y", linewidth=line_width)
 
             if plot_type == "line":
-                ax.grid(color=line_color, linestyle='-', which="major",
+                ax.grid(visible=True,color=line_color, linestyle='-', which="major",
                         axis="x", linewidth=line_width)
 
             if show_y_minor_ticks:
-                ax.grid(b=False, color=line_color, linestyle='-',
+                ax.grid(visible=True, b=False, color=line_color, linestyle='-',
                         which="minor", axis="y", linewidth=line_width_thin)
         
 
