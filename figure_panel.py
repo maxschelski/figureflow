@@ -485,7 +485,6 @@ class FigurePanel():
             all_images_by_identity = self.finalize_pre_identity_dicts(all_images_by_pre_identity,
                                                                       self.inv_map, self.dim_val_maps)
 
-
             (all_images_by_identity,
              identity_to_add_zoom_mark_to) = self.add_zoom_images(all_images_by_identity,
                                                                 show_only_zoom,
@@ -1133,7 +1132,6 @@ class FigurePanel():
             ranges = self.extract_img_ranges_from_file(file_path)
             img_ranges[img_nb] = ranges
 
-
         return all_images_by_pre_identity, img_ranges, identity_val_map
 
 
@@ -1223,7 +1221,7 @@ class FigurePanel():
                         # show_images (e.g. in "channels")
                         mapped_identity_val = current_identity[dim_identity]
                     else:
-                        if dim_identity == "images":
+                        if dim_identity == "image":
                             pre_identity.append(img_nb)
                             mapped_identity_val = img_nb
                         else:
@@ -1980,7 +1978,6 @@ class FigurePanel():
                                                             other_dim,
                                                             order_of_categories)
 
-
         #  move each size_factor and all identities matching it except in other_dim
         (increase_size_map,
          place_holder_identities,
@@ -2011,7 +2008,8 @@ class FigurePanel():
             #  when converting the identity to pre_identity
             self.inv_increase_size_map[place_holder_identity] = place_holder_pre_identity
             all_images_by_identity[place_holder_identity] = image
-
+        print(all_images_by_identity.keys())
+        print(len(list(all_images_by_identity.keys())))
         return all_images_by_identity
 
 
@@ -2020,8 +2018,7 @@ class FigurePanel():
         Get the number of category values and the minimum category value
         for all identities except the
         """
-        identity_without_enlarged_image = set(
-            list(all_images_by_identity.keys()))
+        identity_without_enlarged_image = set(list(all_images_by_identity.keys()))
         images_enlarge_unique = set([tuple(image_enlarge)
                                      for image_enlarge in images_enlarge])
         identity_without_enlarged_image -= images_enlarge_unique
@@ -2180,8 +2177,17 @@ class FigurePanel():
             all_images_to_remap.add(image_to_enlarge)
 
             for identity in all_images_by_identity.keys():
-
                 add_identity = True
+                dims_allowed_different = [size_increase_dim,
+                                          other_dim,
+                                          category_change]
+                add_identity = self.check_if_identities_are_the_same_except_categories(identity,
+                                                                        image_to_enlarge,
+                                                                        dims_allowed_different)
+
+                print(identity, image_to_enlarge,
+                      dims_allowed_different,
+                      add_identity)
                 if add_identity:
                     all_images_to_remap.add(identity)
 
@@ -2229,6 +2235,7 @@ class FigurePanel():
                     else:
                         #  if (cat1_value, cat2_value) == lower_left_pos:
                         # remap original image to lower left position
+
                         increase_size_map[image_to_enlarge] = tuple(place_holder_identity)
                         enlarged_image_pre_identity = tuple(image_to_enlarge)
 
@@ -2999,6 +3006,8 @@ class FigurePanel():
                                                               inv_map)
 
         new_identity_to_add_zoom_mark_to = {}
+        print(self.map)
+        print(nb_cat_vals)
         for identity, image in all_images_by_identity.items():
             # get row and column
             # for this count number of cells in width matrix
@@ -3011,6 +3020,8 @@ class FigurePanel():
             if type(column_categories) != tuple:
                 column_categories = [column_categories]
 
+            # go through both dimensions (rows and columns)
+            # and save position in that dimension of the current identity
             for dimension_nb, categories in enumerate(best_permutation):
                 #  dim_matrix = np.amax(width_imgs,
                 #                       axis=best_permutation[1 - dimension_nb])
@@ -3030,63 +3041,79 @@ class FigurePanel():
                 # To calculate the total number of images
                 # in the current dimension
                 # before the image with the current identity:
-                # for each category increase nb_imgs_before by
-                # a product of number of cat values of categories
-                # before the current category and
-                # of the identity value in the current category
-                # thereby the number of images before is increased for each
-                # category by the full number of images possible (nb_cat_vals)
-                # from all categories before
-                # e.g. when displaying 4 frames, 2 channels and 2 images,
-                #   the number of images before for the identity with
-                #   frame = 2 (3rd), channel = 1 (2nd) and image = 1 (2nd)
-                #   would be:
-                #     2 (frame) +
-                #     1 (channel) * 4 (number of frames) +
-                #     (since for the current image
-                #      there is one channel with all frames before)
-                #     1 (image) * 2 (number of channels) * 4 (number of frames)
-                #     (since before the current image there is
-                #      one image with 2 channels and for each channel 4 frames)
+                # use array with widths of all imgs
+                # in which the identity of each image is the index at which
+                # the width of the image is saved
+                # a zero-image means that there is no image with that identity
 
-                # starting value is the identity value of the first category
-                # since for the first category idxs_for_cat_vals would be empty
-                # and therefore the product would be for all nb_cat_vals
-
-                # start adding to nb_images_before at the first
-                # category with more than one value (for all identities)
-                nb_cat_vals_sorted = nb_cat_vals[[categories]]
-                first_cat = np.where(nb_cat_vals_sorted > 1)[0]
-                if len(first_cat) == 0:
-                    first_cat = 0
+                # change category numbers since the categories
+                # of the other dimension will be removed from width array
+                # and the identity. But the categories should still be the
+                # number that corresponds to the position in the array of the
+                # respective category.
+                if len(categories) == 1:
+                    # If there is only one category then
+                    # the position is always 0.
+                    new_categories = [0]
                 else:
-                    first_cat = first_cat[0]
+                    # Otherwise the position is reduced by one
+                    # if the category comes after the removed category
+                    # (from the other dimension)
+                    new_categories = [cat - len(best_permutation[1 - dimension_nb])
+                                  if cat > best_permutation[1 - dimension_nb][0]
+                                  else cat for cat in categories]
 
-                val_pos = self.get_position_of_cat_val(identity[categories[first_cat]],
-                                                  categories[first_cat], all_cat_vals,
-                                                  inv_map)
-                nb_imgs_before = val_pos
-                for category in categories[first_cat + 1:]:
-                    # the indices do not include the current category
-                    idxs_for_cat_vals = [categories[:category]]
-                    cat_val_product = np.product(nb_cat_vals[idxs_for_cat_vals])
-                    identity_val = identity[category]
-                    # get position of category value instead of the value itself
-                    # to prevent some values not being used
-                    # (e.g. remapped after enlarging images)
-                    # from increasing number of images before
-                    # (since those images might not actually exist
-                    #  which is why e.g. a value of '1' can be at positon 0
-                    #  if there is no value '0' in that category used)
-                    val_pos = self.get_position_of_cat_val(identity_val,
-                                                           category,
-                                                           all_cat_vals,
-                                                           inv_map)
-                    nb_imgs_before += cat_val_product * val_pos
+                nb_imgs_before = 0
+                # convert identity to numpy array to allow a list of
+                # multiple, non-ascending/-descending indices
+                identity_array = np.array(identity)
+                # get maximum width across category/ies of other dimension
+                # thereby get nonzero width at positions in current dimension
+                # where there is at least one image across
+                # the entire other dimension
+                new_width_imgs = np.amax(width_imgs,
+                                         axis=best_permutation[1 - dimension_nb])
 
-                # needs to be converted to int since position in arrays
-                # must be of type int
-                nb_imgs_before = int(nb_imgs_before)
+
+                # get all images before the current image
+                # by checking how many images are
+                # in the first category before it and adding
+                # from categories afterwards images, which are lower
+                # in the current category and have any value in a category
+                # before that
+                for nb_category, category in enumerate(categories):
+
+                    # get the identity values of categories of current dimension
+                    print("SHAPES: ", new_width_imgs.shape, width_imgs.shape)
+                    idx = list(identity_array[[categories]])
+                    print("categories & new: ", categories, new_categories)
+                    print("index plus categories: ", idx, categories, new_categories)
+                    # go through each category  (new_category numbers are needed
+                    # since non-category positions in identity array were
+                    # already removed)
+                    # and change idx to refer to all images with identities
+                    # which are any value in categories before nb_cat
+                    # and category values lower than the current identity
+                    # in nb_category, while identity values in categories
+                    # afterwards are the same as in current identity
+                    for new_nb_category, new_category in enumerate(new_categories):
+                        if new_nb_category < nb_category:
+                            idx[new_category] = slice(None)
+                        elif new_nb_category == nb_category:
+                                idx[new_category] = slice(idx[new_category])
+
+                    sub_widths = new_width_imgs[tuple(idx)]
+                    print("index: ", idx)
+                    print("new & sub width shape: ",new_width_imgs.shape, sub_widths.shape)
+
+
+                    nb_imgs_before += np.count_nonzero(sub_widths)
+                    print("nb cats & imgs before: ", nb_cat,
+                          np.count_nonzero(sub_widths), nb_imgs_before)
+
+                print("nb cat vals: ", nb_cat_vals)
+                print("categories", categories)
+                print("final: ", identity, nb_imgs_before)
 
                 position.append(nb_imgs_before)
 
@@ -3642,6 +3669,7 @@ class FigurePanel():
             pre_identity = self.pos_to_pre_identity_map[position]
             pre_identity = self._get_all_pre_identities_from_overlay(pre_identity)
 
+            print(pre_identity)
             # dont search for img_range for placeholder images
             if pre_identity[0] != -1:
                 img_range = self.get_range_of_image(img_ranges, pre_identity,
@@ -3671,6 +3699,15 @@ class FigurePanel():
                 if cmap_for_image not in self.cmap_to_channels:
                     self.cmap_to_channels[cmap_for_image] = []
                 self.cmap_to_channels[cmap_for_image].append(channel)
+            else:
+                # else only added due to problems when trying to change 
+                # algorithm to find position for image
+                # maybe can be removed again.
+                if type(cmaps) == str:
+                    cmap_for_image = cmaps
+                else:
+                    cmap_for_image = cmaps[0]
+                img_range = [0,0]
 
             im = ax.imshow(image, cmap=cmap_for_image, clim=img_range)
 
@@ -7022,7 +7059,6 @@ class FigurePanel():
                                                  column].str.replace(value_to_replace,
                                                                      replaced_value)
                     data.loc[mached_indices, column] = new_column_values
-
 
             (axs_by_col_val,
              axs_by_position,
