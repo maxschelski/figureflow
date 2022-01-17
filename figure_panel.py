@@ -2230,11 +2230,11 @@ class FigurePanel():
                         # remap original image to lower left position
 
                         increase_size_map[image_to_enlarge] = tuple(place_holder_identity)
-                        enlarged_image_pre_identity = tuple(image_to_enlarge)
 
             # go through all place_holder identities
             # and map them to the pre_identity
             # of the corresponding enlarged image
+            enlarged_image_pre_identity = self.get_pre_identity(image_to_enlarge)
             for place_holder_identity in all_place_holder_identities:
                 self.place_holder_identity_map[place_holder_identity] = enlarged_image_pre_identity
 
