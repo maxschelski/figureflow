@@ -2380,7 +2380,6 @@ class FigurePanel():
                 # more than one for at least one other _sub value
                 min_nb_for_sub_values = min(nb_for_sub_values.values())
                 max_nb_for_sub_values = max(nb_for_sub_values.values())
-                print(min_nb_for_sub_values, max_nb_for_sub_values)
                 if (min_nb_for_sub_values == 1) & (max_nb_for_sub_values > 1):
                     #get all sub values with only one value
                     sub_values_with_one_val = [sub_value
@@ -3052,8 +3051,6 @@ class FigurePanel():
                                                               inv_map)
 
         new_identity_to_add_zoom_mark_to = {}
-        print(self.map)
-        print(nb_cat_vals)
         for identity, image in all_images_by_identity.items():
             # get row and column
             # for this count number of cells in width matrix
@@ -3129,10 +3126,7 @@ class FigurePanel():
                 for nb_category, category in enumerate(categories):
 
                     # get the identity values of categories of current dimension
-                    # print("SHAPES: ", new_width_imgs.shape, width_imgs.shape)
                     idx = list(identity_array[[categories]])
-                    # print("categories & new: ", categories, new_categories)
-                    # print("index plus categories: ", idx, categories, new_categories)
                     # go through each category  (new_category numbers are needed
                     # since non-category positions in identity array were
                     # already removed)
@@ -3148,17 +3142,9 @@ class FigurePanel():
                                 idx[new_category] = slice(idx[new_category])
 
                     sub_widths = new_width_imgs[tuple(idx)]
-                    # print("index: ", idx)
-                    # print("new & sub width shape: ",new_width_imgs.shape, sub_widths.shape)
 
 
                     nb_imgs_before += np.count_nonzero(sub_widths)
-                    # print("nb cats & imgs before: ", nb_cat,
-                    #       np.count_nonzero(sub_widths), nb_imgs_before)
-
-                # print("nb cat vals: ", nb_cat_vals)
-                # print("categories", categories)
-                # print("final: ", identity, nb_imgs_before)
 
                 position.append(nb_imgs_before)
 
