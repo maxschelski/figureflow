@@ -1928,7 +1928,6 @@ class FigurePanel():
         # which determines in the direction
         #  of which category images will be pushed
         other_dim = [first_dimension, second_dimension][variation_nb - 1]
-        #  print("Other dim:", other_dim)
         other_dim = self.map[other_dim]
 
         focus = first_dimension
@@ -1946,7 +1945,6 @@ class FigurePanel():
                                                        images_enlarge)
 
         size_factor = nb_of_cat_vals[size_increase_dim]
-        #  print(size_increase_dim,self.inv_map[size_increase_dim], size_factor)
 
         # if focus is already defined, never change it
         # the same is true for order_of_categories
@@ -1977,7 +1975,7 @@ class FigurePanel():
                                                             size_increase_dim,
                                                             other_dim,
                                                             order_of_categories)
-        print("images enlarge: ", images_enlarge)
+
         #  move each size_factor and all identities matching it except in other_dim
         (increase_size_map,
          place_holder_identities,
@@ -2008,8 +2006,6 @@ class FigurePanel():
             #  when converting the identity to pre_identity
             self.inv_increase_size_map[place_holder_identity] = place_holder_pre_identity
             all_images_by_identity[place_holder_identity] = image
-        print(all_images_by_identity.keys())
-        print(len(list(all_images_by_identity.keys())))
         return all_images_by_identity
 
 
@@ -2185,9 +2181,6 @@ class FigurePanel():
                                                                         image_to_enlarge,
                                                                         dims_allowed_different)
 
-                print(identity, image_to_enlarge,
-                      dims_allowed_different,
-                      add_identity)
                 if add_identity:
                     all_images_to_remap.add(identity)
 
@@ -2263,7 +2256,7 @@ class FigurePanel():
             # add 1 to value since if it starts at 0 but size increase is 2
             # it should move two spaces
             remapped_image[other_dim] += 1 - (min_cat_vals[other_dim])
-            #  print(image_to_remap, remapped_image)
+
             increase_size_map[image_to_remap] = tuple(remapped_image)
         return increase_size_map
 
@@ -3700,7 +3693,6 @@ class FigurePanel():
             pre_identity = self.pos_to_pre_identity_map[position]
             pre_identity = self._get_all_pre_identities_from_overlay(pre_identity)
 
-            print(pre_identity)
             # dont search for img_range for placeholder images
             if pre_identity[0] != -1:
                 img_range = self.get_range_of_image(img_ranges, pre_identity,
@@ -7900,7 +7892,6 @@ class FigurePanel():
                 show_from_grouped_data = True
 
         if show_from_ungrouped_data:
-            print("show from ungrouped data")
             columns = ["mean", "std", "sem", "n", "N"]
             data = self.grouped_data.obj
             combined_stat_vals = pd.DataFrame(columns=columns)
