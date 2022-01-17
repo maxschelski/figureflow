@@ -3357,6 +3357,8 @@ class FigurePanel():
                  frames=None, label_position_overview = "left"):
         """
         Append  zoom parameters to dictionary.
+        For each image/channel/frame the same number of zooms have to be added.
+        Otherwise auto_enlarging won't work.
         :param xy: x,y point as list for bottom-left origin of zoom rectangle
         :param width: width of zoom rectangle
         :param height: height of zoom rectangle
