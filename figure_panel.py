@@ -1572,22 +1572,22 @@ class FigurePanel():
         :param inv_map: dict mapping int of category in identity to
                         category name (e.g. "channel")
         """
-        pre_identity_value_lists = {}
+        identity_value_lists = {}
 
         for pre_identity in all_identities:
 
             for identity_nb, pre_identity_val in enumerate(pre_identity):
                 category = inv_map[identity_nb]
-                if not category in pre_identity_value_lists:
-                    pre_identity_value_lists[category] = []
-                pre_identity_value_lists[category].append(pre_identity_val)
+                if not category in identity_value_lists:
+                    identity_value_lists[category] = []
+                identity_value_lists[category].append(pre_identity_val)
 
-        for category in pre_identity_value_lists.keys():
-            cat_vals = pre_identity_value_lists[category]
-            pre_identity_value_lists[category] = list(np.unique(cat_vals))
-            pre_identity_value_lists[category].sort()
+        for category in identity_value_lists.keys():
+            cat_vals = identity_value_lists[category]
+            identity_value_lists[category] = list(np.unique(cat_vals))
+            identity_value_lists[category].sort()
 
-        return pre_identity_value_lists
+        return identity_value_lists
 
     def iterable_to_dict(self, iterable):
         """
@@ -1977,7 +1977,7 @@ class FigurePanel():
                                                             size_increase_dim,
                                                             other_dim,
                                                             order_of_categories)
-
+        print("images enlarge: ", images_enlarge)
         #  move each size_factor and all identities matching it except in other_dim
         (increase_size_map,
          place_holder_identities,
@@ -2315,40 +2315,86 @@ class FigurePanel():
 
         # now find images which have fewer other images directly adjacent
         #  (not diagonal)
-        # convolve array once with all adjacent images in one direction
-        # crate
         filter_shape = copy.copy(max_vals_of_dimension)
         filter_shape[:] = 3
 
         # get neighbors above and below midpoint
-        nb_dimensions = len(filter_shape)
+        nb_categories = len(filter_shape)
         # in each dimension the filter has three values
-        # which means that the coordinates [1] * nb_dimensions
+        # which means that the coordinates [1] * nb_categories
         # is the middle point
         # changing one dimension to 0 is one direct neighbor
-        # convolve for each single dimension to get neighbors
-        # for each single dimension which will then be summed up
-        # thereby it can be controlled that each dimension just leads to
+        # convolve for each single category to get neighbors
+        # for each single category, which will then be summed up.
+        # Thereby it can be controlled that each category just leads to
         # an increase in neighbors of max. 1
-        # making it possible to get the number of dimension with neighbors
+        # making it possible to get the number of categories with neighbors
         # which is undirected
         neighbors_all_dim = []
-        for dimension in range(nb_dimensions):
+        for category in range(nb_categories):
             filter_first_site = np.zeros((filter_shape))
-            slice = [1] * nb_dimensions
-            slice[dimension] = 0
-            filter_first_site[tuple(slice)] = 1
+            filter_slice = [1] * nb_categories
+            filter_slice[category] = 0
+            filter_first_site[tuple(filter_slice)] = 1
+             # convolve array once with all adjacent images in each direction
             neighbors_first_site = ndimage.convolve(identity_array,
                                                     filter_first_site,
                                                     mode="constant")
             filter_second_site = np.zeros((filter_shape))
-            slice[dimension] = 2
-            filter_second_site[tuple(slice)] = 1
+            filter_slice[category] = 2
+            filter_second_site[tuple(filter_slice)] = 1
             neighbors_second_site = ndimage.convolve(identity_array,
                                                      filter_second_site,
                                                     mode="constant")
             neighbors_dim = np.maximum(neighbors_first_site,
                                        neighbors_second_site)
+            # set number of neighbors in sub_category to 0
+            # since they can be highly asymetrically defined, e.g. with gaps
+            # making finding neighbors very difficult
+            #
+
+            # number of neighbors needs to be corrected for _sub categories
+            # which have only one value in one of the _sub categories
+            # but more than one in at least one other _sub category
+            # since only one non_sub value for a _sub value means
+            # that there were no neighbors in the non_sub category before
+            # while there actually should have been some
+
+            # check if category is sub_category
+            category_name = self.inv_map[category]
+            if category_name.find("_sub") != -1:
+                neighbors_dim[:] = 0
+                # get all _sub values and their corresponding non_sub values
+                sub_values_dict = {}
+                non_sub_category_name = category_name.replace("_sub", "")
+                non_sub_category = self.map[non_sub_category_name]
+                for identity in all_images_by_identity.keys():
+                    sub_val = identity[category]
+                    if sub_val not in sub_values_dict:
+                        sub_values_dict[sub_val] = []
+                    sub_values_dict[sub_val].append(identity[non_sub_category])
+                # for each _sub value get how many non_sub values there are
+                nb_for_sub_values = {key:len(np.unique(values))
+                                     for key, values in sub_values_dict.items()}
+                # if there is only one for at least one _sub value but
+                # more than one for at least one other _sub value
+                min_nb_for_sub_values = min(nb_for_sub_values.values())
+                max_nb_for_sub_values = max(nb_for_sub_values.values())
+                print(min_nb_for_sub_values, max_nb_for_sub_values)
+                if (min_nb_for_sub_values == 1) & (max_nb_for_sub_values > 1):
+                    #get all sub values with only one value
+                    sub_values_with_one_val = [sub_value
+                                               for sub_value, length in
+                                               nb_for_sub_values.items()
+                                               if length == 1]
+                    # increase number of neighbors for all identities with
+                    # _sub value that only has one non_sub value
+                    # get index referring to all images in sub_values
+                    # with one val
+                    idx = [slice(None)] * nb_categories
+                    idx[category] = sub_values_with_one_val
+                    neighbors_dim[idx] += 1
+
             neighbors_all_dim.append(neighbors_dim)
 
         neighbors_all_dim = np.array(neighbors_all_dim)
@@ -3074,7 +3120,6 @@ class FigurePanel():
                 new_width_imgs = np.amax(width_imgs,
                                          axis=best_permutation[1 - dimension_nb])
 
-
                 # get all images before the current image
                 # by checking how many images are
                 # in the first category before it and adding
@@ -3084,10 +3129,10 @@ class FigurePanel():
                 for nb_category, category in enumerate(categories):
 
                     # get the identity values of categories of current dimension
-                    print("SHAPES: ", new_width_imgs.shape, width_imgs.shape)
+                    # print("SHAPES: ", new_width_imgs.shape, width_imgs.shape)
                     idx = list(identity_array[[categories]])
-                    print("categories & new: ", categories, new_categories)
-                    print("index plus categories: ", idx, categories, new_categories)
+                    # print("categories & new: ", categories, new_categories)
+                    # print("index plus categories: ", idx, categories, new_categories)
                     # go through each category  (new_category numbers are needed
                     # since non-category positions in identity array were
                     # already removed)
@@ -3103,17 +3148,17 @@ class FigurePanel():
                                 idx[new_category] = slice(idx[new_category])
 
                     sub_widths = new_width_imgs[tuple(idx)]
-                    print("index: ", idx)
-                    print("new & sub width shape: ",new_width_imgs.shape, sub_widths.shape)
+                    # print("index: ", idx)
+                    # print("new & sub width shape: ",new_width_imgs.shape, sub_widths.shape)
 
 
                     nb_imgs_before += np.count_nonzero(sub_widths)
-                    print("nb cats & imgs before: ", nb_cat,
-                          np.count_nonzero(sub_widths), nb_imgs_before)
+                    # print("nb cats & imgs before: ", nb_cat,
+                    #       np.count_nonzero(sub_widths), nb_imgs_before)
 
-                print("nb cat vals: ", nb_cat_vals)
-                print("categories", categories)
-                print("final: ", identity, nb_imgs_before)
+                # print("nb cat vals: ", nb_cat_vals)
+                # print("categories", categories)
+                # print("final: ", identity, nb_imgs_before)
 
                 position.append(nb_imgs_before)
 
