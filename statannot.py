@@ -642,9 +642,9 @@ def plot_data(ax, x, y, hue, data,
 
             if show_formula:
                 # get formulat of regression line
-                x = plot.get_lines()[0].get_xdata()
-                y = plot.get_lines()[0].get_ydata()
-                results = scipy.stats.linregress(x, y)
+                x_line_vals = plot.get_lines()[0].get_xdata()
+                y_line_vals = plot.get_lines()[0].get_ydata()
+                results = scipy.stats.linregress(x_line_vals, y_line_vals)
                 slope = np.round(results.slope, 2)
                 intercept = np.round(results.intercept, 2)
 
@@ -654,12 +654,15 @@ def plot_data(ax, x, y, hue, data,
 
             if show_regression_stats:
                 r, p_val = scipy.stats.pearsonr(data[x], data[y])
-                regression_text = "p = " + str(p_val) + "; r = " + str(r)
+                r = np.round(r,2)
+                p_val = np.round(p_val, 4)
+                regression_text = "r = " + str(r) +"; p = " + str(p_val)
                 txt_labels.append(regression_text)
 
             standard_x_position = "top"
             standard_y_position = "right"
-            padding = 0.05
+            # define padding of txt label from sites (horizontal and vertical)
+            padding = 0.03
 
             # calculate where the formula should displayed within the plot
             font_size_pt = FontProperties(size="medium").get_size_in_points()
@@ -668,28 +671,36 @@ def plot_data(ax, x, y, hue, data,
             # but increase for each text label
             # so that they are shown below each other
             # the first text label is shown on the top
-            font_height_pt = 0
-            for txt_label in txt_labels:
+
+            # reduce font size to start with to add to reduce vertical padding
+            # value determined through trial and error
+            # good value depends on padding defined above
+            font_height_pt = - font_size_pt * 0.4
+            for label_nb, txt_label in enumerate(txt_labels):
 
                 font_height_pt += font_size_pt
+
+                # increase font size by 10% to enable vertical padding
+                # between first and second label
+                font_height_pt += label_nb * font_size_pt * 0.1
 
                 # add one number at end of string, seems that ax extends over the plot area by + 1.5 numbers
                 txt_size_px = figure_panel.get_dimension_of_text(txt_label,
                                                                   font_size_pt,
                                                                   ax)
                 txt_width_px = txt_size_px[0]
-
+                print(txt_label)
                 labels_to_add.append({})
                 # create function to get xy position when needed
                 labels_to_add[-1]["xy"] = functools.partial(figure_panel.get_xy_of_text_from_position,
-                                                            formula_txt, ax,
+                                                            txt_label, ax,
                                                             position_regression_text,
                                                             txt_width_px,
-                                                            font_size_pt,
+                                                            font_height_pt,
                                                             standard_x_position,
                                                             standard_y_position,
                                                             padding)
-                labels_to_add[-1]["text"] = formula_txt
+                labels_to_add[-1]["text"] = txt_label
                 labels_to_add[-1]["fontsize"] = font_size_pt
                 labels_to_add[-1]["xycoords"] = "axes fraction"
                 labels_to_add[-1]["label_method"] = ax.annotate
@@ -2183,7 +2194,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                   x_order, hue_order, plot_colors,
                   show_data_points, line_width, size_factor, plot_type,
                   fliersize, show_formula, position_formula,
-                  show_regression_stas, figure_panel,
+                  show_regression_stats, figure_panel,
                   swarmplot_point_size, bar_plot_dodge, x_range)
         y_range = ax.get_ylim()
         ax.remove()
