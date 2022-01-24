@@ -497,7 +497,8 @@ def plot_data(ax, x, y, hue, data,
               x_order, hue_order,
               plot_colors, show_data_points,
               line_width, size_factor, plot_type,
-              fliersize, show_formula, position_formula,
+              fliersize, show_formula, position_regression_text,
+                show_regression_stats,
               figure_panel, swarmplot_point_size,
               bar_plot_dodge, x_range):
 
@@ -634,16 +635,27 @@ def plot_data(ax, x, y, hue, data,
             data=data, x=x, y=y,line_kws=line_kws,
             scatter_kws=scatter_kws, ax=ax)
 
-        if show_formula:
-            # get formulat of regression line
-            x = plot.get_lines()[0].get_xdata()
-            y = plot.get_lines()[0].get_ydata()
+        if show_formula | show_regression_stats:
 
-            results = scipy.stats.linregress(x, y)
-            slope = np.round(results.slope, 2)
-            intercept = np.round(results.intercept, 2)
-            # make string of formula for regression line
-            formula_txt = "y = " + str(slope) + "x + " + str(intercept)
+
+            txt_labels = []
+
+            if show_formula:
+                # get formulat of regression line
+                x = plot.get_lines()[0].get_xdata()
+                y = plot.get_lines()[0].get_ydata()
+                results = scipy.stats.linregress(x, y)
+                slope = np.round(results.slope, 2)
+                intercept = np.round(results.intercept, 2)
+
+                # make string of formula for regression line
+                formula_txt = "y = " + str(slope) + "x + " + str(intercept)
+                txt_labels.append(formula_txt)
+
+            if show_regression_stats:
+                r, p_val = scipy.stats.pearsonr(data[x], data[y])
+                regression_text = "p = " + str(p_val) + "; r = " + str(r)
+                txt_labels.append(regression_text)
 
             standard_x_position = "top"
             standard_y_position = "right"
@@ -651,22 +663,36 @@ def plot_data(ax, x, y, hue, data,
 
             # calculate where the formula should displayed within the plot
             font_size_pt = FontProperties(size="medium").get_size_in_points()
-            # add one number at end of string, seems that ax extends over the plot area by + 1.5 numbers
-            txt_size_px = figure_panel.get_dimension_of_text(formula_txt, font_size_pt, ax)
-            txt_width_px = txt_size_px[0]
 
-            labels_to_add.append({})
-            # create function to get xy position when needed
-            labels_to_add[-1]["xy"] = functools.partial(figure_panel.get_xy_of_text_from_position,
-                                                        formula_txt,
-                                                        ax, position_formula,
-                                                        txt_width_px, font_size_pt,
-                                                        standard_x_position,
-                                                        standard_y_position, padding)
-            labels_to_add[-1]["text"] = formula_txt
-            labels_to_add[-1]["fontsize"] = font_size_pt
-            labels_to_add[-1]["xycoords"] = "axes fraction"
-            labels_to_add[-1]["label_method"] = ax.annotate
+            # initialize txt size in px as zero
+            # but increase for each text label
+            # so that they are shown below each other
+            # the first text label is shown on the top
+            font_height_pt = 0
+            for txt_label in txt_labels:
+
+                font_height_pt += font_size_pt
+
+                # add one number at end of string, seems that ax extends over the plot area by + 1.5 numbers
+                txt_size_px = figure_panel.get_dimension_of_text(txt_label,
+                                                                  font_size_pt,
+                                                                  ax)
+                txt_width_px = txt_size_px[0]
+
+                labels_to_add.append({})
+                # create function to get xy position when needed
+                labels_to_add[-1]["xy"] = functools.partial(figure_panel.get_xy_of_text_from_position,
+                                                            formula_txt, ax,
+                                                            position_regression_text,
+                                                            txt_width_px,
+                                                            font_size_pt,
+                                                            standard_x_position,
+                                                            standard_y_position,
+                                                            padding)
+                labels_to_add[-1]["text"] = formula_txt
+                labels_to_add[-1]["fontsize"] = font_size_pt
+                labels_to_add[-1]["xycoords"] = "axes fraction"
+                labels_to_add[-1]["label_method"] = ax.annotate
 
     if (hue != None) & ( (plot_type == "box") | (plot_type == "bar") ):
         # code from stackoverflow (https://stackoverflow.com/questions/56838187/how-to-create-spacing-between-same-subgroup-in-seaborn-boxplot)
@@ -2011,7 +2037,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         size_factor=1, group_padding=0.04, legend_spacing = 0.25,
                         x_axis_label = None, x_tick_interval=None, y_tick_interval=None,
                         axis_padding=10, fliersize=3,
-                        show_formula=True, position_formula="top-right", legend_title=None,
+                        show_formula=True, position_formula="top-right",
+                                 show_regression_stats = True, legend_title=None,
                         show_legend=True, col_label_padding=0.8,
                         swarmplot_point_size = 2, show_row_label = False,
                         row_label_text=None, row_label_orientation = "vert",
@@ -2101,8 +2128,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     if len(x_order) == 0:
         x_order = data[x].drop_duplicates().values
 
-
-    col_order,col,hue,hue_order,plot_hue,total_nb_columns = process_col_and_hue(data, col, x, hue, x_order, col_order,hue_order)
+    (col_order, col, hue,
+     hue_order, plot_hue,
+     total_nb_columns) = process_col_and_hue(data, col, x, hue,
+                                             x_order, col_order, hue_order)
 
     # especially important for facet plots using row parameter in FigurePanel
     # if x_range is defined, it will be the same between all
@@ -2153,7 +2182,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         plot_data(ax, x, y, plot_hue, data,
                   x_order, hue_order, plot_colors,
                   show_data_points, line_width, size_factor, plot_type,
-                  fliersize, show_formula, position_formula, figure_panel,
+                  fliersize, show_formula, position_formula,
+                  show_regression_stas, figure_panel,
                   swarmplot_point_size, bar_plot_dodge, x_range)
         y_range = ax.get_ylim()
         ax.remove()
@@ -2248,7 +2278,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         box_plotter, labels_to_add = plot_data(ax, x, y, plot_hue, col_data,
                                                 new_x_order, new_hue_order, plot_colors,
                                                 show_data_points, line_width, size_factor, plot_type,
-                                                fliersize, show_formula, position_formula, figure_panel,
+                                                fliersize, show_formula, position_formula,
+                                               show_regression_stats, figure_panel,
                                                 swarmplot_point_size, bar_plot_dodge, x_range)
 
 
@@ -2515,6 +2546,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                     axis="y", linewidth=line_width)
 
             if plot_type == "line":
+                # visible needs to be set True for line plots
+                # it seems that somewhere the grid is switched off
+                # and therefore just supplying kwargs to the function
+                # does not automatically turn the grid visibility on
                 ax.grid(visible=True,color=line_color, linestyle='-', which="major",
                         axis="x", linewidth=line_width)
 
