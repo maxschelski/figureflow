@@ -10,7 +10,8 @@ Requirements (.txt) for package available from pip and from conda as well as env
 <br/>
 Documentation and code base under development.<br/>
 Example code for using the package will follow. For now, examples are available upon request.<br/>
-
+<br/>
+<br/>
 Examples from Schelski and Bradke 2021 fully generated with the package without Adobe Illustrator etc:<br/>
 <br/>
 ![Figure 1 generated with Fastfig](https://www.biorxiv.org/content/biorxiv/early/2021/09/03/2021.09.01.458567/F1.large.jpg)<br/>
