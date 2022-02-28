@@ -1,4 +1,4 @@
-name: figpy
+name: fastfig
 channels:
   - conda-forge
   - defaults
@@ -227,4 +227,4 @@ dependencies:
     - tika==1.24
     - tqdm==4.62.0
     - xlsxwriter==3.0.1
-prefix: C:\Users\Maxsc\anaconda\envs\figpy
+prefix: C:\Users\Maxsc\anaconda\envs\fastfig
