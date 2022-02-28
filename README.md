@@ -11,12 +11,12 @@ Requirements (.txt) for package available from pip and from conda as well as env
 Documentation and code base under development.<br/>
 Example code for using the package will follow. For now, examples are available upon request.<br/>
 
-Examples from Schelski and Bradke 2021 fully generated with the plugin without Adobe Illustrator etc:
-![Figure 1 generated with Fastfig](https://www.biorxiv.org/content/biorxiv/early/2021/09/03/2021.09.01.458567/F1.large.jpg?width=2850)<br/>
+Examples from Schelski and Bradke 2021 fully generated with the package without Adobe Illustrator etc:
+![Figure 1 generated with Fastfig](https://www.biorxiv.org/content/biorxiv/early/2021/09/03/2021.09.01.458567/F1.large.jpg?width=1280)<br/>
 <br/>
-![Figure 2 generated with Fastfig](https://www.biorxiv.org/content/biorxiv/early/2021/09/03/2021.09.01.458567/F2.large.jpg?width=2850)<br/>
+![Figure 2 generated with Fastfig](https://www.biorxiv.org/content/biorxiv/early/2021/09/03/2021.09.01.458567/F2.large.jpg?width=1280)<br/>
 <br/>
-![Figure 3 generated with Fastfig](https://www.biorxiv.org/content/biorxiv/early/2021/09/03/2021.09.01.458567/F3.large.jpg?width=2850)<br/>
+![Figure 3 generated with Fastfig](https://www.biorxiv.org/content/biorxiv/early/2021/09/03/2021.09.01.458567/F3.large.jpg?width=1280)<br/>
 <br/>
-![Figure 4 generated with Fastfig](https://www.biorxiv.org/content/biorxiv/early/2021/09/03/2021.09.01.458567/F4.large.jpg?width=2850)<br/>
+![Figure 4 generated with Fastfig](https://www.biorxiv.org/content/biorxiv/early/2021/09/03/2021.09.01.458567/F4.large.jpg?width=1280)<br/>
 <br/>
