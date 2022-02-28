@@ -1,7 +1,7 @@
 # FastFig
 A Python package to allow fast, modular and reproducible generation of publication-grade scientific figures.<br/>
 <br/>
-A lot of the code to plot data and add significance information is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
+A lot of the code to plot data and add significance information (statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
 <br/>
 Package used to generate all figures and movies from Schelski and Bradke 2021:<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
