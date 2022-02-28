@@ -4,7 +4,7 @@ A Python package to allow fast, modular and reproducible generation of publicati
 A lot of the code to plot data and add significance information is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
 <br/>
 Package used to generate all figures and movies from Schelski and Bradke 2021:<br/>
-https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1 <br/>
+https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 <br/>
 Requirements (.txt) for package available from pip and from conda as well as environment.yml file for conda.<br/>
 <br/>
