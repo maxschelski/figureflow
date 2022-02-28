@@ -1,7 +1,7 @@
 # FastFigure
 A Python package to allow fast, modular and reproducible generation of publication-grade scientific figures.
 
-Package used to generate all figures and movies from Schelski and Bradke 2021:
+Package used to generate all figures and movies from Schelski and Bradke 2021:\n
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1
 
 Documentation and code base under development.
