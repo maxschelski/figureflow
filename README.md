@@ -6,7 +6,5 @@ https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1
 <br/>
 <br/>
 Requirements for package available from pip and conda as well as environment.yml file for conda.
-
 Documentation and code base under development.
-
 Examples for using the package will follow. For now, examples are available upon request.
