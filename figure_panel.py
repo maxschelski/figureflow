@@ -226,7 +226,8 @@ class FigurePanel():
                     show_axis_grid = False, use_same_LUTs=True,
                     show_non_zoom_channels=False,
                     show_zoom_number_in_image=True, simple_remapping=False,
-                    show_focus_in=None, cmaps="gray", replace_nan_with=0,
+                    show_focus_in=None, cmaps="gray",
+                    replace_nan_with=0,
                     sub_padding_factor= 0.25
                     ):
         """
@@ -339,6 +340,9 @@ class FigurePanel():
         :param show_focus_in: "row" or "column" - allows to fix
                                 in which dimension the focus will be shown
         :param replace_nan_with: float, Replace nan in images with value
+        :param cmaps: string or list of strings corresponding to matplotlib
+                        colormaps; each entry in list corresponds to one channel
+                        in same order
         """
         # differentiate between the case when there is data and when images
         # (combination of both or multiple data files in same panel not possible
@@ -2061,7 +2065,7 @@ class FigurePanel():
             #  to map them to a clearly identifieable identitiy
             #  when converting the identity to pre_identity
             self.inv_increase_size_map[place_holder_identity] = place_holder_pre_identity
-            all_images_by_identity[place_holder_identity] = image
+            all_images_by_identity[place_holder_identity] = np.expand_dims(image[0], axis=0)
         return all_images_by_identity
 
 
@@ -2618,27 +2622,30 @@ class FigurePanel():
         image_min_max = {}
         for position, image in all_images_by_position.items():
             pre_identity = self.pos_to_pre_identity_map[position]
-            image_nb = pre_identity[self.map["images"]]
-            # for overlay, channel is a list of channels
-            channel = pre_identity[self.map["channels"]]
+            pre_identities, _ = self._get_all_pre_identities_from_overlay(pre_identity)
+            for overlay_img_nb, pre_identity in enumerate(pre_identities):
+                image_nb = pre_identity[self.map["images"]]
+                # for overlay, channel is a list of channels
+                channel = pre_identity[self.map["channels"]]
+                # remove nan and inf values from image
+                # image can only contain nan or inf values if the dtype
+                # is float
+                if image.dtype == float:
+                    # convert all inf to nan to allow min and max across axis
+                    image[np.isinf(image)] = np.nan
 
-            # remove nan and inf values from image
-            # image can only contain nan or inf values if the dtype
-            # is float
-            if image.dtype == float:
-                # convert all inf to nan to allow min and max across axis
-                image[np.isinf(image)] = np.nan
-
-            if image_nb not in image_min_max:
-                image_min_max[image_nb] = {}
-            # get minima and maxima of each image at the current position
-            # there would only be multiple images if the image is an overlay
-            image_min_max[image_nb][channel] = [np.nanmin(image, axis=(-3,-2,-1)),
-                                                np.nanmax(image, axis=(-3,-2,-1))]
+                if image_nb not in image_min_max:
+                    image_min_max[image_nb] = {}
+                # get minima and maxima of each image at the current position
+                # there would only be multiple images if the image is an overlay
+                min_val = np.nanmin(image, axis=(-3,-2,-1))[overlay_img_nb]
+                max_val = np.nanmax(image, axis=(-3,-2,-1))[overlay_img_nb]
+                image_min_max[image_nb][channel] = [min_val, max_val]
         return image_min_max
 
     def get_range_of_image(self, img_ranges, pre_identity,
-                           images_min_max, use_same_LUTs):
+                           images_min_max, use_same_LUTs,
+                           image_nb_overlay = 0):
         """
         Get pixel value range of current image, based on ranges extracted
         from tiff and alternatively minimum and maximum values in image.
@@ -2649,7 +2656,7 @@ class FigurePanel():
         :param img_ranges: List of ranges for each channel in each image,
                             extracted from values set in ImageJ for tiff file
         :param pre_identity: list of dimension values of current image
-        :param image_min_max: list of min and max values for each
+        :param images_min_max: list of min and max values for each
                                 image - channel combination; for overlay
                                 of channels/images, channel/image would be a
                                 list of channels/images
@@ -2660,9 +2667,10 @@ class FigurePanel():
                              dimension within which the same LUTs should be used
                              if Boolean, then whether to use same LUTs for
                              all images or have separate LUTs for each image
+        :param image_nb_overlay: Number of the image in the overlay
         :return: range of current image to use
         """
-        print(pre_identity)
+
         image_nb = pre_identity[self.map["images"]]
         channel = pre_identity[self.map["channels"]]
 
@@ -2672,65 +2680,8 @@ class FigurePanel():
         #  with ranges defined from imagej
         # or if no image is in the category with defined imagej range
         #  take min max from image from same category
-
         image_min_max = images_min_max[image_nb][channel]
-        nb_overlay_images = len(image_min_max)
 
-        # check if the current image is an overlay with potentially
-        # multiple ranges (overlay of images or channels),
-        # otherwise could also be an overlay of slices,
-        # which all have the same range
-        # for multi range overlays, make both channels and image_nb iterables
-        multi_range_overlay = False
-        if (type(image_nb) == tuple):
-            multi_range_overlay = True
-            channel = tuple([channel])
-        elif (type(channel) == tuple):
-            multi_range_overlay = True
-            image_nb = tuple([image_nb])
-
-        if multi_range_overlay:
-            # go through each combination of image_nb and channel
-            # (shorter version of nested for loops)
-            combinations = itertools.product(image_nb, channel)
-            all_ranges = []
-            for image_nb_overlay, (image_nb, channel) in enumerate(combinations):
-                # the number of the combination is the number of the respective
-                # image in the overlay
-                # use image_nb_overlay to get range from image_min_max
-                range_of_combination = self.get_range_of_specific_image(image_nb,
-                                                                     channel,
-                                                                     img_ranges,
-                                                                     image_min_max,
-                                                                     use_same_LUTs,
-                                                                     image_nb_overlay)
-                all_ranges.append(range_of_combination)
-            return all_ranges
-        else:
-            range = self.get_range_of_specific_image(image_nb,
-                                                     channel,
-                                                     img_ranges,
-                                                     image_min_max,
-                                                     use_same_LUTs,
-                                                     image_nb_overlay = None)
-            # increase len of range to len of overlayed images
-            all_ranges = [range] * nb_overlay_images
-            return all_ranges
-
-
-    def get_range_of_specific_image(self, image_nb, channel,
-                                    img_ranges, image_min_max,
-                                    use_same_LUTs, image_nb_overlay):
-        """
-
-        :param image_nb:
-        :param channel:
-        :param img_ranges:
-        :param image_min_max:
-        :param use_same_LUTs:
-        :param combination_nb: Number
-        :return:
-        """
         if type(use_same_LUTs) == str:
             image_sub_map = self.sub_category_map["images_sub"]
             if use_same_LUTs == "images_sub":
@@ -2752,12 +2703,12 @@ class FigurePanel():
                         if same_image_sub & range_defined:
                             # if range is tuple, only use position in tuple
                             # corresponding to the current overlay
-                            if type(range) == tuple:
-                                range = self.get_range_from_min_max(range,
+                            if type(ranges) == tuple:
+                                ranges = self.get_range_from_min_max(ranges,
                                                                     image_nb_overlay)
                             else:
-                                range = ranges[channel]
-                            return range
+                                ranges = ranges[channel]
+                            return ranges
 
         #  if same LUTs should be used for each image,
         #  use only the first image that has a range defined
@@ -2766,7 +2717,7 @@ class FigurePanel():
                 if len(range) > channel:
                     return range[channel]
         else:
-            # if not same LUTs, use preferably 
+            # if not same LUTs, use preferably
             # imagej range of current image
             # or alternatively min max values of image
             if len(img_ranges) > image_nb:
@@ -3767,9 +3718,11 @@ class FigurePanel():
     def _get_all_pre_identities_from_overlay(self, pre_identity):
 
         all_pre_identities = [pre_identity]
+        is_overlay = False
         for cat_nb, cat_val in enumerate(pre_identity):
             if (type(cat_val) != list) & (type(cat_val) != tuple):
                 continue
+            is_overlay = True
             #  create nested list with one entry for each
             #  pre_identity, differing only
             #  in the dimension with overlay
@@ -3780,10 +3733,8 @@ class FigurePanel():
                 all_pre_identities[cat_val_nb][cat_nb] = one_cat_val
                 all_pre_identities[cat_val_nb] = tuple(all_pre_identities[cat_val_nb])
 
-        if len(all_pre_identities) == 1:
-            all_pre_identities = all_pre_identities[0]
 
-        return all_pre_identities
+        return all_pre_identities, is_overlay
 
 
     def plot_images_without_setting_position(self, img_ranges, use_same_LUTs,
@@ -3850,73 +3801,75 @@ class FigurePanel():
                 heights[row,column] = 1
 
             pre_identity = self.pos_to_pre_identity_map[position]
-            print(pre_identity)
-            # pre_identity = self._get_all_pre_identities_from_overlay(pre_identity)
-            #at this point pre_identity is a LIST of pre_identities
+            pre_identities, is_overlay = self._get_all_pre_identities_from_overlay(pre_identity)
+            # pre_identity is now a LIST of pre_identities
 
-            # dont search for img_range for placeholder images
-            if pre_identity[0] != -1:
-                img_range = self.get_range_of_image(img_ranges, pre_identity,
-                                                     images_min_max, use_same_LUTs)
+            cmaps_for_img = []
+            all_img_ranges = []
+            for overlay_img_nb, pre_identity in enumerate(pre_identities):
+                # dont search for img_range for placeholder images
+                if pre_identity[0] != -1:
 
-                # replace nan in images by value
-                image[np.isnan(image)] = replace_nan_with
-                # if cmaps was supplied as list, separate by channels
-                if type(cmaps) == list:
-                    channel = pre_identity[self.map["channels"]]
-                    if channel >= len(cmaps):
-                        raise ValueError("More than one cmap was supplied but "
-                                         "not enough for all channels."
-                                         "No corresponding cmap for channel "
-                                         "'{}'".format(channel)
-                                         )
-                    # for overlay images (more than one image range)
-                    # set cmap for each image separately
-                    if len(img_range) > 1:
-                        cmaps_for_img = []
-                        # if image is overlay of channels,
-                        # use cmaps from channels
-                        if len(channel) > 1:
-                            cmap_numbers = channel
-                        else:
-                            cmap_numbers = range(len(img_range))
+                    img_range = self.get_range_of_image(img_ranges,
+                                                        pre_identity,
+                                                         images_min_max, 
+                                                        use_same_LUTs,
+                                                        overlay_img_nb)
 
-                        for cmap_number in cmap_numbers:
-                            cmaps_for_img.append(cmaps[cmap_number])
+                    # replace nan in images by value
+                    image[np.isnan(image)] = replace_nan_with
+                    # if cmaps was supplied as list, separate by channels
+                    if type(cmaps) == list:
+                        channel = pre_identity[self.map["channels"]]
+                        if channel >= len(cmaps):
+                            raise ValueError("More than one cmap was supplied but "
+                                             "not enough for all channels."
+                                             "No corresponding cmap for channel "
+                                             "'{}'".format(channel)
+                                             )
+                        # for overlay images (more than one image range)
+                        # set cmap for each image separately
+                        cmap_for_img = cmaps[channel]
+
                     else:
-                        cmaps_for_img = cmaps[channel]
+                        channel = 0
+                        cmap_for_img = cmaps
 
+                    # dont add information for colorbars for overlay images
+                    # since otherwise two colorbars would need to be at the same
+                    # position!
+                    if not is_overlay:
+                        # put each position in a list for each channel
+                        if cmap_for_img not in self.positions_for_cmaps:
+                            self.positions_for_cmaps[cmap_for_img] = []
+                        self.positions_for_cmaps[cmap_for_img].append(position)
+                        # map cmap name to channel
+                        if cmap_for_img not in self.cmap_to_channels:
+                            self.cmap_to_channels[cmap_for_img] = []
+                        self.cmap_to_channels[cmap_for_img].append(channel)
                 else:
-                    channel = 0
-                    cmaps_for_img = cmaps
-
-                # put each position in a list for each channel
-                if cmaps_for_img not in self.positions_for_cmaps:
-                    self.positions_for_cmaps[cmaps_for_img] = []
-                self.positions_for_cmaps[cmaps_for_img].append(position)
-                # map cmap name to channel
-                if cmaps_for_img not in self.cmap_to_channels:
-                    self.cmap_to_channels[cmaps_for_img] = []
-                self.cmap_to_channels[cmaps_for_img].append(channel)
-            else:
-                # else only added due to problems when trying to change 
-                # algorithm to find position for image
-                # maybe can be removed again.
-                if type(cmaps) == str:
-                    cmaps_for_img = cmaps
-                else:
-                    cmaps_for_img = cmaps[0]
-                img_range = [[0,0]]
+                    # else only added due to problems when trying to change
+                    # algorithm to find position for image
+                    # maybe can be removed again.
+                    if type(cmaps) == str:
+                        cmap_for_img = cmaps
+                    else:
+                        cmap_for_img = cmaps[0]
+                    img_range = [0,0]
+                all_img_ranges.append(img_range)
+                cmaps_for_img.append(cmap_for_img)
 
             #go through each image (first dimension) of potential overlay image
-
+            
+            if is_overlay:
+                opacity = 0.4
+            else:
+                opacity = 1
             for overlay_img_nb, single_image in enumerate(image):
-                img_range = img_range[overlay_img_nb]
-                if type(cmaps_for_img) == str:
-                    cmap_for_img = cmaps_for_img
-                else:
-                    cmap_for_img = cmaps_for_img[overlay_img_nb]
-                im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range)
+                img_range = all_img_ranges[overlay_img_nb]
+                cmap_for_img = cmaps_for_img[overlay_img_nb]
+                im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range,
+                               alpha=opacity)
 
             #  ax.set_axis_off()
             # add plot to all_axs[row]
@@ -5268,7 +5221,7 @@ class FigurePanel():
             positions_for_cat_vals = new_positions_for_cat_vals
 
         all_cat_vals = list(positions_for_cat_vals.keys())
-        all_cat_vals.sort()
+        all_cat_vals.sort(key=self.sort_category_vals_key)
 
         # find first site that actually works without overlapping labels
         if site == None:
