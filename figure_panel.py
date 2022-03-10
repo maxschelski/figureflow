@@ -461,10 +461,13 @@ class FigurePanel():
                                                                category_vals["channels"],
                                                                category_vals["slices"],
                                                                category_vals["frames"])
+                print("RAAANGESSS:", img_ranges)
             else:
                 (all_images_by_pre_identity,
                  img_ranges) = self.get_img_dict_by_pre_identity(self.inv_map)
                 pre_identity_val_map = {}
+                print("other option")
+                print(img_ranges)
 
             # add categories to pre_identity before
             #  pre_identity is needed the first frame
@@ -633,7 +636,7 @@ class FigurePanel():
 
 
         else:
-            self.create_image_dict_by_position()
+            img_ranges = self._create_image_dict_by_position()
 
 
         self.initiate_label_matrices()
@@ -929,7 +932,7 @@ class FigurePanel():
 
         return ranges
 
-    def get_image_properties(self,file_path):
+    def get_image_properties(self, file_path):
         """
         Extracts order of dimensions of imageJ image and image width and height
         """
@@ -953,8 +956,8 @@ class FigurePanel():
                     value_split = value.split("=")
                     if len(value_split) == 2:
                         data_dict[value_split[0]] = value_split[1]
-            img_width = np.array(img).shape[1]
-            img_height = np.array(img).shape[0]
+            img_width = np.array(img).shape[-1]
+            img_height = np.array(img).shape[-2]
         return data_dict, img_width, img_height
 
 
@@ -1025,9 +1028,9 @@ class FigurePanel():
 
             data_dict, img_width, img_height = self.get_image_properties(file_path)
 
-            img = self.all_panel_imgs[img_nb]
+            raw_img = self.all_panel_imgs[img_nb]
 
-            img = self.move_xy_axes_in_img_to_last_dimensions(img,
+            raw_img = self.move_xy_axes_in_img_to_last_dimensions(raw_img,
                                                               img_width,
                                                               img_height)
 
@@ -1107,18 +1110,19 @@ class FigurePanel():
                     else:
                         identity_val = 0
                     pre_identity[dim] = identity_val
-                all_images_by_pre_identity[tuple(pre_identity)] = img
+                all_images_by_pre_identity[tuple(pre_identity)] = raw_img
             else:
+
                 # recursively get all images from all dimensions
-                # in a dict with the identity as key
+                # in one dict with the identity as key
 
                 # add to exclude images not in channels, slices, timepoints
-                dim_nb = 0
+                dimension_nb = 0
 
                 (all_images_by_pre_identity,
-                 identity_val_map) = self.get_images_from_dimension(img,
+                 identity_val_map) = self.get_images_from_dimension(raw_img,
                                                                 all_images_by_pre_identity,
-                                                                dim_nb,
+                                                                dimension_nb,
                                                                 current_dimension,
                                                                 current_identity,
                                                                 identity_val_map,
@@ -1126,7 +1130,7 @@ class FigurePanel():
                                                                 dimension_dict,
                                                                 dimension_order_in_props,
                                                                 dimension_vals_to_include,
-                                                                    basic_map,
+                                                                basic_map,
                                                                 img_nb)
 
             ranges = self.extract_img_ranges_from_file(file_path)
@@ -1135,16 +1139,33 @@ class FigurePanel():
         return all_images_by_pre_identity, img_ranges, identity_val_map
 
 
-    def get_images_from_dimension(self, multi_img, images_by_pre_identity,
-                                  dim_nb, current_dimension,
+    def get_images_from_dimension(self, raw_multi_dimension_img,
+                                  images_by_pre_identity,
+                                  dimension_nb, current_dimension,
                                     current_identity,
                                     identity_val_map,
                                   dimensions, dimension_dict,
                                   dimension_order_in_props,
                                   dimensions_vals_to_include,
                                   basic_map, img_nb):
-
-        dimension = dimension_order_in_props[dim_nb]
+        """
+        Recursively go through all dimensions and get image at respective
+        position in image stack (raw_multi_dimension_img).
+        :param raw_multi_dimension_img:
+        :param images_by_pre_identity:
+        :param dimension_nb:
+        :param current_dimension:
+        :param current_identity:
+        :param identity_val_map:
+        :param dimensions:
+        :param dimension_dict:
+        :param dimension_order_in_props:
+        :param dimensions_vals_to_include:
+        :param basic_map:
+        :param img_nb:
+        :return:
+        """
+        dimension = dimension_order_in_props[dimension_nb]
         # iterate through each dimension
         nb_of_imgs_in_dim = int(dimension_dict[dimension])
         all_imgs_in_dim = list(range(0,nb_of_imgs_in_dim))
@@ -1169,7 +1190,6 @@ class FigurePanel():
 
             # if dim_val is indeed a list now
             # check whether each channel from the list is in image
-
             if type(dim_val) == tuple:
                 dim_val_in_image = True
                 for one_channel in dim_val:
@@ -1191,12 +1211,12 @@ class FigurePanel():
             current_identity[dimension] = pre_identity_val
             # if there is still one more dimension to go down into,
             # recursively move into that dimension
-            if dim_nb < ( len(dimension_order_in_props) - 1):
-                new_dim_nb = dim_nb +  1
+            if dimension_nb < ( len(dimension_order_in_props) - 1):
+                new_dimension_nb = dimension_nb +  1
                 (images_by_pre_identity,
-                 identity_val_map) = self.get_images_from_dimension( multi_img,
+                 identity_val_map) = self.get_images_from_dimension(raw_multi_dimension_img,
                                                                  images_by_pre_identity,
-                                                                 new_dim_nb,
+                                                                 new_dimension_nb,
                                                                  current_dimension,
                                                                  current_identity,
                                                                  identity_val_map,
@@ -1235,18 +1255,23 @@ class FigurePanel():
                     # for current dimension
                     identity_val_map[dim_identity][pre_identity[-1]] = mapped_identity_val
 
-                #  if there are multiple dim vals
-                #  then this is an overlay, for which multiple images
-                #  have to be concatanated
+                # if there are multiple dim vals
+                # then this is an overlay, for which multiple images
+                # have to be concatanated
                 all_pre_identities = [pre_identity]
+
                 # since only one dimension can be used for overlay
                 # keep track that this is the case
                 overlay_dimension = np.nan
 
-                for dim_nb, dim_identity in enumerate(dimensions):
+                # create list of pre_identities corresponding to all
+                # images which are overlayed
+                for dimension_nb, dim_identity in enumerate(dimensions):
 
                     dim_val = current_dimension.get(dim_identity, np.nan)
 
+                    # only create list of all pre identities
+                    # if dimension actually contains multiple values
                     if (type(dim_val) != list) & (type(dim_val) != tuple):
                         continue
 
@@ -1256,15 +1281,16 @@ class FigurePanel():
                         error_msg = ("Overlays can be defined "
                                      "in only one category. "
                                      "However, overlays are defined"
-                                     " for '{}' and for '{}'"
-                                     "".format(self.inv_map[dim_nb],
+                                     " for categories '{}' and '{}'"
+                                     "".format(self.inv_map[dimension_nb],
                                         self.inv_map[overlay_dimension]))
                         raise ValueError(error_msg)
-                    overlay_dimension = dim_nb
 
-                    # create nested list with one entry for each
-                    # pre_identity, differing only
-                    # in the dimension with overlay
+                    overlay_dimension = dimension_nb
+
+                    # create list with as many pre_identities as there
+                    # are images overlayed, where each pre_identity
+                    # differs only in the dimension with overlay
                     all_pre_identities *= len(dim_val)
                     # make independent objects of each pre_identity
                     # otherwise they point to the same object
@@ -1275,7 +1301,7 @@ class FigurePanel():
                     # change category value from tuple
                     # to one of the tuple values for each pre_identity
                     for dim_val_nb, one_dim_val in enumerate(dim_val):
-                        all_pre_identities[dim_val_nb][dim_nb] = one_dim_val
+                        all_pre_identities[dim_val_nb][dimension_nb] = one_dim_val
 
                 # create concatanated image for overlays
                 # with one image for each overlay value
@@ -1284,7 +1310,6 @@ class FigurePanel():
                 # and under mapped identity with the position of the overlay
                 # compared to other values in that category
 
-                #  img = copy.copy(multi_img)
                 # get all images for overlay
                 all_imgs = []
 
@@ -1295,16 +1320,21 @@ class FigurePanel():
                     for dim_in_order in dimension_order_in_props:
                         idx_in_pre_identity = basic_map[dim_in_order]
                         if type(img) == type(None):
-                            img = multi_img[sub_pre_identity[idx_in_pre_identity]]
+                            img = raw_multi_dimension_img[sub_pre_identity[idx_in_pre_identity]]
                         else:
                             img = img[sub_pre_identity[idx_in_pre_identity]]
                     all_imgs.append(img)
 
                 pre_identity = tuple(pre_identity)
-                # if there was only one image (therefore, no overlay)
-                # add as 2D array
+                # create numpy array
+                # from list of images
                 if len(all_imgs) == 1:
-                    all_imgs = all_imgs[0]
+                    # if there was just one image, add one dimension
+                    all_imgs = np.expand_dims(all_imgs[0],0)
+                else:
+                    all_imgs = np.concatenate(all_imgs, axis=0)
+
+                all_imgs = self.expand_img_dimensions(all_imgs, target_dim=4)
 
                 images_by_pre_identity[pre_identity] = all_imgs
                 
@@ -1378,16 +1408,24 @@ class FigurePanel():
 
             # construct identity in order defined in map dict
             pre_identity = []
-            for dim_nb in range(0,len(inv_map)):
+            for dimension_nb in range(0,len(inv_map)):
                 # check if name from inv_map is in details
                 # would not be for additional criteria
                 #  that were supplied by the user
                 # to the upstream function show_images
-                if inv_map[dim_nb] in details:
-                    pre_identity.append(details[inv_map[dim_nb]])
+                if inv_map[dimension_nb] in details:
+                    pre_identity.append(details[inv_map[dimension_nb]])
             pre_identity = tuple(pre_identity)
 
             image = self.all_panel_imgs[img_nb]
+
+            # increase dimensionality of non-RGB or 2D image
+            # to 2D RGB image by adding dimensions
+            image = self.expand_img_dimensions(image)
+
+            # add dimension for overlay as first dimension
+            image = np.expand_dims(image, axis=0)
+
             all_images_by_pre_identity[pre_identity] = image
 
             ranges = self.extract_img_ranges_from_file(file_path)
@@ -2543,12 +2581,6 @@ class FigurePanel():
         return all_images_by_identity_new
 
 
-    def apply_range_to_image(self, image, img_range):
-        image[np.where(image < img_range[0])] = img_range[0]
-        image[np.where(image > img_range[1])] = img_range[1]
-        return image
-
-
     def adapt_zoom_identities_for_repositioning(self,
                                                 identity_to_add_zoom_mark_to,
                                                 reposition_dict):
@@ -2560,30 +2592,6 @@ class FigurePanel():
                 new_identity_to_add_zoom_mark_to[identity] = zooms
         return new_identity_to_add_zoom_mark_to
 
-    def apply_range_to_all_imgs(self, img_ranges, all_images_by_identity,
-                                use_same_LUTs):
-        # apply range to images
-        # by setting all values below lower threshold to 0
-        # and setting all values above higher threshold to higher threshold
-
-        # create nested dict with image_nb as key and
-        # dict as value, where channel is the key and
-        # image_min and max values as value
-        image_min_max = self.get_image_min_max_dict(all_images_by_identity)
-
-        for identity, image in all_images_by_identity.items():
-            pre_identity = self.get_pre_identity(identity)
-            channel = pre_identity[self.map["channels"]]
-            image_nb = pre_identity[self.map["images"]]
-            if (channel != -1) & (image_nb != -1):
-                img_range = self.get_range_of_image(img_ranges,
-                                                    # was image,img_ranges
-                                                    pre_identity, image_min_max,
-                                                    use_same_LUTs)
-                image = self.apply_range_to_image(image, img_range)
-                all_images_by_identity[identity] = image
-        return all_images_by_identity
-
 
     def get_image_min_max_dict(self, all_images_by_position):
         # create nested dict with image_nb as key and
@@ -2593,20 +2601,49 @@ class FigurePanel():
         for position, image in all_images_by_position.items():
             pre_identity = self.pos_to_pre_identity_map[position]
             image_nb = pre_identity[self.map["images"]]
+            # for overlay, channel is a list of channels
             channel = pre_identity[self.map["channels"]]
 
             # remove nan and inf values from image
-            image_no_nan = image[~np.isnan(image)]
-            image_no_nan = image_no_nan[~np.isinf(image_no_nan)]
+            # image can only contain nan or inf values if the dtype
+            # is float
+            if image.dtype == float:
+                # convert all inf to nan to allow min and max across axis
+                image[np.isinf(image)] = np.nan
+
             if image_nb not in image_min_max:
                 image_min_max[image_nb] = {}
-            image_min_max[image_nb][channel] = [np.min(image_no_nan), 
-                                                np.max(image_no_nan)]
+            # get minima and maxima of each image at the current position
+            # there would only be multiple images if the image is an overlay
+            image_min_max[image_nb][channel] = [np.nanmin(image, axis=(-3,-2,-1)),
+                                                np.nanmax(image, axis=(-3,-2,-1))]
         return image_min_max
 
     def get_range_of_image(self, img_ranges, pre_identity,
-                           image_min_max, use_same_LUTs):
-
+                           images_min_max, use_same_LUTs):
+        """
+        Get pixel value range of current image, based on ranges extracted
+        from tiff and alternatively minimum and maximum values in image.
+        For overlays with similar ranges (same image and channel but
+        e.g. different slices) and if no range was set in imageJ, the lowest
+        min of all mins and the highest max of all max values of the overlay
+        will be used for the range.
+        :param img_ranges: List of ranges for each channel in each image,
+                            extracted from values set in ImageJ for tiff file
+        :param pre_identity: list of dimension values of current image
+        :param image_min_max: list of min and max values for each
+                                image - channel combination; for overlay
+                                of channels/images, channel/image would be a
+                                list of channels/images
+                                for overlays will include list of
+                                min and max values for each image in overlay:
+                                [all_min_values, all_max_values]
+        :param use_same_LUTs: string or Boolean; if string, then it is
+                             dimension within which the same LUTs should be used
+                             if Boolean, then whether to use same LUTs for
+                             all images or have separate LUTs for each image
+        :return: range of current image to use
+        """
         image_nb = pre_identity[self.map["images"]]
         channel = pre_identity[self.map["channels"]]
 
@@ -2616,6 +2653,65 @@ class FigurePanel():
         #  with ranges defined from imagej
         # or if no image is in the category with defined imagej range
         #  take min max from image from same category
+
+        image_min_max = images_min_max[image_nb][channel]
+        nb_overlay_images = len(image_min_max)
+
+        # check if the current image is an overlay with potentially
+        # multiple ranges (overlay of images or channels),
+        # otherwise could also be an overlay of slices,
+        # which all have the same range
+        # for multi range overlays, make both channels and image_nb iterables
+        multi_range_overlay = False
+        if (type(image_nb) == tuple):
+            multi_range_overlay = True
+            channel = tuple([channel])
+        elif (type(channel) == tuple):
+            multi_range_overlay = True
+            image_nb = tuple([image_nb])
+
+        if multi_range_overlay:
+            # go through each combination of image_nb and channel
+            # (shorter version of nested for loops)
+            combinations = itertools.product(image_nb, channel)
+            all_ranges = []
+            for image_nb_overlay, (image_nb, channel) in enumerate(combinations):
+                # the number of the combination is the number of the respective
+                # image in the overlay
+                # use image_nb_overlay to get range from image_min_max
+                range_of_combination = self.get_range_of_specific_image(image_nb,
+                                                                     channel,
+                                                                     img_ranges,
+                                                                     image_min_max,
+                                                                     use_same_LUTs,
+                                                                     image_nb_overlay)
+                all_ranges.append(range_of_combination)
+            return all_ranges
+        else:
+            range = self.get_range_of_specific_image(image_nb,
+                                                     channel,
+                                                     img_ranges,
+                                                     image_min_max,
+                                                     use_same_LUTs,
+                                                     image_nb_overlay = None)
+            # increase len of range to len of overlayed images
+            all_ranges = [range] * nb_overlay_images
+            return all_ranges
+
+
+    def get_range_of_specific_image(self, image_nb, channel,
+                                    img_ranges, image_min_max,
+                                    use_same_LUTs, image_nb_overlay):
+        """
+
+        :param image_nb:
+        :param channel:
+        :param img_ranges:
+        :param image_min_max:
+        :param use_same_LUTs:
+        :param combination_nb: Number
+        :return:
+        """
         if type(use_same_LUTs) == str:
             image_sub_map = self.sub_category_map["images_sub"]
             if use_same_LUTs == "images_sub":
@@ -2625,7 +2721,8 @@ class FigurePanel():
                 # check which is the first image in the same image_sub
                 image_sub = image_sub_map[image_nb]
                 # first go through all img_ranges (imagej defined ranges)
-                # then go through image min max to set range that way
+                # if one fits, return that, otherwise
+                # go through image min max to set range that way
                 a = 0
                 for img_ranges_to_use in [img_ranges, image_min_max]:
                     a += 1
@@ -2634,7 +2731,14 @@ class FigurePanel():
                         same_image_sub = (image_sub == other_image_sub)
                         range_defined = (len(ranges) > channel)
                         if same_image_sub & range_defined:
-                            return ranges[channel]
+                            # if range is tuple, only use position in tuple
+                            # corresponding to the current overlay
+                            if type(range) == tuple:
+                                range = self.get_range_from_min_max(range,
+                                                                    image_nb_overlay)
+                            else:
+                                range = ranges[channel]
+                            return range
 
         #  if same LUTs should be used for each image,
         #  use only the first image that has a range defined
@@ -2643,14 +2747,25 @@ class FigurePanel():
                 if len(range) > channel:
                     return range[channel]
         else:
-            # if not same LUTs, use either imagej range of current image
-            # or min max values of image
+            # if not same LUTs, use preferably 
+            # imagej range of current image
+            # or alternatively min max values of image
             if len(img_ranges) > image_nb:
                 if len(img_ranges[image_nb]) > channel:
                     return img_ranges[image_nb][channel]
-            return image_min_max[image_nb][channel]
+            return self.get_range_from_min_max(image_min_max, image_nb_overlay)
 
-
+    def get_range_from_min_max(self, image_min_max, image_nb_overlay):
+        # if there is no overlay with different ranges,
+        # the minimum min value and the maximum max value
+        # will be used (indicated by image_nb_overlay
+        # being None
+        if type(image_nb_overlay) == type(None):
+            range = [np.min(image_min_max[0]),
+                     np.max(image_min_max[1])]
+        else:
+            range = image_min_max[image_nb_overlay]
+        return range
 
     def get_max_values_of_dimensions(self, all_images_by_identity):
         max_values = {}
@@ -2677,8 +2792,8 @@ class FigurePanel():
 
         for pre_identity, image in all_images_by_pre_identity.items():
             identity = []
-            for dim_nb, pre_identity_val in enumerate(pre_identity):
-                dimension = inv_map[dim_nb]
+            for dimension_nb, pre_identity_val in enumerate(pre_identity):
+                dimension = inv_map[dimension_nb]
                 identity_val = maps[dimension][pre_identity_val]
                 identity.append(identity_val)
             identity = tuple(identity)
@@ -2788,7 +2903,7 @@ class FigurePanel():
                         zoom_identity[self.map["zooms"]] = zoom_nb + 1
                         (x1, x2,
                          y1, y2) = self.get_rectangle_position_from_zoom_param(zoom_param)
-                        zoom_image = image[y1:y2,x1:x2]
+                        zoom_image = image[:, y1:y2,x1:x2]
                         images_to_add[tuple(zoom_identity)] = zoom_image
                         if not show_only_zoom:
                             if pre_identity not in identity_to_add_zoom_mark_to:
@@ -2837,7 +2952,7 @@ class FigurePanel():
         height_imgs = np.zeros(dimensions)
 
         for identity, image in all_images_by_identity.items():
-            width = image.shape[1]/image.shape[0]
+            width = image.shape[-2]/image.shape[-3]
             height = 1
             width_imgs[ identity ] = width
             height_imgs[ identity ] = height
@@ -3136,7 +3251,6 @@ class FigurePanel():
 
                     sub_widths = new_width_imgs[tuple(idx)]
 
-
                     nb_imgs_before += np.count_nonzero(sub_widths)
 
                 position.append(nb_imgs_before)
@@ -3255,16 +3369,16 @@ class FigurePanel():
         if (remapped_identity[0] == -1) | (len(self.dim_val_maps) == 0):
             pre_identity = remapped_identity
         else:
-            for dim_nb, identity_val in enumerate(remapped_identity):
-                dimension = self.inv_map[dim_nb]
+            for dimension_nb, identity_val in enumerate(remapped_identity):
+                dimension = self.inv_map[dimension_nb]
                 # check if dimension has a sub category
                 # if that is the case, it needs to be remapped
                 #  using reassign_new_categories_inv dict
                 if dimension in self.reassign_new_categories_inv:
                     # get dimension number of sub category
-                    dim_nb_sub = self.map[dimension+"_sub"]
+                    dimension_nb_sub = self.map[dimension+"_sub"]
                     # get identity_val of sub dimension
-                    identity_val_sub = remapped_identity[dim_nb_sub]
+                    identity_val_sub = remapped_identity[dimension_nb_sub]
                     # remap identity_val_sub & identity_val to pre_identity_val
 
                     pre_identity_val = self.reassign_new_categories_inv[dimension][(identity_val,
@@ -3530,8 +3644,12 @@ class FigurePanel():
             self.label_lines_ploted["top"] = []
             self.label_lines_ploted["bottom"] = []
 
+    def expand_img_dimensions(self, img, target_dim = 3):
+        while len(img.shape) < target_dim:
+            img = np.expand_dims(img, axis=-1)
+        return img
 
-    def create_image_dict_by_position(self):
+    def _create_image_dict_by_position(self):
 
         img_ranges = {}
 
@@ -3548,14 +3666,21 @@ class FigurePanel():
 
             image = self.all_panel_imgs[nb]
 
+            # increase dimensionality of non-RGB or 2D image
+            # to 2D RGB image by adding dimensions
+            image = self.expand_img_dimensions(image)
+
+            # create 4th dimension for overlay images, to standarize dimensions
+            image = np.expand_dims(image, axis=0)
+
             ranges = self.extract_img_ranges_from_file(file_path)
 
             self.all_images_by_position[(row, column)] = image
 
             identity = []
             # get identity of each image
-            for dim_nb in range(0, len(self.inv_map)):
-                dimension = self.inv_map[dim_nb]
+            for dimension_nb in range(0, len(self.inv_map)):
+                dimension = self.inv_map[dimension_nb]
                 finder = self.dim_val_finder[dimension]
                 result = finder.search(file_name)
                 if result:
@@ -3563,10 +3688,20 @@ class FigurePanel():
                         value = self.data_types[dimension](result[1])
                     else:
                         value = result[1]
+                elif dimension == "image":
+                    value = nb
+                else:
+                    value = 0
                 identity.append(value)
 
             identity = tuple(identity)
             self.pos_to_pre_identity_map[(row, column)] = identity
+
+            channel = identity[self.map["channel"]]
+            image_nb = identity[self.map["image"]]
+            img_ranges[image_nb][channel] = ranges
+
+        return img_ranges
 
 
     def add_px_to_image_dimension(self, image, row, column,
@@ -3577,13 +3712,13 @@ class FigurePanel():
             value_to_add = 0
         if parameters[0].lower() == "width":
             max_width = max_widths_px[column]
-            added_array = np.full((image.shape[0],
-                                   int(max_width) - image.shape[1]),
+            added_array = np.full((image.shape[-3],
+                                   int(max_width) - image.shape[-2]),
                                   value_to_add)
             if parameters[1].lower() == "right":
-                image = np.concatenate((image, added_array), axis=1)
+                image = np.concatenate((image, added_array), axis=-2)
             elif parameters[1].lower() == "left":
-                image = np.concatenate((added_array, image), axis=1)
+                image = np.concatenate((added_array, image), axis=-2)
             else:
                 raise ValueError("The supplied site '{}' in "
                                  "'make_image_size_equal'"
@@ -3593,13 +3728,13 @@ class FigurePanel():
 
         elif parameters[0].lower() == "height":
             max_height = max_heights_px[column]
-            added_array = np.full((int(max_height) - image.shape[0],
-                                   image.shape[1]),
+            added_array = np.full((int(max_height) - image.shape[-2],
+                                   image.shape[-1]),
                                   value_to_add)
             if parameters[1].lower() == "bottom":
-                image = np.concatenate((image, added_array), axis=0)
+                image = np.concatenate((image, added_array), axis=-3)
             elif parameters[1].lower() == "top":
-                image = np.concatenate((added_array, image), axis=0)
+                image = np.concatenate((added_array, image), axis=-3)
             else:
                 raise ValueError("The supplied site '{}' in "
                                  "'make_image_size_equal'"
@@ -3607,7 +3742,6 @@ class FigurePanel():
                                  "Only 'bottom' and 'top' are "
                                  "allowed.".format(make_image_size_equal[1]))
         return image
-
 
     def _get_all_pre_identities_from_overlay(self, pre_identity):
 
@@ -3647,7 +3781,7 @@ class FigurePanel():
             image = self.crop_image(image, row, column)
             self.all_images_by_position[position] = image
 
-        image_min_max = self.get_image_min_max_dict(self.all_images_by_position)
+        images_min_max = self.get_image_min_max_dict(self.all_images_by_position)
 
         heights_px = np.zeros((self.max_row + 1, self.max_col + 1))
         widths_px = np.zeros((self.max_row + 1, self.max_col + 1))
@@ -3655,8 +3789,8 @@ class FigurePanel():
         for position, image in self.all_images_by_position.items():
             row = position[0]
             column = position[1]
-            widths_px[row,column] = image.shape[1]
-            heights_px[row,column] = image.shape[0]
+            widths_px[row,column] = image.shape[-2]
+            heights_px[row,column] = image.shape[-3]
 
         max_widths_px = np.max(widths_px, axis=0)
         max_heights_px = np.max(heights_px, axis=1)
@@ -3686,10 +3820,10 @@ class FigurePanel():
             # instead of relative size
 
             if not scale_images:
-                widths[row,column] = image.shape[1]
-                heights[row,column] = image.shape[0]
+                widths[row,column] = image.shape[-2]
+                heights[row,column] = image.shape[-3]
             else:
-                widths[row,column] = image.shape[1]/image.shape[0]
+                widths[row,column] = image.shape[-2]/image.shape[-3]
                 heights[row,column] = 1
 
             pre_identity = self.pos_to_pre_identity_map[position]
@@ -3697,8 +3831,9 @@ class FigurePanel():
 
             # dont search for img_range for placeholder images
             if pre_identity[0] != -1:
+                print("right before:", img_ranges)
                 img_range = self.get_range_of_image(img_ranges, pre_identity,
-                                   image_min_max, use_same_LUTs)
+                                                     images_min_max, use_same_LUTs)
 
                 # replace nan in images by value
                 image[np.isnan(image)] = replace_nan_with
@@ -3711,30 +3846,52 @@ class FigurePanel():
                                          "No corresponding cmap for channel "
                                          "'{}'".format(channel)
                                          )
-                    cmap_for_image = cmaps[channel]
+                    # for overlay images (more than one image range)
+                    # set cmap for each image separately
+                    if len(img_range) > 1:
+                        cmaps_for_img = []
+                        # if image is overlay of channels,
+                        # use cmaps from channels
+                        if len(channel) > 1:
+                            cmap_numbers = channel
+                        else:
+                            cmap_numbers = range(len(img_range))
+
+                        for cmap_number in cmap_numbers:
+                            cmaps_for_img.append(cmaps[cmap_number])
+                    else:
+                        cmaps_for_img = cmaps[channel]
+
                 else:
                     channel = 0
-                    cmap_for_image = cmaps
+                    cmaps_for_img = cmaps
 
                 # put each position in a list for each channel
-                if cmap_for_image not in self.positions_for_cmaps:
-                    self.positions_for_cmaps[cmap_for_image] = []
-                self.positions_for_cmaps[cmap_for_image].append(position)
+                if cmaps_for_img not in self.positions_for_cmaps:
+                    self.positions_for_cmaps[cmaps_for_img] = []
+                self.positions_for_cmaps[cmaps_for_img].append(position)
                 # map cmap name to channel
-                if cmap_for_image not in self.cmap_to_channels:
-                    self.cmap_to_channels[cmap_for_image] = []
-                self.cmap_to_channels[cmap_for_image].append(channel)
+                if cmaps_for_img not in self.cmap_to_channels:
+                    self.cmap_to_channels[cmaps_for_img] = []
+                self.cmap_to_channels[cmaps_for_img].append(channel)
             else:
                 # else only added due to problems when trying to change 
                 # algorithm to find position for image
                 # maybe can be removed again.
                 if type(cmaps) == str:
-                    cmap_for_image = cmaps
+                    cmaps_for_img = cmaps
                 else:
-                    cmap_for_image = cmaps[0]
-                img_range = [0,0]
+                    cmaps_for_img = cmaps[0]
+                img_range = [[0,0]]
 
-            im = ax.imshow(image, cmap=cmap_for_image, clim=img_range)
+            #go through each image (first dimension) of potential overlay image
+            for overlay_img_nb, single_image in enumerate(image):
+                img_range = img_range[overlay_img_nb]
+                if type(cmaps_for_img) == str:
+                    cmap_for_img = cmaps_for_img
+                else:
+                    cmap_for_img = cmaps_for_img[overlay_img_nb]
+                im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range)
 
             #  ax.set_axis_off()
             # add plot to all_axs[row]
@@ -3776,14 +3933,15 @@ class FigurePanel():
         else:
             return False
 
+
     def delete_rows(self, image, row, col):
 
         image_without_rows = image
 
         for rows_to_delete in self.all_rows_to_delete:
             # update width and height after each cropping step
-            width = image_without_rows.shape[1]
-            height = image_without_rows.shape[0]
+            width = image_without_rows.shape[-2]
+            height = image_without_rows.shape[-3]
             # get identity
             pre_identity = self.pos_to_pre_identity_map[(row, col)]
 
@@ -3806,7 +3964,7 @@ class FigurePanel():
 
             if (not is_zoom) & image_correct & position_correct:
                 image_without_rows = np.delete(image, rows_to_delete["rows"], 
-                                               axis=0)
+                                               axis=1)
 
         return image_without_rows
 
@@ -3818,8 +3976,8 @@ class FigurePanel():
 
         for crop_param in self.crop_params:
             # update width and height after each cropping step
-            width = image_cropped.shape[1]
-            height = image_cropped.shape[0]
+            width = image_cropped.shape[-2]
+            height = image_cropped.shape[-3]
             # get identity
             pre_identity = self.pos_to_pre_identity_map[(row, col)]
 
@@ -3872,7 +4030,7 @@ class FigurePanel():
                 y0 = max(self.cropped_positions[position][2], y0)
                 y1 = min(self.cropped_positions[position][1], y1)
 
-            image_cropped = image_cropped[y0:y1,x0:x1]
+            image_cropped = image_cropped[:, y0:y1, x0:x1, :]
 
             self.cropped_positions[position] = [x0, x1, y0, y1]
 
@@ -3903,6 +4061,7 @@ class FigurePanel():
                 y -= px_cropped[2]
 
         return x, y
+
 
     def calculate_outer_border_ax_grid(self):
         """
@@ -3959,7 +4118,6 @@ class FigurePanel():
         #                        ])
 
 
-
     def even_out_heights(self, heights, widths, height_rows):
         height_diff_to_max = height_rows / np.transpose(heights)
         heights *= np.transpose(height_diff_to_max)
@@ -3973,6 +4131,7 @@ class FigurePanel():
         height_rows = np.max(heights, axis=1)
 
         return heights, widths, height_rows, width_columns
+
 
     def even_out_widths(self, heights, widths, width_columns):
         width_diff_to_max = width_columns / widths
@@ -4734,6 +4893,11 @@ class FigurePanel():
         self.shift_and_transform_axs(show_colorbar_at,
                                      x_shift, y_shift)
 
+    def get_img_from_axis(self, ax, img_nb = 0):
+        image = ax.images[img_nb]._A
+        image = self.expand_img_dimensions(image)
+        return image
+
 
     def add_zoom_marks_to_overview_images(self, identity_to_add_zoom_mark_to,
                                           line_width_zoom_rectangle,
@@ -4757,7 +4921,8 @@ class FigurePanel():
 
                 #  image = self.all_images_by_position[position]
                 ax = self.all_axs[position]
-                image = ax.images[0]._A
+                image = self.get_img_from_axis(ax)
+
                 ax_coords = ax.get_position()
                 # get which zooms were applied to the current image
                 for zoom_nb in zoom_nbs:
@@ -4794,10 +4959,11 @@ class FigurePanel():
                     # get relative coordinates
                     # have list of possible positions
                     # go through list of positions
-                    x0_rel = x0 / image.shape[1]
-                    x1_rel = x1 / image.shape[1]
-                    y0_rel = y0 / image.shape[0]
-                    y1_rel = y1 / image.shape[0]
+                    print(image.shape)
+                    x0_rel = x0 / image.shape[-2]
+                    x1_rel = x1 / image.shape[-2]
+                    y0_rel = y0 / image.shape[-3]
+                    y1_rel = y1 / image.shape[-3]
 
                     ax_width_px = ax_coords.width * fig_size_px[0]
                     ax_height_px = ax_coords.height * fig_size_px[1]
@@ -5029,17 +5195,17 @@ class FigurePanel():
     def label_frames(self, texts=None, site=None, label_sub_remapped=False,
                      font_size = None, padding=2,
                     font_size_factor = None, label_orientation = None,
-                    start_frame = 0, time_per_frame="1m", format="hh:mm",
-                     show_unit=True, first_frame_difference=1, frame_jumps=None, **kwargs):
+                    start_time = 0, time_per_frame="1m", format="hh:mm",
+                     show_unit=True, first_time_difference=1, frame_jumps=None, **kwargs):
         label_cat = "frames"
         # get frame to annotate automatically
         if texts == None:
             texts = []
             frame_points = self.category_vals["frames"]
             for frame_point in frame_points:
-                text = self.get_frame_string(frame_point, start_frame,
+                text = self.get_frame_string(frame_point, start_time,
                                              time_per_frame, format, show_unit,
-                                            first_frame_difference, frame_jumps)
+                                            first_time_difference, frame_jumps)
                 texts.append(text)
 
         self._label_category(label_cat, texts, site = site,
@@ -6836,7 +7002,6 @@ class FigurePanel():
             data = self.exclude_data(data, inclusion_criteria)
 
 
-
         # normalization should usually be done before exclusion of data
         # otherwise excluded units would change normalization
         # depending on what is shown
@@ -8021,7 +8186,7 @@ class FigurePanel():
                 if not identity_matches:
                     continue
 
-                image = ax.images[0]._A
+                image = self.get_img_from_axis(ax)
                 #  size_px_x = size_inch / ()
                 #  size_px_y =
                 # correct direction and target position for cropping of this image
@@ -8035,16 +8200,16 @@ class FigurePanel():
                                                                    position[1])
 
                 # check that target is within the image, otherwise, dont draw this
-                if not ((new_target[0] > 0) & (new_target[0] < image.shape[1]) &
-                        (new_target[1] > 0) & (new_target[1] < image.shape[0])):
+                if not ((new_target[0] > 0) & (new_target[0] < image.shape[-2]) &
+                        (new_target[1] > 0) & (new_target[1] < image.shape[-3])):
                     continue
 
                 dX_inch, dY_inch = self.get_dX_dY_inch(new_target,
                                                        new_direction, size_inch)
 
                 ax_coords = ax.get_position()
-                width = image.shape[1]
-                height = image.shape[0]
+                width = image.shape[-2]
+                height = image.shape[-3]
                 ax_width_inch = ax_coords.width * fig.get_size_inches()[0]
                 ax_height_inch = ax_coords.height * fig.get_size_inches()[1]
                 new_target_inch = [new_target[0] / width * ax_width_inch,
@@ -8214,9 +8379,9 @@ class FigurePanel():
 
         # create array of um per inch for each image
         for ax_position, ax in self.all_axs.items():
-            image = ax.images[0]._A
-            width = image.shape[1]
-            height = image.shape[0]
+            image = self.get_img_from_axis(ax)
+            width = image.shape[-2]
+            height = image.shape[-3]
 
             fig = plt.gcf()
             fig_size = fig.get_size_inches()
@@ -8321,9 +8486,9 @@ class FigurePanel():
             if not draw_scale_bar:
                 continue
 
-            image = ax.images[0]._A
-            width = image.shape[1]
-            height = image.shape[0]
+            image = self.get_img_from_axis(ax)
+            width = image.shape[-2]
+            height = image.shape[-3]
 
             fig = plt.gcf()
             fig_size = fig.get_size_inches()
@@ -8715,9 +8880,9 @@ class FigurePanel():
             if (not identity_matches) | (not grid_position_correct):
                 continue
 
-            image_dim = ax.images[0]._A.shape
-            image_width = image_dim[1]
-            image_height = image_dim[0]
+            image_dim = self.get_img_from_axis(ax).shape
+            image_width = image_dim[-2]
+            image_height = image_dim[-3]
 
             x, y = self.correct_xy_for_cropping_and_zoom(x, y, position[0],
                                                          position[1])
@@ -8870,9 +9035,9 @@ class FigurePanel():
         return unit_number, frame_sec
 
 
-    def get_frame_string(self, frame, start_frame,
+    def get_frame_string(self, frame, start_time,
                          time_per_frame, format, show_unit,
-                        first_frame_difference, frame_jumps):
+                        first_time_difference, frame_jumps):
 
         if frame_jumps == None:
             frame_jumps = {}
@@ -8895,10 +9060,10 @@ class FigurePanel():
                 add_frame_diff += framejump_length
 
         if frame > 0:
-            add_frame_diff += first_frame_difference - 1
+            add_frame_diff += first_time_difference - 1
 
         #  calculate frame of frame in units
-        start_units = start_frame * number_units
+        start_units = start_time * number_units
         frame_units = (start_units +
                        number_units * frame +
                        number_units * add_frame_diff)
@@ -8946,10 +9111,10 @@ class FigurePanel():
         return final_format_string
 
 
-    def add_timestamp(self, time_per_frame, start_frame=0,
+    def add_timestamp(self, time_per_frame, start_time=0,
                       format="mm:ss", position=None, font_size=None,
                     padding= 0.015, color="white", show_only_in_zoom=False,
-                      show_unit=False, first_frame_difference = 1,
+                      show_unit=False, first_time_difference = 1,
                        frame_jumps = None,
                       only_show_in_rows=None, only_show_in_columns=None,
                       show_unit_only_once=True):
@@ -8960,7 +9125,7 @@ class FigurePanel():
         :param time_per_frame: how much frame is between frames,
                                 add as string with unit (s, sec, m, min or h)
                                 after number
-        :param start_frame: what frame-frame does number 1 equal
+        :param start_time: what frame-frame does number 1 equal
                             (start at negative value positive to indicate it
                             was before e.g. a treatment)
         :param position: define where the timestamp should be added
@@ -9013,10 +9178,10 @@ class FigurePanel():
             frame = identity[self.map["frames"]]
             all_frames.append(frame)
 
-            final_format_string = self.get_frame_string(frame, start_frame,
+            final_format_string = self.get_frame_string(frame, start_time,
                                                         time_per_frame, format,
                                                         show_unit,
-                                                        first_frame_difference,
+                                                        first_time_difference,
                                                         frame_jumps)
 
             txt_width_px,_ = FigurePanel.get_dimension_of_text(final_format_string,
@@ -9198,13 +9363,13 @@ class FigurePanel():
                 continue
 
             if len(ax.images) > 0:
-                image = ax.images[0]._A
+                image = self.get_img_from_axis(ax)
                 min_y = 0
                 # y dimension (height) is the first
-                max_y = image.shape[0] - 1
+                max_y = image.shape[-3] - 1
                 min_x = 0
                 # x dimension (width) is the second
-                max_x = image.shape[1] - 1
+                max_x = image.shape[-2] - 1
             else:
                 min_y = ax.get_ylim()[0]
                 max_y = ax.get_ylim()[1]
@@ -9337,7 +9502,7 @@ class FigurePanel():
             all_texts.append(new_text)
 
         # in ax image, delete portions of the image with text
-        image = ax.images[0]._A
+        image = self.get_img_from_axis(ax)
 
         # cut out additional padding around the image by removing
         # everything that is transparent
@@ -9345,8 +9510,8 @@ class FigurePanel():
         # around text boxes when saving as picture
         # text boxes are added in powerpoint with 99% opacity,
         #  therefore slightly above 0 in the alpha channel of the image
-        image_alpha = image[:,:,3]
-        height, width = image_alpha.shape
+        image_alpha = image[:, :, 3]
+        (height, width) = image_alpha.shape
         x_axis = image_alpha.any(0)
         y_axis = image_alpha.any(1)
         # [::-1] reverses the array, still,
@@ -9359,8 +9524,8 @@ class FigurePanel():
         ax.images[0]._A = image
 
 
-        image_width = image.shape[1]
-        image_height = image.shape[0]
+        image_width = image.shape[-2]
+        image_height = image.shape[-3]
         for text in all_texts:
             x0 = int(text["x0"] * image_width)
             x1 = int(text["x1"] * image_width)
@@ -9424,7 +9589,7 @@ class FigurePanel():
                     only_show_in_rows = None):
         """
         Add marker to specific images
-        :param radius: radius in inchesf
+        :param radius: radius in inches
         """
         fig = plt.gcf()
         fig_size_inches = fig.get_size_inches()
@@ -9455,10 +9620,10 @@ class FigurePanel():
                     identity_correct = False
             if identity_correct:
                 # calculate radius in inches
-                image = ax.images[0]._A
+                image = self.get_img_from_axis(ax)
                 inch_per_px = ( ax.get_position().width * fig_size_inches[0] ) \
-                                / image.shape[1]
+                                / image.shape[-2]
                 radius_px = int( np.round(radius / inch_per_px , 0) )
                 circle = mpatches.Circle((radius_px, radius_px),
                                          radius=radius_px, color=color)
-            ax.add_patch(circle)
+                ax.add_patch(circle)
