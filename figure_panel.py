@@ -11,6 +11,7 @@ from . import statannot
 from matplotlib import pyplot as plt
 import inspect
 import os
+import itertools
 # for extracting information from tif files
 from skimage import io
 from PIL import Image
@@ -350,6 +351,7 @@ class FigurePanel():
         self.y_space = 0
         self.x_space = 0
 
+
         self.all_images_by_position = {}
         # map of position to original identity (including actual frames etc.)
         self.pos_to_pre_identity_map = {}
@@ -399,6 +401,14 @@ class FigurePanel():
         if type(channels_to_show_first_timeframe) == type(None):
             channels_to_show_first_timeframe = []
 
+        # since this could also be an overlay
+        # convert into overlay format from strings
+        for channel_nb, channel_val in enumerate(channels_to_show_first_timeframe):
+            if type(channel_val) == str:
+                channel_vals = channel_val.split("-")
+                channel_vals = tuple([int(channel_val) for channel_val in channel_vals])
+                channels_to_show_first_timeframe[channel_nb] = channel_vals
+
         place_holder_identities = {}
 
         if type(additional_padding) == type(None):
@@ -446,7 +456,7 @@ class FigurePanel():
             #  (frame, channels, etc) should be sorted
             # only add something if it differs from standard ascending value sorting
             sorters = {}
-            sorters["channels"] = lambda x: int( str(x).split("-")[-1] )
+            sorters["channels"] = self.sort_category_vals_key
 
             extract_info = self._check_if_images_should_be_extracted_from_tif()
 
@@ -461,13 +471,10 @@ class FigurePanel():
                                                                category_vals["channels"],
                                                                category_vals["slices"],
                                                                category_vals["frames"])
-                print("RAAANGESSS:", img_ranges)
             else:
                 (all_images_by_pre_identity,
                  img_ranges) = self.get_img_dict_by_pre_identity(self.inv_map)
                 pre_identity_val_map = {}
-                print("other option")
-                print(img_ranges)
 
             # add categories to pre_identity before
             #  pre_identity is needed the first frame
@@ -1323,18 +1330,18 @@ class FigurePanel():
                             img = raw_multi_dimension_img[sub_pre_identity[idx_in_pre_identity]]
                         else:
                             img = img[sub_pre_identity[idx_in_pre_identity]]
+                    # fill dimension up to 3 to have unified dimensions
+                    # also with RGB images
+                    # this makes referencing the correct dimension easier
+                    img = self.expand_img_dimensions(img, target_dim=3)
+                    # add first dimension as dimension on which to concatanate
+                    img = np.expand_dims(img,0)
                     all_imgs.append(img)
 
                 pre_identity = tuple(pre_identity)
                 # create numpy array
                 # from list of images
-                if len(all_imgs) == 1:
-                    # if there was just one image, add one dimension
-                    all_imgs = np.expand_dims(all_imgs[0],0)
-                else:
-                    all_imgs = np.concatenate(all_imgs, axis=0)
-
-                all_imgs = self.expand_img_dimensions(all_imgs, target_dim=4)
+                all_imgs = np.concatenate(all_imgs, axis=0)
 
                 images_by_pre_identity[pre_identity] = all_imgs
                 
@@ -1579,7 +1586,7 @@ class FigurePanel():
         # and its connection to the real identity is saved in maps
 
         for category in pre_identity_value_lists:
-            for identity_val, pre_identity_val in enumerate(np.unique(pre_identity_value_lists[category])):
+            for identity_val, pre_identity_val in enumerate(set(pre_identity_value_lists[category])):
                 if not category in maps:
                     maps[category] = {}
                 # check if the current category is in reassignment dict
@@ -1603,6 +1610,15 @@ class FigurePanel():
 
         return maps
 
+    def sort_category_vals_key(self, value):
+        if type(value) == tuple:
+            return max(value)
+        elif type(value) == str:
+            values = value.split("-")
+            return max(values)
+        else:
+            return value
+
     def get_all_category_vals(self, all_identities, inv_map):
         """
         get list of all values in each category
@@ -1622,8 +1638,10 @@ class FigurePanel():
 
         for category in identity_value_lists.keys():
             cat_vals = identity_value_lists[category]
-            identity_value_lists[category] = list(np.unique(cat_vals))
-            identity_value_lists[category].sort()
+            identity_value_lists[category] = list(set(cat_vals))
+            # with key make sure that overlays are also sorted
+            # they are sorted based on their highest number
+            identity_value_lists[category].sort(key=self.sort_category_vals_key)
 
         return identity_value_lists
 
@@ -2644,6 +2662,7 @@ class FigurePanel():
                              all images or have separate LUTs for each image
         :return: range of current image to use
         """
+        print(pre_identity)
         image_nb = pre_identity[self.map["images"]]
         channel = pre_identity[self.map["channels"]]
 
@@ -2871,6 +2890,7 @@ class FigurePanel():
                         # if check if first timeframe of current channel
                         #  should be shown
                         if channels_to_show_first_timeframe != None:
+                            # print(channel, channels_to_show_first_timeframe)
                             if (channel in channels_to_show_first_timeframe) & (identity[self.map["frames"]] == 0):
                                 delete_image = False
                         if (not channel_correct) & force_show_non_zoom_channels:
@@ -3399,7 +3419,8 @@ class FigurePanel():
                         pre_identity_val = identity_val
 
                 pre_identity.append(pre_identity_val)
-        pre_identity = tuple([int(val) for val in pre_identity])
+        pre_identity = tuple([val if type(val) == tuple else int(val)
+                              for val in pre_identity])
 
         return pre_identity
 
@@ -3755,7 +3776,9 @@ class FigurePanel():
             all_pre_identities *= len(cat_val)
 
             for cat_val_nb, one_cat_val in enumerate(cat_val):
+                all_pre_identities[cat_val_nb] = list(all_pre_identities[cat_val_nb])
                 all_pre_identities[cat_val_nb][cat_nb] = one_cat_val
+                all_pre_identities[cat_val_nb] = tuple(all_pre_identities[cat_val_nb])
 
         if len(all_pre_identities) == 1:
             all_pre_identities = all_pre_identities[0]
@@ -3827,11 +3850,12 @@ class FigurePanel():
                 heights[row,column] = 1
 
             pre_identity = self.pos_to_pre_identity_map[position]
-            pre_identity = self._get_all_pre_identities_from_overlay(pre_identity)
+            print(pre_identity)
+            # pre_identity = self._get_all_pre_identities_from_overlay(pre_identity)
+            #at this point pre_identity is a LIST of pre_identities
 
             # dont search for img_range for placeholder images
             if pre_identity[0] != -1:
-                print("right before:", img_ranges)
                 img_range = self.get_range_of_image(img_ranges, pre_identity,
                                                      images_min_max, use_same_LUTs)
 
@@ -3885,6 +3909,7 @@ class FigurePanel():
                 img_range = [[0,0]]
 
             #go through each image (first dimension) of potential overlay image
+
             for overlay_img_nb, single_image in enumerate(image):
                 img_range = img_range[overlay_img_nb]
                 if type(cmaps_for_img) == str:
@@ -4959,7 +4984,6 @@ class FigurePanel():
                     # get relative coordinates
                     # have list of possible positions
                     # go through list of positions
-                    print(image.shape)
                     x0_rel = x0 / image.shape[-2]
                     x1_rel = x1 / image.shape[-2]
                     y0_rel = y0 / image.shape[-3]
