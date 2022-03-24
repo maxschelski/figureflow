@@ -29,9 +29,7 @@ The package was developed in Windows and the precise package versions for the en
 > conda env create -f environment.yml
 3. (Recommended on Windows) Create environment for fastfig with Anaconda:
 > conda env create -f environment_windows.yml
-3. (Alternatively on Mac/Linux) Pip install all required packages from the requirements.txt file:
-> pip install -r requirements.txt
-3. (Alternatively on Windows) Pip install all required packages from the requirements.txt file:
+3. (Alternatively on Windows, without Anaconda) Pip install all required packages from the requirements.txt file:
 > pip install -r requirements_windows.txt
 4. Install fastfig locally using pip:
 > pip install -e .
