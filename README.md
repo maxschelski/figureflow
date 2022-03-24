@@ -40,6 +40,8 @@ Documentation and code base under development.<br/>
 - Movies can be generated as full-fledged figure objects 
 - Images can be supplied as ImageJ Hyperstack with the "frames" attribute being animated
 - Lineplots of quantifications (.csv file) can be animated based on the x-attribute 
+- Add title pages to movies with introductory text
+- Precisely define movie quality (resolution and bitrate) 
 - ...
 <br/>
 
