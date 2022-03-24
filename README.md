@@ -1,5 +1,6 @@
 # FastFig
 A Python package to allow fast, modular and reproducible generation of publication-grade scientific figures and movies.<br/>
+<br/>
 Among many other things, it allows perfectly aligning plots and images into figure panels. Images (including Hyperstacks from ImageJ) can be automatically displayed in grids depending on ImageJ-defined channels and frames. Images can be easily annotated. Movies can be generated as full-fledged figure objects with the "frame" attribute for images or the x-attribute for lineplots changing at each movie-frame. 
 <br/>
 A lot of the code to plot data and add significance information (statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
