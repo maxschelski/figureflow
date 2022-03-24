@@ -114,7 +114,7 @@ python-pptx==0.6.19
 python-slugify @ file:///tmp/build/80754af9/python-slugify_1620405669636/work
 pytz @ file:///tmp/build/80754af9/pytz_1612215392582/work
 PyWavelets @ file:///C:/ci/pywavelets_1607645631519/work
-pywin32==228
+pywin32==301
 pywin32-ctypes @ file:///C:/ci/pywin32-ctypes_1607553594546/work
 PyYAML==5.4.1
 pyzmq==20.0.0
