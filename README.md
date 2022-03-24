@@ -1,7 +1,7 @@
 # FastFig
 A Python package to allow fast, modular and reproducible generation of publication-grade scientific figures and movies.<br/>
 <br/>
-### Selected features
+#### Selected features
 - perfectly aligning plots and images into figure panels
 - Images (including Hyperstacks from ImageJ) can be automatically displayed in grids depending on ImageJ-defined channels and frames
 - Images can be easily annotated
