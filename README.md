@@ -36,9 +36,10 @@ The package was developed in Windows and the precise package versions for the en
 5. You can now import fastfig and use it to build figures and generate movies as figure objects
 > from fastfig import figure
 
+For any questions feel free to contact me via E-Mail to max.schelski@googlemail.com.
 # Examples
 Example code for using the package will follow once the corresponding research paper is published in a peer-reviewed journal. Examples are not displayed to scale on this website but were all generated with 4.75 inch width.
-For now, examples are available upon request via Github or via E-Mail to max.schelski@dzne.de.<br/>
+For now, examples are available upon request via Github or via E-Mail to max.schelski@googlemail.com.<br/>
 <br/>
 <br/>
 Examples from Schelski and Bradke 2021 fully generated with the package without Adobe Illustrator etc:<br/>
