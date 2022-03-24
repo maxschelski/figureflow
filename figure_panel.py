@@ -222,11 +222,12 @@ class FigurePanel():
                     line_width_zoom_rectangle = 0.3,
                     zoom_nb_font_size_overview = None, zoom_nb_color = "white",
                     zoom_nb_font_size = None, zoom_nb_padding = 0.015,
+                    overlay_opacity = 0.5,
                     repositioning_map = None, additional_padding = None,
                     show_axis_grid = False, use_same_LUTs=True,
                     show_non_zoom_channels=False,
                     show_zoom_number_in_image=True, simple_remapping=False,
-                    show_focus_in=None, cmaps="gray",
+                    show_focus_in=None, cmaps="gray", overlay_cmaps=None,
                     replace_nan_with=0,
                     sub_padding_factor= 0.25
                     ):
@@ -305,7 +306,8 @@ class FigurePanel():
                                                 of all channels
                                                 otherwise they will only be
                                                 shown on overview
-        :param position_zoom_nb: position at which the zoom number shouldbe shown in the zoomed image
+        :param position_zoom_nb: position at which the zoom number shouldbe
+                                shown in the zoomed image
         :param zoom_nb_font_size_overview: font size of zoom number in overview image
         :param zoom_nb_font_size: font size of zoom number in zoom image
         :param zoom_nb_frames: List with ints or int, Index of frames where
@@ -314,6 +316,7 @@ class FigurePanel():
                                 (e.g. if frame 5,10,20 will be shown
                                 and zoom_nb_frames is [0,1] then the zoom_nb
                                 will be shown in the first and second frame (5, 10)
+        :param overlay_opacity: Opacity of each channel for overlay of channels
         :param repositioning_map: join specific images together with another
                                 dimension (by remapping the identity)
                                 e.g. join one image from a channel
@@ -367,6 +370,9 @@ class FigurePanel():
         # map of place holder identity
         # to pre identities of corresponding images
         self.place_holder_identity_map = {}
+
+        # map of colormaps for positions
+        self.cmaps_for_position = {}
 
         self.default_label_positions = {}
         self.dim_val_maps = {}
@@ -657,9 +663,11 @@ class FigurePanel():
          self.image_heights) = self.plot_images_without_setting_position(img_ranges,
                                                                           use_same_LUTs,
                                                                           cmaps,
+                                                                         overlay_cmaps,
                                                                           make_image_size_equal,
                                                                           replace_nan_with,
-                                                                          scale_images)
+                                                                          scale_images,
+                                                                         overlay_opacity)
 
 
         width_columns, height_rows = self.get_width_columns_and_height_rows(self.image_widths,
@@ -1616,10 +1624,10 @@ class FigurePanel():
 
     def sort_category_vals_key(self, value):
         if type(value) == tuple:
-            return max(value)
+            return max(value) + 0.5
         elif type(value) == str:
             values = value.split("-")
-            return max(values)
+            return max(values) + 0.5
         else:
             return value
 
@@ -3237,14 +3245,14 @@ class FigurePanel():
             self.pos_to_identity_map[position[1],
                                      position[0]] = tuple(identity)
 
-            # for non place holder images save connection
-            # of pre_identity to position
-            if pre_identity[0] != -1:
-                self.pre_identity_to_pos_map[pre_identity] = (position[1],
-                                                              position[0])
 
             if pre_identity[0] == -1:
                 continue
+
+            # for non place holder images save connection
+            # of pre_identity to position
+            self.pre_identity_to_pos_map[pre_identity] = (position[1],
+                                                          position[0])
 
             # ???
             # default label positions dont work anymore!
@@ -3738,8 +3746,10 @@ class FigurePanel():
 
 
     def plot_images_without_setting_position(self, img_ranges, use_same_LUTs,
-                                             cmaps, make_image_size_equal,
-                                             replace_nan_with, scale_images):
+                                             cmaps, overlay_cmaps,
+                                             make_image_size_equal,
+                                             replace_nan_with, scale_images,
+                                             overlay_opacity):
         fig = plt.gcf()
         heights = np.zeros((self.max_row+1,self.max_col+1))
         widths = np.zeros((self.max_row+1,self.max_col+1))
@@ -3804,6 +3814,12 @@ class FigurePanel():
             pre_identities, is_overlay = self._get_all_pre_identities_from_overlay(pre_identity)
             # pre_identity is now a LIST of pre_identities
 
+            # for overlays use overlay_cmaps if they are defined
+            if is_overlay & (not (self.is_none(overlay_cmaps))):
+                cmaps_to_use = overlay_cmaps
+            else:
+                cmaps_to_use = cmaps
+
             cmaps_for_img = []
             all_img_ranges = []
             for overlay_img_nb, pre_identity in enumerate(pre_identities):
@@ -3819,9 +3835,9 @@ class FigurePanel():
                     # replace nan in images by value
                     image[np.isnan(image)] = replace_nan_with
                     # if cmaps was supplied as list, separate by channels
-                    if type(cmaps) == list:
+                    if type(cmaps_to_use) == list:
                         channel = pre_identity[self.map["channels"]]
-                        if channel >= len(cmaps):
+                        if channel >= len(cmaps_to_use):
                             raise ValueError("More than one cmap was supplied but "
                                              "not enough for all channels."
                                              "No corresponding cmap for channel "
@@ -3829,11 +3845,11 @@ class FigurePanel():
                                              )
                         # for overlay images (more than one image range)
                         # set cmap for each image separately
-                        cmap_for_img = cmaps[channel]
+                        cmap_for_img = cmaps_to_use[channel]
 
                     else:
                         channel = 0
-                        cmap_for_img = cmaps
+                        cmap_for_img = cmaps_to_use
 
                     # dont add information for colorbars for overlay images
                     # since otherwise two colorbars would need to be at the same
@@ -3851,20 +3867,24 @@ class FigurePanel():
                     # else only added due to problems when trying to change
                     # algorithm to find position for image
                     # maybe can be removed again.
-                    if type(cmaps) == str:
-                        cmap_for_img = cmaps
+                    if type(cmaps_to_use) == str:
+                        cmap_for_img = cmaps_to_use
                     else:
-                        cmap_for_img = cmaps[0]
+                        cmap_for_img = cmaps_to_use[0]
                     img_range = [0,0]
                 all_img_ranges.append(img_range)
                 cmaps_for_img.append(cmap_for_img)
 
+
+            self.cmaps_for_position[position] = [plt.get_cmap(cmap)
+                                                 for cmap in cmaps_for_img]
             #go through each image (first dimension) of potential overlay image
             
             if is_overlay:
-                opacity = 0.4
+                opacity = overlay_opacity
             else:
                 opacity = 1
+                
             for overlay_img_nb, single_image in enumerate(image):
                 img_range = all_img_ranges[overlay_img_nb]
                 cmap_for_img = cmaps_for_img[overlay_img_nb]
@@ -5161,6 +5181,7 @@ class FigurePanel():
                        label_orientation = None, **kwargs):
 
         label_cat = "channels"
+
         self._label_category(label_cat, texts, site = site,
                              label_overlays=label_overlays,
                              default_overlay_label=default_overlay_label,
@@ -5197,7 +5218,7 @@ class FigurePanel():
                         label_sub_remapped=False, label_overlays=False,
                         default_overlay_label=None, font_size=None, padding=2,
                         font_size_factor=None, label_orientation = None,
-                        plot_line=True,
+                        plot_line=True, string_separating_channels=" + ",
                         **kwargs):
         """
         :param label_cat: category that should be labeled, can be "images", "channels", or "frames"
@@ -5206,11 +5227,84 @@ class FigurePanel():
             (e.g. channel1, channel2, etc.)
         """
 
-
         positions_for_cat_vals = self.default_label_positions[label_cat]
 
+        positions_for_cat_vals = self.remap_image_for_sub_cat(positions_for_cat_vals,
+                                                              label_cat,
+                                                              label_sub_remapped)
+
+        all_cat_vals = list(positions_for_cat_vals.keys())
+        all_cat_vals.sort(key=self.sort_category_vals_key)
+
+        # find first site that actually works without overlapping labels
+        if site == None:
+            site = self.find_site_without_overlapping_labels(all_cat_vals,
+                                                             positions_for_cat_vals)
+
+        # check if plot_line should be switched to False
+        # since no label has more than one row
+        if plot_line == True:
+            plot_line = False
+            plot_line = self.check_if_label_has_multiple_rows(all_cat_vals,
+                                                              positions_for_cat_vals,
+                                                              site)
+
+        (positions_for_cat_vals,
+         all_cat_vals,
+         label_vals) = self.pool_adjacent_similar_labels(label_vals, all_cat_vals,
+                                                         positions_for_cat_vals)
+
+        # initiate counter for multiple categories (overlay channels)
+        for cat_val in all_cat_vals:
+            site_positions = positions_for_cat_vals[cat_val]
+
+            # for overlays either label wth default_overlay_label or with
+            # combination of labels of respective channels
+            # labeling with channel names in respective colors is not possible
+            # this has to be done within the image
+            if type(cat_val) == tuple:
+                label_text = ""
+                if (label_overlays) | (default_overlay_label != None):
+                    if not label_overlays:
+                        print("WARNING: Since '{}' was supplied as "
+                              "default_overlay_label, "
+                              "overlay channels will be printed "
+                              "even though label_overlay "
+                              "is False.".format(default_overlay_label))
+                    if default_overlay_label != None:
+                        label_text = str(default_overlay_label)
+                    else:
+                        # if default overlay label is None,
+                        #  then use a combination of label_texts
+                        #  from all the labels included
+                        # build label_text from texts of all channels
+                        for cat_val_nb, overlay_cat_val in enumerate(cat_val):
+                            if (cat_val_nb) > 0:
+                                label_text += string_separating_channels
+                            label_text += str(label_vals[overlay_cat_val])
+            else:
+                if cat_val >= len(label_vals):
+                    print("WARNING: Not enough labels were supplied for labeling "
+                          "category in panel {}".format(self.letter))
+                    break
+                label_text = label_vals[cat_val]
+
+            label_positions = site_positions[site]
+            row_start = label_positions[0][0]
+            col_start = label_positions[0][1]
+            row_end = label_positions[1][0]
+            col_end = label_positions[1][1]
+
+            self._add_label(label_text, row_start, row_end, col_start,
+                            col_end, site, font_size, padding,
+                            font_size_factor, label_orientation,
+                            plot_line=plot_line, **kwargs)
+
+
+    def remap_image_for_sub_cat(self,positions_for_cat_vals, label_cat,
+                                label_sub_remapped):
         # allow to label sub_remapped images
-        #  if the _sub category is defined for the current label_cat
+        # if the _sub category is defined for the current label_cat
         # for that remap the positions_for_cat_vals dict
         if (label_cat+"_sub" in self.sub_category_map) & label_sub_remapped:
             new_positions_for_cat_vals = {}
@@ -5219,38 +5313,35 @@ class FigurePanel():
                 if image_nb_remapped not in new_positions_for_cat_vals:
                     new_positions_for_cat_vals[image_nb_remapped] = value
             positions_for_cat_vals = new_positions_for_cat_vals
+        return positions_for_cat_vals
 
-        all_cat_vals = list(positions_for_cat_vals.keys())
-        all_cat_vals.sort(key=self.sort_category_vals_key)
-
-        # find first site that actually works without overlapping labels
-        if site == None:
-            all_sites = positions_for_cat_vals[list(positions_for_cat_vals)[0]].keys()
-            for site in all_sites:
-                last_label_positions = None
-                site_works = True
-                for cat_val in all_cat_vals:
-                    site_positions =  positions_for_cat_vals[cat_val]
-                    label_positions = site_positions[site]
-                    if last_label_positions != label_positions:
-                        last_label_positions = label_positions
-                    else:
-                        site_works = False
-                        break
-                if site_works:
-                    break
-
-        # check if plot_line should be switched to False
-        #  since no label has more than one row
-        if plot_line == True:
-            plot_line = False
+    def find_site_without_overlapping_labels(self, all_cat_vals, positions_for_cat_vals):
+        all_sites = positions_for_cat_vals[list(positions_for_cat_vals)[0]].keys()
+        for site in all_sites:
+            last_label_positions = None
+            site_works = True
             for cat_val in all_cat_vals:
                 site_positions =  positions_for_cat_vals[cat_val]
                 label_positions = site_positions[site]
-                if label_positions[0] != label_positions[1]:
-                    plot_line = True
+                if last_label_positions != label_positions:
+                    last_label_positions = label_positions
+                else:
+                    site_works = False
                     break
+            if site_works:
+                return site
 
+    def check_if_label_has_multiple_rows(self, all_cat_vals,
+                                         positions_for_cat_vals, site):
+        for cat_val in all_cat_vals:
+            site_positions =  positions_for_cat_vals[cat_val]
+            label_positions = site_positions[site]
+            if label_positions[0] != label_positions[1]:
+                return True
+        return False
+
+    def pool_adjacent_similar_labels(self, label_vals, all_cat_vals,
+                                     positions_for_cat_vals):
         # pool positions for same labels together
         # if labels appear directly after one another
         new_positions_for_cat_vals = {}
@@ -5270,8 +5361,10 @@ class FigurePanel():
                     pool_positions = False
 
             if pool_positions:
-                for dict_site, range_at_site in new_positions_for_cat_vals[last_cat_val].items():
-                    additional_ranges = positions_for_cat_vals[cat_val][dict_site]
+                for dict_site, range_at_site in new_positions_for_cat_vals[
+                    last_cat_val].items():
+                    additional_ranges = positions_for_cat_vals[cat_val][
+                        dict_site]
                     # for left and right get min and max of first coordinate
                     #  (row position in image grid)
                     if (dict_site == "left") | (dict_site == "right"):
@@ -5287,77 +5380,26 @@ class FigurePanel():
                     range_max = max(range_at_site[1][index_for_site],
                                     additional_ranges[1][index_for_site])
                     # get new start and end positions for range
-                    range_start = [0,0]
+                    range_start = [0, 0]
                     range_start[index_for_site] = range_min
-                    range_start[index_for_site - 1] = range_at_site[0][index_for_site - 1]
-                    range_end = [0,0]
+                    range_start[index_for_site - 1] = range_at_site[0][
+                        index_for_site - 1]
+                    range_end = [0, 0]
                     range_end[index_for_site] = range_max
-                    range_end[index_for_site - 1] = range_at_site[1][index_for_site - 1]
-                    new_positions_for_cat_vals[last_cat_val][dict_site] = [range_start, range_end]
-                    
+                    range_end[index_for_site - 1] = range_at_site[1][
+                        index_for_site - 1]
+                    new_positions_for_cat_vals[last_cat_val][dict_site] = [
+                        range_start, range_end]
+
             else:
-                new_positions_for_cat_vals[cat_val] = positions_for_cat_vals[cat_val]
+                new_positions_for_cat_vals[cat_val] = positions_for_cat_vals[
+                    cat_val]
                 new_all_cat_vals.append(cat_val)
                 new_label_vals.append(label)
                 last_label = label
                 last_cat_val = cat_val
 
-        positions_for_cat_vals = new_positions_for_cat_vals
-        all_cat_vals = new_all_cat_vals
-        label_vals = new_label_vals
-
-        cat_nb = 0
-        # initiate counter for multiple categories (overlay channels)
-        nb_multi_cat = 0
-        for cat_val in all_cat_vals:
-            site_positions = positions_for_cat_vals[cat_val]
-            # test if remapped cat_val is a multi channel,
-            # if so dont increase cat nb this frame
-            multi_cat_val_split = str(cat_val).split("-")
-
-            if len(multi_cat_val_split) > 1:
-                if (label_overlays) | (default_overlay_label != None):
-                    if not label_overlays:
-                        print("WARNING: Since '{}' was supplied as "
-                              "default_overlay_label, "
-                              "overlay channels will be printed "
-                              "even though label_overlay "
-                              "is False.".format(default_overlay_label))
-                    if default_overlay_label != None:
-                        label_text = str(default_overlay_label)
-                    else:
-                        # if default overlay label is None,
-                        #  then use a combination of label_texts
-                        #  from all the labels included
-                        # build label_text from texts of all channels
-                        label_text = ""
-                        for cat_val_split in multi_cat_val_split:
-                            # remove number of multi cats from the number
-                            # since they are not in the provided label_vals
-                            cat_nb_split = int(cat_val_split) - nb_multi_cat
-                            label_text += str(label_vals[cat_nb_split])
-                        nb_multi_cat += 1
-                cat_nb += 1
-            else:
-                if cat_nb >= len(label_vals):
-                    print("WARNING: Not enough labels were supplied for labeling "
-                          "category in panel {}".format(self.letter))
-                    break
-                label_text = label_vals[cat_nb]
-                cat_nb += 1
-
-            label_positions = site_positions[site]
-            row_start = label_positions[0][0]
-            col_start = label_positions[0][1]
-            row_end = label_positions[1][0]
-            col_end = label_positions[1][1]
-
-            self._add_label(label_text, row_start, row_end, col_start,
-                            col_end, site, font_size, padding,
-                            font_size_factor, label_orientation,
-                            plot_line=plot_line, **kwargs)
-
-
+        return (new_positions_for_cat_vals, new_all_cat_vals, new_label_vals)
 
     def label(self, text, position=None, span=None, site = "left",
               font_size=None, padding=2, label_orientation=None, **kwargs):
@@ -5402,7 +5444,7 @@ class FigurePanel():
         if plot_line_for_all:
             plot_line =True
 
-            # check whther label stretches over more than one image
+        # check whther label stretches over more than one image
         # only plot lines for labels that stretch over more than one image
         multi_image = False
         if (row_start != row_end) | (col_start != col_end):
@@ -5418,35 +5460,18 @@ class FigurePanel():
 
         font_size_pt = FontProperties(size=font_size).get_size_in_points()
 
-        if label_orientation == "hor":
-            rotation_degrees = 0
-        elif label_orientation == "vert":
-            rotation_degrees = 90
-        else:
-            if (site == "top") | (site == "bottom"):
-                rotation_degrees = 0
-            elif (site == "left") | (site == "right"):
-                # if label is left or right, rotate text by 90 degree
-                rotation_degrees = 90
+        rotation_degrees = self.get_rotation_degrees(label_orientation, site)
 
         # reduce padding if lower part of text is in direction of images
         # if its not multi_image (no line will be drawn) and
         #  not all labels should be aligned
         # then decrease padding of labels without line
-
         if ((not plot_line) |
                 ((not multi_image) & (not align_all_labels)) |
                 (plot_line_for_all)):
             padding *= 0.4
 
-        #  padding *= self.size_factor
         padding_px = padding * fig.dpi / 72
-
-        # calculate text size in px, add number of lines used in label
-
-        font_size_px = font_size_pt * fig.dpi / 75 * len(text.split("\n"))
-
-        # check whether labels on same site have same nb of \n
 
 
         # check if labels are already present at of the postions of new label
@@ -5459,7 +5484,6 @@ class FigurePanel():
             raise ValueError("There is already a label on the {} at one "
                              "position where the new label '{}' "
                              "should go.".format(site, text))
-
 
         # create ax for label, set coordinates according to positions defined (row_start etc)
         # set values for outer site of label to outer border
@@ -5486,6 +5510,10 @@ class FigurePanel():
         else:
             padding_px_for_shift = padding_px
 
+        # TODO:
+        # for overlays: fuse text objects together
+        # check if text objects fused together are wider than image
+        # if so, add \n after each time that the text is wider than the image
 
         total_x_shift, total_y_shift, label_size = self.set_shift_values(site,
                                                                          font_size_pt,
@@ -5493,10 +5521,6 @@ class FigurePanel():
                                                                          ax_label,
                                                                          text,
                                                                          rotation_degrees)
-
-        #  if len(self.label_axs[site]) > 0:
-        #      total_x_shift = None
-        #      total_y_shift = None
 
         # first shift all axes to get correct positions for labels based on new axes position
         if (total_x_shift != None) | (total_y_shift != None):
@@ -5512,8 +5536,8 @@ class FigurePanel():
 
 
         # check if any label ax is already at the same site
-        # if there is one, dont do any shifting, just add label
-        # retrieve start position of last label
+        # if there is one, no shifting was done by shift_values,
+        # retrieve start position of last label to annotate label
         # DOES NOT SUPPORT LABELS IN BETWEEN ROWS AND COLUMNS!
         x0, x1, y0, y1 = self.get_label_position_from_present_label(site)
         # annotate text at correct position
@@ -5533,41 +5557,95 @@ class FigurePanel():
 
         ax_label.set_position((x0,y0,label_width,label_height))
 
-
-        # add padding to end of lines to separate lines better
-        line_end_padding_rel_x = (line_end_padding /
-                                  (ax_label.get_position().width *
-                                   fig.get_size_inches()[0] ))
-        line_end_padding_rel_y = (line_end_padding /
-                                  (ax_label.get_position().height *
-                                   fig.get_size_inches()[1] ))
-
         if (plot_line & multi_image) | plot_line_for_all:
-            if site == "left":
-                line_x = [1, 1]
-                line_y = [line_end_padding_rel_y, 1-line_end_padding_rel_y]
-            elif site == "right":
-                line_x = [0, 0]
-                line_y = [line_end_padding_rel_y, 1-line_end_padding_rel_y]
-            elif site == "top":
-                line_x = [line_end_padding_rel_x, 1-line_end_padding_rel_x]
-                line_y = [0, 0]
-            elif site == "bottom":
-                line_x = [line_end_padding_rel_x, 1-line_end_padding_rel_x]
-                line_y = [1, 1]
-
-            line = lines.Line2D(line_x, line_y, lw = line_width,
-                                color = line_color,
-                                transform=ax_label.transAxes,
-                                solid_capstyle="butt")
-            ax_label.add_line(line)
+            self.plot_line_for_image_label(ax_label, site, line_end_padding,
+                                           line_width, line_color)
 
         x_text, y_text = self.get_position_of_text(ax_label, text, site,
                                                    font_size_pt,
                                                    rotation_degrees, padding_px,
                                                    plot_line)
 
+        ha, va = self.get_label_alignment(rotation_degrees, site)
 
+        label = ax_label.annotate(
+            text, xy=(x_text, y_text),
+            xycoords='axes fraction', ha=ha, va=va,
+            rotation = rotation_degrees,
+            fontsize=font_size_pt,fontweight='normal',
+            linespacing=1,
+            clip_on=False, annotation_clip=False)
+
+        label.set_position([x_text, y_text])
+
+        self.label_padding_px[site].append(padding_px)
+        self.label_lines_ploted[site].append(plot_line)
+        self.labels[site].append(label)
+        self.label_axs[site].append(ax_label)
+        # set positions 1 where labels were added
+        self.label_matrices[site][row_start:row_end+1,
+                                  col_start:col_end+1] = max(np.max(self.label_matrices[site]) + 1, 0)
+
+    def get_rotation_degrees(self, label_orientation, site):
+
+        if label_orientation == "hor":
+            rotation_degrees = 0
+        elif label_orientation == "vert":
+            rotation_degrees = 90
+        else:
+            if (site == "top") | (site == "bottom"):
+                rotation_degrees = 0
+            elif (site == "left") | (site == "right"):
+                # if label is left or right, rotate text by 90 degree
+                rotation_degrees = 90
+        return rotation_degrees
+
+    def plot_line_for_image_label(self, ax_label, site, line_end_padding,
+                                  line_width, line_color):
+        """
+        Plot line with padding for one image label.
+        :param site: Site of label ("bottom", "top", "left" or "right")
+        :param line_end_padding: Padding of line to end of image
+                                (in direction of line) in points
+        :param ax_label: axes where label is added
+        :return: None
+        """
+        fig = plt.gcf()
+        # add padding to end of lines to separate lines better
+        line_end_padding_rel_x = (line_end_padding /
+                                  (ax_label.get_position().width *
+                                   fig.get_size_inches()[0]))
+        line_end_padding_rel_y = (line_end_padding /
+                                  (ax_label.get_position().height *
+                                   fig.get_size_inches()[1]))
+        if site == "left":
+            line_x = [1, 1]
+            line_y = [line_end_padding_rel_y, 1-line_end_padding_rel_y]
+        elif site == "right":
+            line_x = [0, 0]
+            line_y = [line_end_padding_rel_y, 1-line_end_padding_rel_y]
+        elif site == "top":
+            line_x = [line_end_padding_rel_x, 1-line_end_padding_rel_x]
+            line_y = [0, 0]
+        elif site == "bottom":
+            line_x = [line_end_padding_rel_x, 1-line_end_padding_rel_x]
+            line_y = [1, 1]
+
+        line = lines.Line2D(line_x, line_y, lw = line_width,
+                            color = line_color,
+                            transform=ax_label.transAxes,
+                            solid_capstyle="butt")
+        ax_label.add_line(line)
+        return None
+
+
+    def get_label_alignment(self, rotation_degrees, site):
+        """
+        Get alignment of a label depending on rotation degrees
+        :param rotation_degrees: rotation of label in degrees
+        :return: horizontal alignment (ha) and vertical alignment (va) 
+                as tuple of strings
+        """
         ha = "center"
         if (rotation_degrees == 0):
             if ( site == "left"):
@@ -5580,25 +5658,7 @@ class FigurePanel():
                 va = "top"
             elif (site == "bottom"):
                 va = "bottom"
-
-        label = ax_label.annotate(
-            text, xy=(x_text, y_text),
-            xycoords='axes fraction', ha=ha, va=va,
-            rotation = rotation_degrees,
-            fontsize=font_size_pt,fontweight='normal',
-            linespacing=1,
-            clip_on=False, annotation_clip=False)
-
-
-        label.set_position([x_text, y_text])
-
-        self.label_padding_px[site].append(padding_px)
-        self.label_lines_ploted[site].append(plot_line)
-        self.labels[site].append(label)
-        self.label_axs[site].append(ax_label)
-        # set positions 1 where labels were added
-        self.label_matrices[site][row_start:row_end+1,
-                                  col_start:col_end+1] = max(np.max(self.label_matrices[site]) + 1, 0)
+        return ha, va
 
     @staticmethod
     def is_none(object):
@@ -5834,7 +5894,7 @@ class FigurePanel():
             padding_px_rel_height = 0
 
         # move label completely into plot since position ha=center
-        #  puts it directly on the line (half in, half out)
+        # puts it directly on the line (half in, half out)
         if site == "top":
             x_text = 0.5
             y_text = (label_size / (label_height * fig_size_px[1]))
@@ -8649,6 +8709,19 @@ class FigurePanel():
                                                   rotation)
 
 
+    def get_width_of_space(self, font_size_pt, ax):
+        # space by itself is not measured for length when at end of string
+        # therefore get length of space by change of string with and without
+        # space at the start
+        width_with_space_px = FigurePanel.get_dimension_of_text(" a",
+                                                                font_size_pt,
+                                                                ax)[0]
+        width_no_space_px = FigurePanel.get_dimension_of_text("a",
+                                                              font_size_pt,
+                                                              ax)[0]
+        width_space_px = width_with_space_px - width_no_space_px
+        return width_space_px
+
 
     def annotate_channel_within_image(self, channel_names, channel_colors = None,
                                       position=None, color="white",
@@ -8674,6 +8747,10 @@ class FigurePanel():
         :param only_show_in_column: list of columns in which the labels
                                     should be displayed,
                                     if None display in all columns
+        :param string_separating_channels: For overlays with multiple channels
+                                            add this string between channels
+                                            maximum one space in a row is allowed
+
         """
         # potential feature to add:
         # allow supply of single channel images and plot them as overlay
@@ -8695,7 +8772,9 @@ class FigurePanel():
                                                    len(channel_colors)))
 
         func_get_channel_name = functools.partial(self.get_channelname_from_identity,
-                                                  channel_names=channel_names)
+                                                  channel_names=channel_names,
+                                                  string_separating_channels=
+                                                  string_separating_channels)
 
         font_size = self.get_maximum_font_size(extract_text_from_identity=func_get_channel_name,
                                                starting_font_size=font_size,
@@ -8704,9 +8783,16 @@ class FigurePanel():
                                                only_show_in_columns = only_show_in_columns)
 
         font_size_pt = FontProperties(size=font_size).get_size_in_points()
-        root = tk.Tk()
-        font_size_px = int (font_size_pt * fig.dpi/72)
-        font_to_measure_width = font.Font(family="sans-serif",size= -font_size_px)
+
+        if string_separating_channels.find(" ") != -1:
+            string_between_with_space = True
+        else:
+            string_between_with_space = False
+
+        if string_between_with_space:
+            ax = list(self.all_axs.values())[0]
+            width_space_px =  self.get_width_of_space(font_size_pt, ax)
+
         # keep track of all channels
         all_channels = []
         for ax_position, ax in self.all_axs.items():
@@ -8729,9 +8815,15 @@ class FigurePanel():
                 continue
 
             all_channels.append(1)
-            channel_colors_one_file = self.get_info_for_channel_from_identity(identity,
-                                                                              channel_colors,
-                                                                              color)
+
+            if not self.is_none(channel_colors):
+                channel_colors_one_file = self.get_info_for_channel_from_identity(identity,
+                                                                                  channel_colors,
+                                                                                  color)
+            else:
+                cmaps_for_img = self.cmaps_for_position[ax_position]
+                channel_colors_one_file = [cmap(1.0) for cmap in cmaps_for_img]
+
             channel_names_one_file = self.get_info_for_channel_from_identity(identity,
                                                                              channel_names)
             channel_name  = self.get_channelname_from_identity(identity,
@@ -8756,42 +8848,37 @@ class FigurePanel():
             x = x0
             string_between = string_separating_channels
 
-            string_between_lengt_rel = FigurePanel.get_dimension_of_text(string_between,
+            string_between_lengt_rel = (FigurePanel.get_dimension_of_text(string_between,
                                                                          font_size_pt,
-                                                                         ax)[0] * fig.dpi / 72 / (ax_width_px)
-            if ((string_between.replace(" ","") != string_between) &
-                    (string_between.replace(" ","") != "")):
-                add_to_start_of_channel_name = " "
-            else:
-                add_to_start_of_channel_name = " "
+                                                                         ax)[0]
+                                         / ax_width_px)
 
+            width_space_rel = width_space_px / ax_width_px
 
             for nb, channel_name in enumerate(channel_names_one_file):
                 channel_color = channel_colors_one_file[nb]
-                # plot " / " in between channels in color, once x was moved the first frame (first channel was added)
+
+                # plot " / " in between channels in color,
+                # once x was moved the first frame (first channel was added)
                 if x > x0:
                     ax.annotate(xy=(x,y0),text=string_between,
                                 fontsize=font_size_pt, color=color,
                                 xycoords="axes fraction", va="bottom")
                     x += string_between_lengt_rel
-                    # if there is a space somewhere in the string between, add one space before channel_name as well
-                    # since a space at the end of a string won't be measured for length
-                    # also check that there are not only spaces but also other things
-                    channel_name = add_to_start_of_channel_name + channel_name
 
                 self._add_text_within_image_at_coords(ax, channel_name, x,
                                                       y0, total_txt_width_px,
-                                                      font_size_pt, color)
+                                                      font_size_pt, channel_color)
                 channel_name_length_rel = FigurePanel.get_dimension_of_text(channel_name,
                                                                             font_size_pt,
-                                                                            ax)[0] * fig.dpi / 72 / (ax_width_px)
+                                                                            ax)[0] / (ax_width_px)
                 x += channel_name_length_rel
+
+                if string_between_with_space:
+                    x += width_space_rel
 
         if len(all_channels) == 1:
             print("WARNING: Only one channel was found and annotated.")
-
-
-    #  def annotate_text_in_image(self, text, position, font_size_pt = , color="white", ):
 
 
     def _add_text_within_image(self, ax, text, position, font_size_pt,
@@ -8894,11 +8981,11 @@ class FigurePanel():
                                         xycoords="axes fraction", va="bottom",
                                         ha="left")
         # subtract one pixel since it is added as padding to bbox
-        txt_width = txt_width_measure.get_window_extent(renderer = fig.canvas.renderer).width - 1
-        txt_height = txt_width_measure.get_window_extent(renderer = fig.canvas.renderer).height - 1
+        txt_width_px = txt_width_measure.get_window_extent(renderer = fig.canvas.renderer).width - 1
+        txt_height_px = txt_width_measure.get_window_extent(renderer = fig.canvas.renderer).height - 1
 
         txt_width_measure.remove()
-        return txt_width, txt_height
+        return txt_width_px, txt_height_px
 
     def get_info_for_channel_from_identity(self, identity,
                                            info_array, standard_value = None):
@@ -8906,7 +8993,9 @@ class FigurePanel():
         Extract info of one identity from info_array for all channels.
         If the array is None, all entries are filled with standard_value.
         """
-        channels = str(identity[self.map["channels"]]).split("-")
+        channels = identity[self.map["channels"]]
+        if (type(channels)  != tuple):
+            channels = [channels]
         # get all channel_names and channel_colors for each channel in the image
         info_one_image = []
         for channel in channels:
@@ -8929,18 +9018,20 @@ class FigurePanel():
 
 
     def get_channelname_from_identity(self, identity, channel_names,
-                                      string_separating_channels = "/"):
+                                      string_separating_channels = " / "):
         """
         Get full name of the channel from the identity.
         """
         channel_names_one_file = self.get_info_for_channel_from_identity(identity,
                                                                          channel_names)
-        total_txt_width_px = 0
-        for channel_name in channel_names_one_file:
+        for channel_nb, one_channel_name in enumerate(channel_names_one_file):
             # add string that will be added in between channel names,
             #  except for the first channel
-            if total_txt_width_px > 0:
-                channel_name = string_separating_channels + channel_name
+            if channel_nb > 0:
+                channel_name += (string_separating_channels
+                                + one_channel_name)
+            else:
+                channel_name = one_channel_name
 
         return channel_name
 
