@@ -469,7 +469,6 @@ class FigurePanel():
             sorters["channels"] = self.sort_category_vals_key
 
             extract_info = self._check_if_images_should_be_extracted_from_tif()
-
             if extract_info:
                 #  first pre_identity is constructed without zoom and image_sub
                 #  these properties will be added later
@@ -596,7 +595,6 @@ class FigurePanel():
                                                                            order_of_categories,
                                                                             all_images_by_identity,
                                                                             show_focus_in)
-
                         width_imgs, height_imgs = self.get_width_height_matrices_of_categories(
                                                         self.inv_map,
                                                         all_images_by_identity)
@@ -1129,6 +1127,8 @@ class FigurePanel():
                     else:
                         identity_val = 0
                     pre_identity[dim] = identity_val
+                raw_img = self.expand_img_dimensions(raw_img)
+                raw_img = np.expand_dims(raw_img, 0)
                 all_images_by_pre_identity[tuple(pre_identity)] = raw_img
             else:
 
@@ -1627,6 +1627,7 @@ class FigurePanel():
             return max(value) + 0.5
         elif type(value) == str:
             values = value.split("-")
+            values = [int(value) for value in values]
             return max(values) + 0.5
         else:
             return value
@@ -3874,7 +3875,6 @@ class FigurePanel():
                     img_range = [0,0]
                 all_img_ranges.append(img_range)
                 cmaps_for_img.append(cmap_for_img)
-
 
             self.cmaps_for_position[position] = [plt.get_cmap(cmap)
                                                  for cmap in cmaps_for_img]
