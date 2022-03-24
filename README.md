@@ -19,7 +19,7 @@ Documentation and code base under development.<br/>
 
 The package was developed in Windows and the exact package versions for the environment in Windows are available for Anaconda and pip.
 <br/>
-1. Open a terminal and clone the repository for fastfig:
+1. Open a terminal, navigate to the folder where you want to put fastfig and clone the fastfig repository:
 > git clone https://github.com/maxschelski/fastfig.git
 2. Navigate into the folder of the repository (fastfig):
 > cd fastfig
