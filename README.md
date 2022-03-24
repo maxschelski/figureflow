@@ -1,6 +1,13 @@
 # FastFig
 A Python package to allow fast, modular and reproducible generation of publication-grade scientific figures and movies.<br/>
 <br/>
+A lot of the code to plot data and add significance information (statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
+<br/>
+FastFig was used to generate all figures and all movies from Schelski and Bradke 2021 (examples from paper at the bottom of this page):<br/>
+https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
+<br/>
+Documentation and code base under development.<br/>
+
 
 # Selected Features
 
@@ -35,12 +42,7 @@ A Python package to allow fast, modular and reproducible generation of publicati
 - Lineplots of quantifications (.csv file) can be animated based on the x-attribute 
 - ...
 <br/>
-A lot of the code to plot data and add significance information (statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
-<br/>
-FastFig was used to generate all figures and all movies from Schelski and Bradke 2021:<br/>
-https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
-<br/>
-Documentation and code base under development.<br/>
+
 
 # Installation
 
