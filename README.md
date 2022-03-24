@@ -13,13 +13,11 @@ A lot of the code to plot data and add significance information (statannot.py) i
 FastFig was used to generate all figures and all movies from Schelski and Bradke 2021:<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 <br/>
-Requirements (.txt) for package available for pip and for conda as well as yml file from conda for windows (environment_windows.yml) with specific versions for all packages and for other operating systems (environment.yml; tested on Mac OS) with version numbers only for critical packages.<br/>
-<br/>
 Documentation and code base under development.<br/>
 
 # Installation
 
-The package was developed in Windows and the precise package versions for the environment in Windows are available for pip and Anaconda.
+The package was developed in Windows and the exact package versions for the environment in Windows are available for Anaconda and pip.
 <br/>
 1. Open a terminal and clone the repository for fastfig:
 > git clone https://github.com/maxschelski/fastfig.git
