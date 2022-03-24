@@ -58,7 +58,7 @@ keyring @ file:///C:/ci/keyring_1621525114547/work
 kiwisolver @ file:///C:/ci/kiwisolver_1612282555033/work
 lazy-object-proxy @ file:///C:/ci/lazy-object-proxy_1616529288960/work
 locket==0.2.1
-lxml==4.6.3
+lxml==4.6.5
 MarkupSafe @ file:///C:/ci/markupsafe_1607027406824/work
 matplotlib==3.4.2
 mccabe==0.6.1
