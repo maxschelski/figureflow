@@ -23,13 +23,13 @@ The package was developed in Windows and the precise package versions for the en
 <br/>
 1. Open a terminal and clone the repository for fastfig:
 > git clone https://github.com/maxschelski/fastfig.git
-2. Navigate into the folder of the repository (fastfig)
+2. Navigate into the folder of the repository (fastfig):
 > cd fastfig
 3. (Recommended on Mac/Linux) Create environment for fastfig with Anaconda:
 > conda env create -f environment.yml
 3. (Recommended on Windows) Create environment for fastfig with Anaconda:
 > conda env create -f environment_windows.yml
-3. (Alternatively on Windows, without Anaconda) Pip install all required packages from the requirements.txt file:
+3. (Alternatively on Windows, without Anaconda) Pip install all required packages:
 > pip install -r requirements_windows.txt
 4. Install fastfig locally using pip:
 > pip install -e .
