@@ -21,7 +21,8 @@ Documentation and code base under development.<br/>
 > from fastfig import figure
 
 # Examples
-Example code for using the package will follow once the corresponding research paper is published in a peer-reviewed journal. For now, examples are available upon request via Github or via E-Mail to max.schelski@dzne.de.<br/>
+Example code for using the package will follow once the corresponding research paper is published in a peer-reviewed journal. 
+For now, examples are available upon request via Github or via E-Mail to max.schelski@dzne.de.<br/>
 <br/>
 <br/>
 Examples from Schelski and Bradke 2021 fully generated with the package without Adobe Illustrator etc:<br/>
