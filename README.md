@@ -22,7 +22,7 @@ Documentation and code base under development.<br/>
 1. Open a terminal and clone the repository for fastfig:
 > git clone https://github.com/maxschelski/fastfig.git
 2. (Recommended) Navigate into the folder of the repository (fastfig) and create environment for fastfig with Anaconda :
-> conda env create -f environment.yml
+> conda env create -f environment.yml<
 <br/>When using windows you can also create the exact environment fastfig was developed in:
 > conda env create -f environment_windows.yml
 2. (Alternatively) Pip install all required packages from the requirements.txt file
