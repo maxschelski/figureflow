@@ -1,12 +1,38 @@
 # FastFig
 A Python package to allow fast, modular and reproducible generation of publication-grade scientific figures and movies.<br/>
 <br/>
-#### Selected features
+
+# Selected Features
+
+#### General features:
+- create figure according to exact size necessary for desired journal in inches
 - automatically perfectly aligns plots and images in figure panels
-- Images (including Hyperstacks from ImageJ) can be automatically displayed in grids depending on ImageJ-defined channels, frames and slices
-- Zoomed regions to be shown of images can be defined
-- Images can be easily annotated
-- Movies can be generated as full-fledged figure objects (with the "frame" attribute for images or the x-attribute for lineplots changing at each movie-frame) 
+- Display illustrations as png file; or as powerpoint file to unify font size
+- ...
+
+#### Features to display images:
+- Provide images as single Hyperstack or single images
+- Define which timepoints, channels etc. to display
+- Position of images is automatically determined... But can be customized as well
+- Contrast set in ImageJ is automatically extracted from Hyperstack
+- Add annotations (star, asterisk, arrow, lines,text)
+- Define regions to be zoomed in, crop images
+- Add timestamp, scale bar, channel names
+- Annotate outside of image based on dimension (e.g. Annotate on the outside all timepoints)
+- ...
+
+#### Features to display quantifications:
+- Provide .csv file
+- Plot data automatically in the allocated space (Boxplot with overlaying data points)
+- Calculate significance and annotate in image (Largely based on Statannot from Marc Weber)
+- Show statistics (e.g. Mean, median, SEM, etc) for each data group (Largely based on Statannot from Marc Weber)
+- Show sorted list of representative cells (closest to average)
+- ...
+
+#### Features to create Movie 
+- Movies can be generated as full-fledged figure objects 
+- Images can be supplied as ImageJ Hyperstack with the "frames" attribute being animated
+- Lineplots of quantifications (.csv file) can be animated based on the x-attribute 
 - ...
 <br/>
 A lot of the code to plot data and add significance information (statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
