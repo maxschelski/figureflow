@@ -4,6 +4,7 @@ A Python package to allow fast, modular and reproducible generation of publicati
 #### Selected features
 - automatically perfectly aligns plots and images in figure panels
 - Images (including Hyperstacks from ImageJ) can be automatically displayed in grids depending on ImageJ-defined channels, frames and slices
+- Zoomed regions to be shown of images can be defined
 - Images can be easily annotated
 - Movies can be generated as full-fledged figure objects (with the "frame" attribute for images or the x-attribute for lineplots changing at each movie-frame) 
 - ...
