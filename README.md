@@ -21,10 +21,18 @@ Documentation and code base under development.<br/>
 
 1. Open a terminal and clone the repository for fastfig:
 > git clone https://github.com/maxschelski/fastfig.git
-2. Navigate into the folder of the repository (fastfig) and install locally using pip:
+2a. Navigate into the folder of the repository (fastfig) and create environment for fastfig with Anaconda (recommended):
+> conda env create -f environment.yml
+When using windows you can also create the exact environment fastfig was developed in:
+> conda env create -f environment_windows.yml
+2b. Alternatively pip install all required packages from the requirements.txt file
+> pip install -r requirements.txt
+When using windows you can also install the exact package versions of the environment in which fastfig was developed:
+> pip install -r requirements_windows.txt
+3. Navigate into the folder of the repository (fastfig) and install locally using pip:
 > cd fastfig
 > pip install -e .
-3. You can now import fastfig and use it to build figures and generate movies as figure objects
+4. You can now import fastfig and use it to build figures and generate movies as figure objects
 > from fastfig import figure
 
 # Examples
