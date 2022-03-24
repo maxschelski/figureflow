@@ -13,7 +13,7 @@ A Python package to allow fast, modular and reproducible generation of publicati
 #### Features to display images:
 - Provide images as single Hyperstack or single images
 - Define which timepoints, channels etc. to display
-- Position of images is automatically determined... But can be customized as well
+- Position of images is automatically determined... but can be customized as well
 - Contrast set in ImageJ is automatically extracted from Hyperstack
 - Add annotations (star, asterisk, arrow, lines,text)
 - Define regions to be zoomed in, crop images
