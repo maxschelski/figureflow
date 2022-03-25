@@ -1,5 +1,5 @@
 # FastFig
-A Python package to allow fast, modular and reproducible generation of publication-grade scientific figures and movies.<br/>
+A Python package to allow fast, modular and reproducible generation of publication quality scientific figures and movies with only a few lines of code. <br/>
 <br/>
 A lot of the code to plot data and add significance information (statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
 <br/>
