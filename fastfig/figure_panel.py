@@ -6810,6 +6810,41 @@ class FigurePanel():
         return data
 
 
+    def normalize_data(self, data, y, norm_cats, hue, col, row):
+        normalize_func = lambda x: (x / x.mean())
+        data_normalized = self.transform_y_data(data, y, normalize_func,
+                                                norm_cats, hue, col, row)
+        return data_normalized
+
+    def smoothen_data(self, data, y, smoothen_cats, smoothing_rad,
+                      hue, col, row):
+        smoothen_func = lambda x: x.rolling(smoothing_rad).mean()
+        data_normalized = self.transform_y_data(data, y, smoothen_func,
+                                                smoothen_cats, hue, col, row)
+        return data_normalized
+
+    def transform_y_data(self, data, y, transform_func, 
+                         cats, hue, col, row):
+        if type(cats) == type(None):
+            cats = []
+        cols_cats = []
+        for norm_cat in cats:
+            if norm_cat == "hue":
+                if type(hue) != type(None):
+                    cols_cats.append(hue)
+            elif norm_cat == "col":
+                if type(col) != type(None):
+                    cols_cats.append(col)
+            elif norm_cat == "row":
+                if type(row) != type(None):
+                    cols_cats.append(row)
+            else:
+                cols_cats.append(norm_cat)
+
+        data_transformed = data.groupby(cols_cats)[y].transform(transform_func)
+        return data_transformed
+
+
     @staticmethod
     def default_in_statannot(arg_name):
         signature = inspect.signature(statannot.plot_and_add_stat_annotation)
@@ -7064,28 +7099,13 @@ class FigurePanel():
         if normalize_after_data_exclusion:
             data = self.exclude_data(data, inclusion_criteria)
 
-
         # normalization should usually be done before exclusion of data
         # otherwise excluded units would change normalization
         # depending on what is shown
         # normalize values to within cateogiry
         # norm_cats is a list of categories for which normalization
         if normalize:
-            if type(norm_cats) == type(None):
-                norm_cats = []
-            cols_norm_cats = []
-            for norm_cat in norm_cats:
-                if norm_cat == "hue":
-                    cols_norm_cats.append(hue)
-                elif norm_cat == "col":
-                    cols_norm_cats.append(col)
-                elif norm_cat == "row":
-                    cols_norm_cats.append(row)
-                else:
-                    cols_norm_cats.append(norm_cat)
-
-            data[y] = data.groupby(cols_norm_cats)[y].transform(lambda x:
-                                                                (x / x.mean()))
+            data[y] = self.normalize_data(data, y, norm_cats, hue, col, row)
 
         if not normalize_after_data_exclusion:
             data = self.exclude_data(data, inclusion_criteria)
@@ -7163,22 +7183,11 @@ class FigurePanel():
 
         # smoothing_rad
         if type(smoothing_rad) != type(None):
+
             data.reset_index(inplace=True)
-            # create list of columns bei which to group
-            group_cols = []
-            # before adding a value to group_cols check
-            # whether the value is already in group cols
-            if type(hue) != type(None):
-                if hue not in group_cols:
-                    group_cols.append(hue)
-            if type(col) != type(None):
-                if col not in group_cols:
-                    group_cols.append(col)
-            if type(row) != type(None):
-                if row not in group_cols:
-                    group_cols.append(row)
-            data[y] = data.groupby(group_cols)[y].transform(lambda x:
-                                                            x.rolling(smoothing_rad).mean())
+            data[y] = self.smoothen_data(data, y, ["hue", "col", "row"],
+                                         smoothing_rad, hue, col, row)
+
 
         # only replace row values now
         # this is needed since the row_value
