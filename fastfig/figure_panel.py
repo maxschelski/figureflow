@@ -4552,9 +4552,9 @@ class FigurePanel():
                                  for x_tick_value in tick_values]
                 ax.set_xticks(ticks=x_tick_values)
                 ax.set_xticklabels(tick_values)
-                ax.tick_params(axis="x", which="both", pad=axis_padding,
-                                   length =tick_length, width=tick_width,
-                                   direction="in", color=tick_color)
+            ax.tick_params(axis="x", which="both", pad=axis_padding,
+                               length =tick_length, width=tick_width,
+                               direction="in", color=tick_color)
 
             if not show_tick_labels:
                 ax.set_xticklabels([])
@@ -4601,16 +4601,15 @@ class FigurePanel():
             #  ax.tick_params(axis="x",which="both",pad=0)
 
             self._set_default_xy_ticks("y", ax)
-
             if type(tick_values) != type(None):
                 y_tick_values = [y_tick_value/self.tick_scales[1]
                                  for y_tick_value in tick_values]
                 ax.set_yticks(ticks=y_tick_values)
                 ax.set_yticklabels(tick_values)
-                ax.tick_params(axis="y", which="both", labelpad=axis_padding,
-                               pad=axis_padding,
-                                   length =tick_length, width=tick_width,
-                                   direction="in", color=tick_color)
+            ax.tick_params(axis="y", which="both",
+                           pad=axis_padding,
+                               length =tick_length, width=tick_width,
+                               direction="in", color=tick_color)
 
             if not show_tick_labels:
                 ax.set_yticklabels([])
