@@ -72,7 +72,7 @@ class FigurePanel():
                  show_letter=True, padding="DEFAULT",
                  size_factor=1, increase_size_fac=1,
                  font_size=7, video=False,
-                 animate_panel=False):
+                 animate_panel=None):
         """
             Initiate new Panel of Figure, returns panel.
             Automatically detect files for panel letter.
@@ -104,6 +104,13 @@ class FigurePanel():
         self.size_factor = size_factor
         self.tick_scales = [1,1]
         self.video = video
+        # if animate_panel is not set, make it true if figure panel is
+        # part of video, otherwise false
+        if (type(animate_panel) == type(None)):
+            if video:
+                animate_panel = True
+            else:
+                animate_panel = False
         self.animate_panel = animate_panel
         self.panel_file_paths = panel_file_paths
         self.all_panel_imgs = all_panel_imgs
