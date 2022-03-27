@@ -455,6 +455,7 @@ class FigurePanel():
          order_of_categories) = self._get_map_of_categories(allowed_categories, 
                                                             order_of_categories)
 
+
         self.inv_map = { v : k for k, v in self.map.items() }
 
         # define datatype of all dimensions where data type is not string
@@ -3700,8 +3701,11 @@ class FigurePanel():
             value_to_add = 0
         if parameters[0].lower() == "width":
             max_width = max_widths_px[column]
-            added_array = np.full((image.shape[-3],
-                                   int(max_width) - image.shape[-2]),
+            # create shape of added array that only differs in dimension
+            # where values should be added
+            added_array_shape = np.array(image.shape)
+            added_array_shape[-2] = int(max_width) - added_array_shape[-2]
+            added_array = np.full(tuple(added_array_shape),
                                   value_to_add)
             if parameters[1].lower() == "right":
                 image = np.concatenate((image, added_array), axis=-2)
@@ -3716,8 +3720,9 @@ class FigurePanel():
 
         elif parameters[0].lower() == "height":
             max_height = max_heights_px[column]
-            added_array = np.full((int(max_height) - image.shape[-2],
-                                   image.shape[-1]),
+            added_array_shape = np.array(image.shape)
+            added_array_shape[-3] = int(max_height) - added_array_shape[-3]
+            added_array = np.full(tuple(added_array_shape),
                                   value_to_add)
             if parameters[1].lower() == "bottom":
                 image = np.concatenate((image, added_array), axis=-3)
@@ -5258,7 +5263,8 @@ class FigurePanel():
         (positions_for_cat_vals,
          all_cat_vals,
          label_vals) = self.pool_adjacent_similar_labels(label_vals, all_cat_vals,
-                                                         positions_for_cat_vals)
+                                                         positions_for_cat_vals,
+                                                         label_cat)
 
         # initiate counter for multiple categories (overlay channels)
         for cat_val in all_cat_vals:
@@ -5347,13 +5353,27 @@ class FigurePanel():
         return False
 
     def pool_adjacent_similar_labels(self, label_vals, all_cat_vals,
-                                     positions_for_cat_vals):
+                                     positions_for_cat_vals, label_cat):
         # pool positions for same labels together
         # if labels appear directly after one another
         new_positions_for_cat_vals = {}
         new_all_cat_vals = []
         new_label_vals = []
+        printed_warning = False
         for label_nb, label in enumerate(label_vals):
+            # if more labels were defined than cat vals
+            # are present, ignore too many cat vals
+            # & output warning
+            if len(all_cat_vals) <= label_nb:
+                if not printed_warning:
+                    warning_msg = (f"WARNING: For labelling {label_cat} in "
+                                   f"panel {self.letter} more "
+                                   f"labels were defined than values exist in "
+                                   f"the category. From label '{repr(label)}' "
+                                   f"on no label was used.")
+                    print(warning_msg)
+                    printed_warning = True
+                continue
             cat_val = all_cat_vals[label_nb]
             # initialize if first
             if label_nb == 0:
@@ -6811,7 +6831,7 @@ class FigurePanel():
         borderaxespad_px = 10 * borderaxespad_ * plt.gcf().dpi / 72
         row_label = statannot.add_row_label(row_value, self.font_size,
                                   row_label_orientation, ax, x_start=0)
-        label_width = statannot.get_width_of_legend(row_label,
+        label_width = statannot.get_width_of_object(row_label,
                                                     borderaxespad_px,
                                                     plt.gcf())
         return label_width
@@ -6883,7 +6903,7 @@ class FigurePanel():
                   width_y_axis = 0, col_labels_every_row = False,
                   sub_padding_y_factor = 0.25, show_y_label_in_all_rows = False,
                   for_measuring = False, normalize_after_data_exclusion=False,
-                  video_frame=None,
+                  video_frame=None, show_legend=True,
                   **kwargs):
         """
         Plot data of file for panel.
@@ -7198,7 +7218,7 @@ class FigurePanel():
             # and not for every row
             self.data = data
 
-            self.plot_rows(inner_border,  **kwargs)
+            self.plot_rows(inner_border,  show_legend, **kwargs)
 
         else:
 
@@ -7300,7 +7320,9 @@ class FigurePanel():
              ann_list) = self.plot_results(data, x, y, inner_border,
                                           hue=hue, col=col,
                                            for_measuring=for_measuring,
-                                          width_y_axis = width_y_axis, **kwargs)
+                                          width_y_axis = width_y_axis,
+                                           show_legend=show_legend,
+                                           **kwargs)
 
             # initiate label amtrices for adding labels by position later
             self.initiate_label_matrices()
@@ -7331,7 +7353,7 @@ class FigurePanel():
             return axs_by_position, ax_annot
 
 
-    def plot_rows(self, inner_border,  **kwargs):
+    def plot_rows(self, inner_border,  show_legend, **kwargs):
 
         x_range = None
         plot_type = self.from_kwargs_or_statannot_default(kwargs, "plot_type")
@@ -7368,10 +7390,10 @@ class FigurePanel():
         else:
             row_values = self.data[self.row].drop_duplicates().values
 
-        #  make a test plot for each y to measure
-        #  height of x axis and width of y_axos
+        # make a test plot for each y to measure
+        # height of x axis and width of y_axos
         # will not be accurate for rows with different
-        #  legend sizes!!! (since legend sizes are not compared!)
+        # legend sizes!!! (since legend sizes are not compared!)
         for y_nb, y in enumerate(all_y):
 
             tmp_kwargs_y = self.get_y_specific_kwargs(tmp_kwargs, y_nb)
@@ -7397,6 +7419,7 @@ class FigurePanel():
                                                     baseline=0,
                                                     for_measuring=True,
                                                     increase_padding_above=False,
+                                                    show_legend=show_legend,
                                                     **tmp_kwargs_y)
 
 
@@ -7410,6 +7433,7 @@ class FigurePanel():
                                                                "width",
                                                                ax.get_position().x0)
                 max_y_axis_width_px = max(max_y_axis_width_px, y_axis_width_px)
+
                 #  remove all but one ax, this will be kept
                 #  to check for row label size
                 if ax_nb == 0:
@@ -7421,14 +7445,18 @@ class FigurePanel():
             #  then get the size of the widest row label
             #  for each row label then calculate the difference
             #  to the largest and subtract that value from its widths
+
             for row_value in row_values:
+
                 if self.is_none(row_value):
                     continue
 
+                # get width of row label or legend
                 label_width = self.get_row_label_width(row_value,
                                                        axs_for_measuring[y],
                                                        kwargs)
                 max_label_width = max(max_label_width, label_width)
+
 
             #  there may not be any row values which need to be measured
             #  if only multiple y values are supplied but no column for rows
@@ -7551,7 +7579,6 @@ class FigurePanel():
         if type(self.col) == type(None):
             nb_col_vals = 1
 
-
         if "x_range" in kwargs:
             x_range = kwargs.pop("x_range")
 
@@ -7588,7 +7615,6 @@ class FigurePanel():
             if "y_range" in tmp_kwargs:
                 y_range = tmp_kwargs.pop("y_range")
 
-
             all_axs, height_this_sub_panel = self.plot_one_row(row_nb,
                                                                row_value,
                                                                nb_rows,
@@ -7608,18 +7634,25 @@ class FigurePanel():
                                                                group_padding_rel,
                                                                x_range, y_range,
                                                                ax_for_measuring,
+                                                               show_legend,
                                                                **tmp_kwargs)
 
             #  increase row pos by span of sub_panels
             current_y_pos += height_this_sub_panel
+            all_positions = []
             for position, ax in all_axs.items():
+                # ensure that no axes is overwritten
+                assert (row_nb, position) not in all_positions
+                all_positions.append((row_nb, position))
                 self.all_axs[(row_nb, position[1])] = ax
 
-        for ax_for_measuring in axs_for_measuring.values():
-            #  remove last remaining ax from measuring
-            #  row label width
-            ax_for_measuring.remove()
 
+        for ax_for_measuring in axs_for_measuring.values():
+            # remove last remaining ax from measuring
+            # row label width
+            # only remove ax which are still on the figure
+            if type(ax_for_measuring.figure) != type(None):
+                ax_for_measuring.remove()
 
     def get_y_specific_kwargs(self, kwargs, y_nb):
         """
@@ -7681,7 +7714,8 @@ class FigurePanel():
                      width_y_axis, x_padding_rel,
                      group_padding, group_padding_rel,
                      x_range, y_range,
-                     ax_for_measuring, **kwargs):
+                     ax_for_measuring,
+                     show_legend, **kwargs):
 
         #  add to each inclusion criteria the row criteria
         # so that in each sub panel only the data from
@@ -7735,12 +7769,13 @@ class FigurePanel():
         if row_nb != (nb_rows - 1):
             width_this_panel -= x_tick_overhang_rel
 
-        if row_nb == 0:
-            kwargs["show_legend"] = True
-        else:
-            kwargs["show_legend"] = False
-            if kwargs.get("show_legend",False) == True:
-                kwargs["_leave_space_for_legend"] = True
+        if show_legend:
+            kwargs["_leave_space_for_legend"] = True
+            if row_nb == 0:
+                show_legend = True
+            else:
+                show_legend = False
+
 
         #  create sub panel with same parameters than current panel
         #  except row position and row span
@@ -7830,6 +7865,7 @@ class FigurePanel():
                                         width_y_axis = width_y_axis,
                                          group_padding=group_padding,
                                         auto_scale_group_padding = False,
+                                         show_legend=show_legend,
                                         **kwargs)
 
 
@@ -8747,7 +8783,8 @@ class FigurePanel():
                                 will be annotated in image.
                                 The index in the list corresponds
                                 to the channel number in the image filename
-                                if None, defaults for colors to the value of 'color'
+                                if None, defaults for colors to
+                                cmaps used to display channel/s
         :param only_show_in_row: list of rows in which the labels
                                 should be displayed, if None display in all rows
         :param only_show_in_column: list of columns in which the labels
