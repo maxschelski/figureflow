@@ -1123,7 +1123,7 @@ def add_row_label(row_label_text, fontsize_points,
     return label
 
 
-def get_width_of_legend(legend, borderaxespad_px, fig):
+def get_width_of_object(legend, borderaxespad_px, fig):
     legend_coords = legend.get_window_extent( fig.canvas.get_renderer() )
     if legend_coords.width > 0:
         legend_width = (legend_coords.width + borderaxespad_px) / (fig.get_size_inches()[0] * fig.dpi)
@@ -1202,7 +1202,7 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
     if type(legend) != type(None):
         # get width of legend, needed to set width_reduction in move_plot_into_borders_and_center_it function
         # legend_coords = ax.legend_.get_window_extent( fig.canvas.get_renderer() )
-        legend_width = get_width_of_legend(legend, borderaxespad_px, fig)
+        legend_width = get_width_of_object(legend, borderaxespad_px, fig)
 
     else:
         legend_width = 0
@@ -2117,7 +2117,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     :param plot_title: String; Title of the plot that will be added above the plot
 
     """
-
+    
     continuous_plot_types = ["line", "regression", "scatter"]
 
     if show_col_labels_above:
@@ -2244,6 +2244,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                    label=("data_plot " +
                                            str(col_val) + " " +
                                            letter +
+                                            str(y) +
+                                            str(x) +
                                            str(row_label_text) +
                                            str(for_measuring) +
                                            str(max(data[x]))))
@@ -2323,9 +2325,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             for label in ax.get_xticklabels():
                 label.set_ha("right")
                 label.set_rotation(45)
-                
+        print(show_legend)
         # set the legend as well as axes labels and padding
-        legend_width, longest_legend_handles = set_legend_and_axes(ax, col_order, plot_nb, hue_order,
+        legend_width, longest_legend_handles = set_legend_and_axes(ax, col_order,
+                                                                   plot_nb, hue_order,
                             y_axis_label, x_order, fontsize, legend_spacing, longest_legend_handles,
                             show_x_axis, x_axis_label, legend_title, show_row_label,
                             row_label_text,row_label_orientation,
