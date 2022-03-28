@@ -1978,7 +1978,6 @@ def get_x_shift_to_hor_center_plot(ax, col_order, nb_x_vals, total_nb_columns,
                        total_width_between_groups)
     rel_width_reduction = 1
     # check whether width of all plots is more than available width
-    print(available_width, width_all_plots)
     if available_width > width_all_plots:
         # if it is not more than available,
         # get space on both sides to center plots horizontally
