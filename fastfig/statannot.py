@@ -1762,8 +1762,6 @@ def update_plot_and_arrays(y_stack_arr, y_top_annot, x1, x2, all_ax_data,
 
     for ax_data in all_ax_data.values():
         ylim = ax_data.get_ylim()
-        print(y_stack_max)
-        print(ylim)
         if loc == 'inside':
             if (0.98 * y_stack_max) > (ylim[1]):
                 ax_data.set_ylim((ylim[0], 0.98*y_stack_max))
@@ -1949,9 +1947,11 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
 
 
 def get_x_shift_to_hor_center_plot(ax, col_order, nb_x_vals, total_nb_columns,
-                                   x_shift, outer_border, group_padding,
+                                   outer_border, group_padding,
                                    auto_width_reduction_factor, legend_width,
                                    auto_scale_group_padding, hor_alignment):
+
+    x_shift = 0
 
     ax_coords = ax.get_position()
     fig = plt.gcf()
@@ -1972,12 +1972,13 @@ def get_x_shift_to_hor_center_plot(ax, col_order, nb_x_vals, total_nb_columns,
     if auto_scale_group_padding:
         total_width_between_groups *= auto_width_reduction_factor
     width_yaxis_text = rel_width_text * ax_coords.width
-    width_all_plots = ax_coords.width / (nb_x_vals * total_nb_columns +
-                                         width_yaxis_text + legend_width +
-                                         total_width_between_groups)
-
+    width_all_plots = (ax_coords.width / nb_x_vals * total_nb_columns +
+                       width_yaxis_text +
+                       legend_width +
+                       total_width_between_groups)
     rel_width_reduction = 1
     # check whether width of all plots is more than available width
+    print(available_width, width_all_plots)
     if available_width > width_all_plots:
         # if it is not more than available,
         # get space on both sides to center plots horizontally
@@ -2041,12 +2042,10 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
                                              hor_alignment,
                                              continuous_plot_types):
     fig = plt.gcf()
-    plot_nb = 1
-    x_shift = 0
-    for col_val in col_order:
+    for plot_nb, col_val in enumerate(col_order):
         ax = all_axs[col_val]
         col_data = data.loc[data[col] == col_val]
-        if plot_nb == 1:
+        if plot_nb == 0:
             if (plot_type in continuous_plot_types):
                 # for continuous plot types, the width of each
                 # plot should not depend on the x values
@@ -2058,8 +2057,8 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
 
             (x_shift,
              rel_width_reduction) = get_x_shift_to_hor_center_plot(ax, col_order,
-                                                                   nb_boxes, total_nb_columns,
-                                                                   x_shift,
+                                                                   nb_boxes,
+                                                                   total_nb_columns,
                                                                    outer_border,
                                                                    group_padding,
                                                                    auto_width_reduction_factor,
@@ -2081,8 +2080,6 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
             rel_group_padding *= auto_width_reduction_factor
             # reduce x_shift to account for changed space between plots
             x_shift -= rel_group_padding * (1 - 1 / rel_width_reduction)
-
-        plot_nb += 1
 
 
 def add_background_grid_lines_to_plots(all_axs, col_order, line_width, letter):
@@ -2739,7 +2736,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         if show_y_minor_ticks:
             ax.grid(visible=True, b=False, color=line_color, linestyle='-',
                     which="minor", axis="y", linewidth=line_width_thin)
-        
 
     # move plot to within outer_border horizontally (axes labeling is outside of ax and thereby of outer_border)
     # center the plot then horizontally
@@ -2756,7 +2752,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                              auto_scale_group_padding,
                                              plot_type, hor_alignment,
                                              continuous_plot_types)
-
 
     # move overhanging axis tick labels into inner_border
     for ax in all_axs.values():
