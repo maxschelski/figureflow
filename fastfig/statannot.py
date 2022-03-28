@@ -1737,9 +1737,9 @@ def draw_line(line_x,line_y,line_width,color,ax, transform=None):
     return ax
 
 
-def update_plot_and_arrays(y_stack_arr,y_top_annot,x1,x2,all_ax_data,
-                           ax,annotated_pairs,ymax_in_range,
-                           text,box_dict_pair,loc):
+def update_plot_and_arrays(y_stack_arr, y_top_annot, x1, x2, all_ax_data,
+                           ax, annotated_pairs, ymax_in_range,
+                           text, box_dict_pair, loc):
 
     # save annotation
     annotated_pairs[(box_dict_pair[0]['box'],text)] = [ymax_in_range,text]
@@ -1762,11 +1762,13 @@ def update_plot_and_arrays(y_stack_arr,y_top_annot,x1,x2,all_ax_data,
 
     for ax_data in all_ax_data.values():
         ylim = ax_data.get_ylim()
+        print(y_stack_max)
+        print(ylim)
         if loc == 'inside':
             if (0.98 * y_stack_max) > (ylim[1]):
-                ax.set_ylim((ylim[0], 0.98*y_stack_max))
+                ax_data.set_ylim((ylim[0], 0.98*y_stack_max))
             else:
-                ax.set_ylim((ylim[0], ylim[1]))
+                ax_data.set_ylim((ylim[0], ylim[1]))
         elif loc == 'outside':
             ax_data.set_ylim((ylim[0], ylim[1]))
 
@@ -1783,9 +1785,9 @@ def update_plot_and_arrays(y_stack_arr,y_top_annot,x1,x2,all_ax_data,
 
 def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
                             all_ax_data, ax,annotated_pairs, text_offset,
-                            fontsize, h, ann_list, line_width, loc, y_offset_to_box,
-                            y_offset, color, use_fixed_offset, show_data_points,
-                            fliersize):
+                            fontsize, h, ann_list, line_width, loc,
+                            y_offset_to_box, y_offset, color, use_fixed_offset,
+                            show_data_points, fliersize):
 
     # if show_data_points is False, outliers will be plotted
     # fliersize is the size in pt of these outliers
@@ -1870,7 +1872,8 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
         ymax_in_range_x1_x2 = np.max(y_stack_arr[1, np.where((x1 <= y_stack_arr[0, :]) &
                                                              (y_stack_arr[0, :] <= x2))
                                      ])
-        i_ymax_in_range_x1_x2 = np.where(y_stack_arr[1, :] == ymax_in_range_x1_x2)[0][0]
+        i_ymax_in_range_x1_x2 = np.where(y_stack_arr[1, :] ==
+                                         ymax_in_range_x1_x2)[0][0]
 
         # Choose the best offset depending on wether there is an annotation below
         # at the x position in the range [x1, x2] where the stack is the highest
@@ -1941,7 +1944,6 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
 
                 ax = draw_line(line_x, line_y, line_width, color, ax)
 
-        dasd
         
     return ax, all_ax_data,annotated_pairs,y_stack_arr,ann_list
 
@@ -2592,10 +2594,12 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         # if annotate_nonsignificant is False, also exclude non significant box_pairs
         # TO ADD: CHOICE OF STAT TEST
         # POSSIBLY TO ADD: automatic choice of test depending on normal distribution of data
-        all_box_pairs, p_values, test_result_list = get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
-                                                                        all_box_pairs,max_level_of_pairs,
-                                                                        test_short_name,test_result_list,
-                                                                        annotate_nonsignificant,verbose)
+        (all_box_pairs,
+         p_values,
+         test_result_list) = get_stats_and_exclude_nonsignificant(included_data,col, x, y, hue,
+                                                                    all_box_pairs, max_level_of_pairs,
+                                                                    test_short_name, test_result_list,
+                                                                    annotate_nonsignificant,verbose)
 
         # Build array that contains the x and y_max position of the highest annotation or box data at
         # a given x position, and also keeps track of the number of stacked annotations.
@@ -2618,18 +2622,20 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
         h = line_height * max_yrange
 
-        for x_val,box_pairs_of_x in box_pairs_grouped.items():
+        for x_val, box_pairs_of_x in box_pairs_grouped.items():
             if (x_val != "different_x") & (hue != "no_hue_defined") & show_stats_to_control_without_lines:
-                output = plot_comparison_to_control_within_x(box_pairs_of_x,
+                (box_pairs_of_x,
+                 ann_list,
+                 ax_annot,
+                 all_axs,
+                 annotated_pairs,
+                 y_stack_arr) = plot_comparison_to_control_within_x(box_pairs_of_x,
                                                 hue_order,x_val,hue, col,
                                                 pval_texts, all_box_names, all_box_structs_dics,
                                                 ann_list, ax_annot, text_offset, y_offset_to_box,
                                                 fontsize, all_axs, annotated_pairs,
                                                 y_stack_arr, h, use_fixed_offset, loc)
 
-                (box_pairs_of_x, ann_list,
-                 ax_annot, all_axs,
-                 annotated_pairs, y_stack_arr) = output
 
             box_counter, all_boxes = count_occurences_of_boxes_in_pairs(box_pairs_of_x, pval_texts)
 
@@ -2659,7 +2665,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
             if x_val == "different_x":
                 # calculate correction factor for increased height of plot after adding plots
-                correction_factor = (1 + (len(box_struct_pairs_grouped) * (line_height + y_offset) * 2))
+                correction_factor = (1 + (len(box_struct_pairs_grouped) *
+                                          (line_height + y_offset) * 2))
                 h /= correction_factor/1.5
                 y_offset /= correction_factor
                 y_offset_to_box /= correction_factor
