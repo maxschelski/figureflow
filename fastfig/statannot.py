@@ -1016,55 +1016,64 @@ def get_max_ylim_yrange(all_ax_data):
     yrange = max_yrange
     return ylim, yrange
 
-def plot_text(ax,text,y,x1,x2,text_offset,fontsize,h,
-              use_fixed_offset,ann_list):
+def plot_text(ax, text, y, x1, x2, text_offset, fontsize, h,
+              use_fixed_offset, ann_list):
 
     figure = plt.gcf()
+    y_top_annot = y + h
 
-    if (text is not None):
-        fontsize_pt = FontProperties(size=fontsize).get_size_in_points()
-        if text.find("*") != -1:
-            text_offset = text_offset - fontsize_pt / 2
-        else:
-            text_offset = text_offset - fontsize_pt / 10
-        ann = ax.annotate(
-            text, xy=(np.mean([x1, x2]), y+h),
-            xytext=(0, text_offset), textcoords='offset points',
-            xycoords='data', ha='center', va='bottom',
-            fontsize=fontsize,fontweight='bold', clip_on=False, annotation_clip=False)
-        ann_list.append(ann)
+    if (type(text) == type(None)):
+        return ann_list, y_top_annot, ax
 
-        plt.draw()
-        y_top_annot = None
-        got_mpl_error = False
-        if not use_fixed_offset:
-            try:
-                bbox = ann.get_window_extent()
-                bbox_data = bbox.transformed(ax.transData.inverted())
-                y_top_annot = bbox_data.ymax
-            except RuntimeError:
-                got_mpl_error = True
-
-        if use_fixed_offset or got_mpl_error:
-            if verbose:
-                print("Warning: cannot get the text bounding box. Falling back to a fixed"
-                      " y offset. Layout may be not optimal.")
-            # We will apply a fixed offset in points,
-            # based on the font size of the anperties(size='medium').get_size_in_points()
-            fontsize_pt = FontProperties(size=fontsize).get_size_in_points()
-            offset_trans = mtransforms.offset_copy(ax.transData, fig=figure, x=0,y=(1.0*fontsize_pt + text_offset), units='points')
-            # user additional buffer for text above line
-            y_top_display = offset_trans.transform((0, y + h))
-            y_top_annot = ax.transData.inverted().transform(y_top_display)[1]
+    fontsize_pt = FontProperties(size=fontsize).get_size_in_points()
+    if text.find("*") != -1:
+        text_offset = text_offset - fontsize_pt / 2
     else:
-        y_top_annot = y + h
+        text_offset = text_offset - fontsize_pt / 10
+    ann = ax.annotate(
+        text, xy=(np.mean([x1, x2]), y+h),
+        xytext=(0, text_offset), textcoords='offset points',
+        xycoords='data', ha='center', va='bottom',
+        fontsize=fontsize,fontweight='bold', clip_on=False,
+        annotation_clip=False)
+    ann_list.append(ann)
+
+    plt.draw()
+    y_top_annot = None
+    got_mpl_error = False
+    if not use_fixed_offset:
+        try:
+            bbox = ann.get_window_extent()
+            bbox_data = bbox.transformed(ax.transData.inverted())
+            y_top_annot = bbox_data.ymax
+        except RuntimeError:
+            got_mpl_error = True
+
+    if not (use_fixed_offset or got_mpl_error):
+        return ann_list, y_top_annot, ax
+
+    if verbose:
+        print("Warning: cannot get the text bounding box. "
+              "Falling back to a fixed"
+              " y offset. Layout may be not optimal.")
+    # We will apply a fixed offset in points,
+    # based on the font size of the anperties(size='medium').get_size_in_points()
+    fontsize_pt = FontProperties(size=fontsize).get_size_in_points()
+    offset_trans = mtransforms.offset_copy(ax.transData, fig=figure,
+                                           x=0, y=(1.0 * fontsize_pt +
+                                                   text_offset),
+                                           units='points')
+    # user additional buffer for text above line
+    y_top_display = offset_trans.transform((0, y + h))
+    y_top_annot = ax.transData.inverted().transform(y_top_display)[1]
 
     return ann_list, y_top_annot, ax
 
 
-def get_px_size_rel_to_subplot(ax,width,height):
+def get_px_size_rel_to_subplot(ax, width, height):
     fig = plt.gcf()
-    subplot_size = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+    ax_size = ax.get_window_extent()
+    subplot_size = ax_size.transformed(fig.dpi_scale_trans.inverted())
     subplot_height = subplot_size.height * fig.dpi
     subplot_width = subplot_size.width * fig.dpi
     # add x_spacing to relative width
@@ -1101,12 +1110,14 @@ def change_plot_size_to_standardize_box_size(ax, nb_x_vals, box_width, hue,
     else:
         auto_width_reduction_factor = 1
 
-    # width difference can never be below zero, since plots are not increased in size then
+    # width difference can never be below zero,
+    # since plots are not increased in size then
     # (they already use up all available space)
     width_difference = max(0,ax_coords.width - rel_target_width)
 
     if width_difference > 0:
-        ax.set_position([ax_coords.x0, ax_coords.y0, rel_target_width, ax_coords.height])
+        ax.set_position([ax_coords.x0, ax_coords.y0,
+                         rel_target_width, ax_coords.height])
 
     return ax, width_difference, auto_width_reduction_factor
 
@@ -1126,7 +1137,8 @@ def add_row_label(row_label_text, fontsize_points,
 def get_width_of_object(legend, borderaxespad_px, fig):
     legend_coords = legend.get_window_extent( fig.canvas.get_renderer() )
     if legend_coords.width > 0:
-        legend_width = (legend_coords.width + borderaxespad_px) / (fig.get_size_inches()[0] * fig.dpi)
+        legend_width_px = legend_coords.width + borderaxespad_px
+        legend_width = legend_width_px / (fig.get_size_inches()[0] * fig.dpi)
     else:
         legend_width = 0
     return legend_width
@@ -1152,7 +1164,8 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
     # get fontsize in points based on string description of font size
     fontsize_points = FontProperties(size=fontsize).get_size_in_points()
 
-    # set handles and labels of legend as first to in the legend, position legend upper right corner next to plot
+    # set handles and labels of legend as first to in the legend,
+    # position legend upper right corner next to plot
     handles, labels = ax.get_legend_handles_labels()
     if len(handles) < len(longest_legend_handles):
         handles = longest_legend_handles
@@ -1163,7 +1176,8 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
     # FIND A MORE GENERAL SOLUTION THAN THIS!
     if len(handles) > 0:
         if type(handles[0]) == lines.Line2D:
-            handles = [handle for handle in handles if handle.get_color() != "w" ]
+            handles = [handle for handle in handles
+                       if handle.get_color() != "w" ]
 
     nb_labels = len(hue_order)
 
@@ -1174,8 +1188,11 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
 
     if not show_row_label:
 
-        legend = plt.legend(handles[0:nb_labels],hue_order,bbox_to_anchor=(1, 1), loc=2, fontsize=fontsize_points,frameon=False,
-                    borderpad=0, handletextpad=legend_spacing, borderaxespad=borderaxespad_, title=legend_title,
+        legend = plt.legend(handles[0:nb_labels], hue_order,
+                            bbox_to_anchor=(1, 1), loc=2,
+                            fontsize=fontsize_points, frameon=False,
+                            borderpad=0, handletextpad=legend_spacing,
+                            borderaxespad=borderaxespad_, title=legend_title,
                             handlelength=legend_handle_length)
 
         # set font size of legend title same as rest of legend
@@ -1200,8 +1217,9 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
 
 
     if type(legend) != type(None):
-        # get width of legend, needed to set width_reduction in move_plot_into_borders_and_center_it function
-        # legend_coords = ax.legend_.get_window_extent( fig.canvas.get_renderer() )
+        # get width of legend, needed to set width_reduction
+        # in move_plot_into_borders_and_center_it function
+        # legend_coords =ax.legend_.get_window_extent(fig.canvas.get_renderer())
         legend_width = get_width_of_object(legend, borderaxespad_px, fig)
 
     else:
@@ -1210,7 +1228,9 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
     if not show_row_label:
         # remove legend now for all except the last subplot
         # Also remove legend if there is only one item in the legends
-        if (plot_nb != (len(col_order))) | (len(handles) < 2) | (not show_legend):
+        if ((plot_nb != len(col_order)) |
+                (len(handles) < 2) |
+                (not show_legend)):
             if not (type(ax.legend_) == type(None)):
                 show_legend = False
         if not show_legend:
@@ -1234,7 +1254,9 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
 
     # show x label for column if should be shown in all columns
     # of if the current column is the first
-    if (x_axis_label != None) & ((show_x_label_in_all_columns) | (plot_nb == 1)):
+    if ((x_axis_label != None) &
+            ((show_x_label_in_all_columns) |
+             (plot_nb == 1))):
         ax.set_xlabel(x_axis_label, labelpad=borderaxespad_)
 
     if not show_x_axis:
@@ -1248,18 +1270,22 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
     return legend_width, handles
 
 
-def set_axis_label_paddings(inner_padding, axis_padding, ax, plot_nb, outer_border, size_factor):
-    # set axis_padding for all plots in the first plot, since only this plot has the
+def set_axis_label_paddings(inner_padding, axis_padding, ax, plot_nb,
+                            outer_border, size_factor):
+    # set axis_padding for all plots in the first plot,
+    # since only this plot has the
     if plot_nb == 1:
         # calculate padding of tick labels
-        axis_padding = get_accurate_y_tick_padding(ax, axis_padding, size_factor)
+        axis_padding = get_accurate_y_tick_padding(ax, axis_padding,
+                                                   size_factor)
 
     ax.tick_params(axis="both",which="both",pad=axis_padding) # REACTIVATE
 
     #remove tick lines from plot
     ax.tick_params(left=False, bottom=False)
     # set padding for y, label
-    # (is lower than default padding for width of one position in grid less than about 2 inches)
+    # (is lower than default padding for width
+    #  of one position in grid less than about 2 inches)
     ax.set_ylabel(ax.get_ylabel(),labelpad=inner_padding)
 
     return axis_padding
@@ -1271,13 +1297,15 @@ def get_accurate_y_tick_padding(ax, target_padding, size_factor = None):
     if size_factor == None:
         size_factor = 1
     # get x1 position (rightmost border of tick labels) of bbox of tick labels
-    # set padding of y-axis zero first to get real difference in position between ticks and ax
+    # set padding of y-axis zero first to get real difference
+    # in position between ticks and ax
     ax.tick_params(axis="y",which="both",pad=0) # REACTIVATE
     fig = plt.gcf()
-    bbox = ax.yaxis._get_tick_bboxes(ax.yaxis.majorTicks,fig.canvas.get_renderer())
+    bbox = ax.yaxis._get_tick_bboxes(ax.yaxis.majorTicks,
+                                     fig.canvas.get_renderer())
     tick_x1 = bbox[0][0].x1
     # get start of x0
-    ax_x0 = ax.get_position().x0 * fig.get_size_inches()[0] * fig.dpi# outer_border[0]
+    ax_x0 = ax.get_position().x0 * fig.get_size_inches()[0] * fig.dpi #outer_border[0]
     # target padding is the actual distance between tick labels and plot
     target_padding *= size_factor
     axis_padding = (tick_x1 - ax_x0 + target_padding) * 72 / fig.dpi
@@ -1291,13 +1319,15 @@ def get_accurate_x_tick_padding(ax, target_padding, size_factor = None):
     if size_factor == None:
         size_factor = 1
     # get y1 position (rightmost border of tick labels) of bbox of tick labels
-    # set padding of y-axis zero first to get real difference in position between ticks and ax
+    # set padding of y-axis zero first
+    # to get real difference in position between ticks and ax
     ax.tick_params(axis="x",which="both",pad=0) # REACTIVATE
     fig = plt.gcf()
-    bbox = ax.xaxis._get_tick_bboxes(ax.xaxis.majorTicks,fig.canvas.get_renderer())
+    bbox = ax.xaxis._get_tick_bboxes(ax.xaxis.majorTicks,
+                                     fig.canvas.get_renderer())
     tick_y1 = bbox[0][0].y1
     # get start of x0
-    ax_y0 = ax.get_position().y0 * fig.get_size_inches()[0] * fig.dpi# outer_border[0]
+    ax_y0 = ax.get_position().y0 * fig.get_size_inches()[0] * fig.dpi #outer_border[0]
     # target padding is the actual distance between tick labels and plot
     target_padding *= size_factor
     axis_padding = (tick_y1 - ax_y0 + target_padding) * 72 / fig.dpi
@@ -1310,7 +1340,8 @@ def get_y_shift_to_vert_fill_outer_border(ax, col, col_order,
                                           always_show_col_label):
         ax_coords = ax.get_position()
         # if col is used to group data for plotting
-        # get fontsize for col value (title on x axis) based on string fontsize description (e.g. "medium")
+        # get fontsize for col value (title on x axis)
+        # based on string fontsize description (e.g. "medium")
         if (((col == "no_col_defined") | len(col_order) <= 1) & 
             (not always_show_col_label)):
             title_fontsize = 0
@@ -1322,14 +1353,19 @@ def get_y_shift_to_vert_fill_outer_border(ax, col, col_order,
 
         fig = plt.gcf()
 
-        # adjust position of axes for additional space needed by x axes label and y axes labels (including title)
-        text_height = get_axis_dimension(ax, ax.xaxis, "height", outer_border[2])
+        # adjust position of axes for additional space
+        # needed by x axes label and y axes labels (including title)
+        text_height = get_axis_dimension(ax, ax.xaxis, "height",
+                                         outer_border[2])
 
-        _, rel_height_text = get_px_size_rel_to_subplot(ax, width=0, height=text_height)
+        _, rel_height_text = get_px_size_rel_to_subplot(ax, width=0,
+                                                        height=text_height)
 
 
-        # if there is no x label (0 text height), then only add one inner_padding instead of two
-        # otherwise there are one before the line and one after the line, without label there is no line above the title
+        # if there is no x label (0 text height),
+        # then only add one inner_padding instead of two
+        # otherwise there are one before the line and one after the line,
+        # without label there is no line above the title
         if text_height == 0:
             inner_padding /= 2
 
@@ -1341,8 +1377,13 @@ def get_y_shift_to_vert_fill_outer_border(ax, col, col_order,
         # col label above is more often for continuous plots
 
         if (show_col_labels_below) & (col != "no_col_defined"):
-            # to get nb of px of fontsize normalize to current dpi, fontsize is nb of px for dpi of 72
-            _ , rel_height_title = get_px_size_rel_to_subplot(ax, width=0, height= (title_fontsize * nb_title_lines + inner_padding * 2) * (fig.dpi/72) )
+            # to get nb of px of fontsize normalize to current dpi,
+            # fontsize is nb of px for dpi of 72
+            _ , rel_height_title = get_px_size_rel_to_subplot(ax, width=0,
+                                                              height= (title_fontsize *
+                                                                       nb_title_lines +
+                                                                       inner_padding * 2) *
+                                                                      (fig.dpi/72) )
         else:
             rel_height_title = 0
 
@@ -1353,7 +1394,8 @@ def get_y_shift_to_vert_fill_outer_border(ax, col, col_order,
 
 def vert_fill_outer_border(ax, y_shift, rel_height_change):
     """
-    adjust position and size of plot to have vertical padding to nearby panels and own panel letter
+    adjust position and size of plot to have vertical padding
+    to nearby panels and own panel letter
     center the plot vertically
     """
 
@@ -1369,7 +1411,9 @@ def vert_fill_outer_border(ax, y_shift, rel_height_change):
 
 def adjust_annotation_plot_height_and_y(ax_annot, y_shift, rel_height_change):
     ax_annot_coords = ax_annot.get_position()
-    ax_annot.set_position([ax_annot_coords.x0,ax_annot_coords.y0 + y_shift,ax_annot_coords.width,ax_annot_coords.height/rel_height_change])
+    ax_annot.set_position([ax_annot_coords.x0, ax_annot_coords.y0 + y_shift,
+                           ax_annot_coords.width,
+                           ax_annot_coords.height/rel_height_change])
 
 
 def px(rel):
@@ -1401,10 +1445,12 @@ def get_axis_dimension(ax, axis, type, baseline):
 
     # update ticks first and then get correct bboxes
     if type == "height":
-        # box = axis._get_tick_bboxes(axis._update_ticks(),fig.canvas.get_renderer())[0][0]
+        # box = axis._get_tick_bboxes(axis._update_ticks(),
+        # fig.canvas.get_renderer())[0][0]
         box = axis.get_tightbbox(plt.gcf().canvas.renderer)
         baseline_px_y = baseline * fig.get_size_inches()[1] * fig.dpi
-        # if the label has no text, there is no label and therefore dont consider its height
+        # if the label has no text, there is no label
+        # and therefore dont consider its height
         if axis.get_major_ticks()[0].label.get_text() == "":
             y0 = baseline_px_y
         else:
@@ -1433,64 +1479,91 @@ def get_axis_dimension(ax, axis, type, baseline):
 
 
 def finetune_plot(ax, box_structs, col, col_order, perform_stat_test,
-                    line_width, line_width_thin, inner_padding, fontsize, col_val,
-                    plot_type, vertical_lines, show_col_labels_below, always_show_col_label):
+                  line_width, line_width_thin, inner_padding, fontsize,
+                  col_val, plot_type, vertical_lines, show_col_labels_below,
+                  always_show_col_label):
 
-    # add vertical light-grey line for each box to see better to which plot a statistic annotation refers
+    # add vertical light-grey line for each box
+    # to see better to which plot a statistic annotation refers
     fig = plt.gcf()
     y_lim = ax.get_ylim()[1]
     if perform_stat_test & vertical_lines:
         for box_struct in box_structs:
             x = box_struct['x_orig']
             line_x, line_y = [x, x], [0,y_lim]
-            line = lines.Line2D(line_x, line_y, lw=line_width_thin, c="0.8", transform=ax.transData,zorder=0,solid_capstyle="butt")
+            line = lines.Line2D(line_x, line_y, lw=line_width_thin, c="0.8",
+                                transform=ax.transData, zorder=0,
+                                solid_capstyle="butt")
             line.set_clip_on(False)
             ax.add_line(line)
 
-    if col != "no_col_defined":
-        # draw line over title below x value
-        if len(box_structs) > 1:
-            dX = box_structs[1]['x_orig'] - box_structs[0]['x_orig']
-            x0 = box_structs[0]['x_orig'] - dX/2 * 0.9
-            x1 = box_structs[-1]['x_orig'] + dX/2 * 0.9
-        else:
-            x0 = box_structs[0]['x_orig'] - 0.4
-            x1 = box_structs[0]['x_orig'] + 0.4
+    if col == "no_col_defined":
+        return ax
 
-        if (len(col_order) > 1) | (always_show_col_label):
-            y0_ax = ax.get_position().y0
-            text_height = get_axis_dimension(ax, ax.xaxis, "height", y0_ax)
+    # draw line over title below x value
+    if len(box_structs) > 1:
+        dX = box_structs[1]['x_orig'] - box_structs[0]['x_orig']
+        x0 = box_structs[0]['x_orig'] - dX/2 * 0.9
+        x1 = box_structs[-1]['x_orig'] + dX/2 * 0.9
+    else:
+        x0 = box_structs[0]['x_orig'] - 0.4
+        x1 = box_structs[0]['x_orig'] + 0.4
 
-            _ , rel_height_text = get_px_size_rel_to_subplot(ax, 0, text_height + (inner_padding * fig.dpi / 72) )
+    if (len(col_order) <= 1) & (not always_show_col_label):
+        return ax
 
-            # only plot a line if x tick labels are actually there, to show the start of the second level of label
-            # if col is the only level, then dont add a line
-            if (col_val != "") & show_col_labels_below:
-                if (ax.xaxis.get_ticklabel_extents(fig.canvas.get_renderer())[0].height > 0):
-                    line_x = [x0, x1]
-                    line_y = ax.get_ylim()[0] - rel_height_text * (y_lim - ax.get_ylim()[0])
+    y0_ax = ax.get_position().y0
+    text_height = get_axis_dimension(ax, ax.xaxis, "height", y0_ax)
 
-                    # line_y = - rel_height_text
-                    ax = draw_line(line_x=line_x, line_y=[line_y, line_y],
-                                   line_width=line_width, color="black", ax=ax)
+    _ , rel_height_text = get_px_size_rel_to_subplot(ax, 0,
+                                                     text_height +
+                                                     (inner_padding *
+                                                      fig.dpi / 72) )
 
-                title_fontsize = FontProperties(size=fontsize).get_size_in_points()
-                nb_lines_title = len(col_val.split("\n"))
-                if text_height == 0:
-                    inner_padding /= 2
+    # only plot a line if x tick labels are actually there,
+    # to show the start of the second level of label
+    # if col is the only level, then dont add a line
+    if (col_val == "") & (not show_col_labels_below):
+        return ax
 
-                _, rel_height_title = get_px_size_rel_to_subplot(ax, 0, height= (title_fontsize * nb_lines_title + inner_padding) * fig.dpi / 72)
-                # set title as column for which subplots are created (Sep) with uppercase start, position below graph (y=)
-                y_pos_title = ax.get_ylim()[0] - (rel_height_text + rel_height_title) * (y_lim - ax.get_ylim()[0])
-                ax.text(s=str(col_val), x=(x0+x1)/2, y=y_pos_title, fontsize=title_fontsize, ha="center", va="bottom")
+    x_axis_ticks = ax.xaxis.get_ticklabel_extents(fig.canvas.get_renderer())
+    if (x_axis_ticks[0].height > 0):
+        line_x = [x0, x1]
+        line_y_pos = (ax.get_ylim()[0] - rel_height_text *
+                      (y_lim - ax.get_ylim()[0]))
+        line_y = [line_y_pos, line_y_pos]
 
+        # line_y = - rel_height_text
+        ax = draw_line(line_x=line_x, line_y=line_y,
+                       line_width=line_width, color="black", ax=ax)
+
+    title_fontsize = FontProperties(size=fontsize).get_size_in_points()
+    nb_lines_title = len(col_val.split("\n"))
+    if text_height == 0:
+        inner_padding /= 2
+
+    _, rel_height_title = get_px_size_rel_to_subplot(ax, 0,
+                                                     height= ((title_fontsize *
+                                                               nb_lines_title +
+                                                               inner_padding) *
+                                                              fig.dpi / 72)
+                                                     )
+    # set title as column for which subplots are created (Sep)
+    # with uppercase start, position below graph (y=)
+    y_pos_title = (ax.get_ylim()[0] -
+                   (rel_height_text + rel_height_title) *
+                   (y_lim - ax.get_ylim()[0]))
+    ax.text(s=str(col_val), x=(x0+x1)/2, y=y_pos_title,
+            fontsize=title_fontsize, ha="center", va="bottom")
 
     return ax
 
 def add_annotation_subplot(letter, outer_border, ax_reference=None):
 
-    # create_subplot(fig,column,row,fig_columns,fig_rows,col_span,row_span,label)
-    ax = create_column_subplot(outer_border, label="annotation plot "+str(letter))
+    # create_subplot(fig,column,row,fig_columns,fig_rows,
+    # col_span,row_span,label)
+    ax = create_column_subplot(outer_border,
+                               label="annotation plot "+str(letter))
     if ax_reference != None:
         ax_ref_coords = ax_reference.get_position()
         ax.set_position(ax_ref_coords)
@@ -1542,7 +1615,8 @@ def get_annotated_text_dict(p_values,pvalue_format_string,test_short_name,
         #     text = text_annot_custom[i_box_pair]
         # else:
         if text_format == 'full':
-            text = "{} p = {}".format('{}', pvalue_format_string).format(test_short_name, pval)
+            text = ("{} p = {}".format('{}', pvalue_format_string)
+                    .format(test_short_name, pval))
         elif text_format is None:
             text = None
         elif text_format is 'star':
@@ -1554,13 +1628,15 @@ def get_annotated_text_dict(p_values,pvalue_format_string,test_short_name,
     return pval_texts
 
 
-def plot_comparison_to_control_within_x(box_pairs_of_x, hue_order, x_val, hue, col,
-                                        pval_texts, all_box_names, all_box_structs_dics,
-                                        ann_list, ax, text_offset, y_offset_to_box, fontsize,
+def plot_comparison_to_control_within_x(box_pairs_of_x, hue_order, x_val, hue,
+                                        col, pval_texts, all_box_names,
+                                        all_box_structs_dics, ann_list, ax,
+                                        text_offset, y_offset_to_box, fontsize,
                                         all_ax_data, annotated_pairs,
                                         y_stack_arr, h, use_fixed_offset, loc):
 
-    # remove box_pairs that involve control in comparison within same x_val, if hue is defined only
+    # remove box_pairs that involve control in comparison within same x_val,
+    # if hue is defined only
 
     box_pairs_of_x_no_control = []
     box_pairs_of_x_control = []
@@ -1584,18 +1660,26 @@ def plot_comparison_to_control_within_x(box_pairs_of_x, hue_order, x_val, hue, c
         x = box_dict['x']
         y = box_dict['ymax'] + y_offset_to_box
         text = pval_texts[box_pair]
-        ann_list, y_top_annot,ax = plot_text(ax,text,y,x,x,text_offset,fontsize,h,use_fixed_offset,ann_list)
-        all_ax_data,annotated_pairs,y_stack_arr,ax = update_plot_and_arrays(y_stack_arr,y_top_annot,
-                                                                            x,x,all_ax_data,ax,
-                                                                            annotated_pairs,y,
-                                                                            text,(box_dict1, box_dict2),loc)
+        ann_list, y_top_annot,ax = plot_text(ax, text, y, x, x, text_offset,
+                                             fontsize, h, use_fixed_offset,
+                                             ann_list)
+
+        (all_ax_data,
+         annotated_pairs,
+         y_stack_arr,
+         ax) = update_plot_and_arrays(y_stack_arr, y_top_annot,
+                                        x, x, all_ax_data, ax,
+                                        annotated_pairs, y,
+                                        text, (box_dict1, box_dict2), loc)
     # only use box_pairs without contorl
     box_pairs_of_x = box_pairs_of_x_no_control
-    return box_pairs_of_x,ann_list,ax,all_ax_data,annotated_pairs,y_stack_arr
+    return (box_pairs_of_x, ann_list, ax, all_ax_data,
+            annotated_pairs, y_stack_arr)
 
 
 def count_occurences_of_boxes_in_pairs(box_pairs_of_x,pval_texts):
-    # count number of times each box occurs in all pair groups with same pval group
+    # count number of times each box occurs
+    # in all pair groups with same pval group
     # (for each x val and for different x vals)
     box_counter = {}
     for box_pair in box_pairs_of_x:
@@ -1628,7 +1712,8 @@ def get_box_dict_pairs_grouped_by_ranking(all_boxes_sorted,
         pval1_text = box_tuple[1]
         for box_pair in box_pairs_of_x:
             pval2_text = pval_texts[box_pair]
-            if (pval1_text == pval2_text) & (box in box_pair) & (box_pair not in used_box_pairs_of_x):
+            if ((pval1_text == pval2_text) & (box in box_pair) &
+                    (box_pair not in used_box_pairs_of_x)):
                 used_box_pairs_of_x.append(box_pair)
                 if box_tuple not in box_pairs_sorted:
                     box_pairs_sorted[box_tuple] = []
@@ -1636,7 +1721,8 @@ def get_box_dict_pairs_grouped_by_ranking(all_boxes_sorted,
     box_struct_pairs_grouped = {}
     for box_tuple,box_pairs in box_pairs_sorted.items():
         # get box_struct_pairs for pairs
-        box_struct_pairs = build_box_struct_pairs(box_pairs, all_box_names, all_box_structs_dicts, col)
+        box_struct_pairs = build_box_struct_pairs(box_pairs, all_box_names,
+                                                  all_box_structs_dicts, col)
         box_struct_pairs_grouped[box_tuple] = box_struct_pairs
     return box_struct_pairs_grouped
 
@@ -1644,7 +1730,8 @@ def get_box_dict_pairs_grouped_by_ranking(all_boxes_sorted,
 def draw_line(line_x,line_y,line_width,color,ax, transform=None):
     if type(transform) == type(None):
         transform= ax.transData
-    line = lines.Line2D(line_x, line_y, lw=line_width, c=color, transform=transform,solid_capstyle="butt")
+    line = lines.Line2D(line_x, line_y, lw=line_width, c=color,
+                        transform=transform, solid_capstyle="butt")
     line.set_clip_on(False)
     ax.add_line(line)
     return ax
@@ -1653,6 +1740,7 @@ def draw_line(line_x,line_y,line_width,color,ax, transform=None):
 def update_plot_and_arrays(y_stack_arr,y_top_annot,x1,x2,all_ax_data,
                            ax,annotated_pairs,ymax_in_range,
                            text,box_dict_pair,loc):
+
     # save annotation
     annotated_pairs[(box_dict_pair[0]['box'],text)] = [ymax_in_range,text]
     annotated_pairs[(box_dict_pair[1]['box'],text)] = [ymax_in_range,text]
@@ -1661,7 +1749,8 @@ def update_plot_and_arrays(y_stack_arr,y_top_annot,x1,x2,all_ax_data,
 
     # Fill the highest y position of the annotation into the y_stack array
     # for all positions in the range x1 to x2
-    y_stack_arr[1, (x1 <= y_stack_arr[0, :]) & (y_stack_arr[0, :] <= x2)] = y_top_annot
+    y_stack_arr[1, ((x1 <= y_stack_arr[0, :]) &
+                    (y_stack_arr[0, :] <= x2))] = y_top_annot
     # Increment the counter of annotations in the y_stack array
     y_stack_arr[2, xi1:xi2 + 1] = y_stack_arr[2, xi1:xi2 + 1] + 1
 
@@ -1705,7 +1794,8 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
     box = box_tuple[0]
 
     # sort within each group by x position from left to right
-    box_struct_pairs_sorted = sorted(box_struct_pairs,key=lambda x:get_x_pos_of_other_box(x,box))
+    box_struct_pairs_sorted = sorted(box_struct_pairs,
+                                     key=lambda x:get_x_pos_of_other_box(x,box))
 
     turn_point = len(box_struct_pairs)
     # get id at which left of reference box changes to right of reference box
@@ -1716,7 +1806,8 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
         # if type(box_struct1['box']) == str:
         #     box2 = (box_struct1['group'], box_struct1['box'], "_-_-None-_-_")
         # else:
-        #     box2 =  (box_struct1['group'], box_struct1['box'][0], box_struct1['box'][1])
+        #     box2 =  (box_struct1['group'],
+        #     box_struct1['box'][0], box_struct1['box'][1])
         if box2 == box:
             turn_point = i
             break
@@ -1776,9 +1867,10 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
 
         # get start y position
         # Find y maximum for all the y_stacks *in between* the box1 and the box2
-        ymax_in_range_x1_x2 = np.max(y_stack_arr[1, np.where((x1 <= y_stack_arr[0, :]) & (y_stack_arr[0, :] <= x2))])
+        ymax_in_range_x1_x2 = np.max(y_stack_arr[1, np.where((x1 <= y_stack_arr[0, :]) &
+                                                             (y_stack_arr[0, :] <= x2))
+                                     ])
         i_ymax_in_range_x1_x2 = np.where(y_stack_arr[1, :] == ymax_in_range_x1_x2)[0][0]
-
 
         # Choose the best offset depending on wether there is an annotation below
         # at the x position in the range [x1, x2] where the stack is the highest
@@ -1794,7 +1886,7 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
 
         # if fliers are shown in boxplot add additional y offset
         if show_data_points == False:
-            # calculate what the fliersize in pt correspond to in plot dimensions
+            # calculate what the fliersize in pt is in plot dimensions
             # its the fliersize in px divided by the plot height in px
             # and this multiplied by y_lim
             # plot_ax = all_ax_data["_-_-None-_-_"]
@@ -1811,8 +1903,9 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
 
         # draw line from box to mid point
         # from there go down and draw line from outer to inner significant box
-        line_x, line_y = [x_box, x_box,x_mid,x_mid,x_outer,x_inner], [y, y + h, y + h, y+h/2,y+h/2,y+h/2]
-        ax = draw_line(line_x,line_y,line_width,color,ax)
+        line_x = [x_box, x_box, x_mid, x_mid, x_outer, x_inner]
+        line_y = [y, y + h, y + h, y+h/2,y+h/2,y+h/2]
+        ax = draw_line(line_x, line_y, line_width, color, ax)
 
         # annotate significance
         # more label closer to line for stars
@@ -1821,55 +1914,71 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
         else:
             y_text = y
 
-
-        ann_list, y_top_annot,ax = plot_text(ax, pval_text, y_text, x_mid, x_box,text_offset,
-                                             fontsize,h,use_fixed_offset,ann_list)
+        ann_list, y_top_annot, ax = plot_text(ax, pval_text, y_text, x_mid,
+                                             x_box,text_offset,
+                                             fontsize, h, use_fixed_offset,
+                                             ann_list)
 
         if (site == "right") | ("right" not in box_struct_pairs_split):
-            all_ax_data,annotated_pairs,y_stack_arr,ax = update_plot_and_arrays(y_stack_arr,y_top_annot,
-                                                                            x1,x2,all_ax_data,
-                                                                            ax,annotated_pairs,
-                                                                            ymax_in_range_x1_x2,pval_text,
-                                                                            box_struct_pair,loc)
-        # if only one pair is in box_struct_pairs_sorted, don't draw line down, there is already a line down to half the height
-        # dont understand comment above anymore - only draw line down for plots which were not annotated yet
+            (all_ax_data,
+             annotated_pairs,
+             y_stack_arr,
+             ax) = update_plot_and_arrays(y_stack_arr, y_top_annot, x1,x2 ,
+                                          all_ax_data, ax, annotated_pairs,
+                                          ymax_in_range_x1_x2, pval_text,
+                                          box_struct_pair, loc)
+
+        # if only one pair is in box_struct_pairs_sorted, don't draw line down,
+        # there is already a line down to half the height
+        # dont understand comment above anymore -
+        # only draw line down for plots which were not annotated yet
         if (len(box_struct_pairs_sorted)== 1) | (not both_sites_have_boxes):
             # draw line down for each box
             for box_struct_pair in box_struct_pairs_sorted:
                 box_struct = box_struct_pair[box_index]
-                line_x, line_y = [box_struct['x'], box_struct['x']], [y +h/2, y]
+                line_x  = [box_struct['x'], box_struct['x']]
+                line_y = [y +h/2, y]
 
-                ax = draw_line(line_x,line_y,line_width,color,ax)
+                ax = draw_line(line_x, line_y, line_width, color, ax)
+
+        dasd
         
     return ax, all_ax_data,annotated_pairs,y_stack_arr,ann_list
 
 
-def get_x_shift_to_hor_center_plot(ax, col_order, nb_x_vals, total_nb_columns, x_shift,
-                        outer_border, group_padding, auto_width_reduction_factor, legend_width,
+def get_x_shift_to_hor_center_plot(ax, col_order, nb_x_vals, total_nb_columns,
+                                   x_shift, outer_border, group_padding,
+                                   auto_width_reduction_factor, legend_width,
                                    auto_scale_group_padding, hor_alignment):
 
     ax_coords = ax.get_position()
     fig = plt.gcf()
 
-    # adjust position of axes for additional space needed by x axes label and y axes labels (including title)
+    # adjust position of axes for additional space needed
+    # by x axes label and y axes labels (including title)
     text_width = get_axis_dimension(ax, ax.yaxis, "width", outer_border[0])
 
     rel_width_text, _ = get_px_size_rel_to_subplot(ax,text_width,0)
 
     available_width = outer_border[1] - outer_border[0]
 
-    # calculate width of all plots combined by adding width of y axis to scaled up width of all plots
+    # calculate width of all plots combined
+    # by adding width of y axis to scaled up width of all plots
     # add space between groups to width of all plots
-    total_width_between_groups = group_padding * (len(col_order) - 1) / fig.get_size_inches()[0]
+    total_width_between_groups = (group_padding * (len(col_order) - 1) /
+                                  fig.get_size_inches()[0])
     if auto_scale_group_padding:
         total_width_between_groups *= auto_width_reduction_factor
     width_yaxis_text = rel_width_text * ax_coords.width
-    width_all_plots = ax_coords.width / nb_x_vals * total_nb_columns + width_yaxis_text + legend_width + total_width_between_groups
+    width_all_plots = ax_coords.width / (nb_x_vals * total_nb_columns +
+                                         width_yaxis_text + legend_width +
+                                         total_width_between_groups)
 
     rel_width_reduction = 1
     # check whether width of all plots is more than available width
     if available_width > width_all_plots:
-        # if it is not more than available, get space on both sides to center plots horizontally
+        # if it is not more than available,
+        # get space on both sides to center plots horizontally
         # dont reduce width if there is enough space available for all plots
         space_each_site = (available_width - width_all_plots) / 2
         if hor_alignment.lower() == "left":
@@ -1880,14 +1989,21 @@ def get_x_shift_to_hor_center_plot(ax, col_order, nb_x_vals, total_nb_columns, x
 
     elif available_width < width_all_plots:
         x_shift += rel_width_text * ax_coords.width
-        # if it is more than available width, reduce width by difference accordingly
-        # TODO output warning that width available isnnot enough for plot and that boxes will be squeezed...
-        print("WARNING: The width provided for the plot is not sufficient. Boxes will be squeezed.")
-        # get relative width reduction for parts of the plot for which width can be reduced
+        # if it is more than available width,
+        # reduce width by difference accordingly
+        # TODO output warning that width available
+        #  is not enough for plot and that boxes will be squeezed...
+        print("WARNING: The width provided for the plot is not sufficient. "
+              "Boxes will be squeezed.")
+        # get relative width reduction for parts of the plot
+        # for which width can be reduced
         # legend width and y axis width cannot be reduced due to fixed font size
         total_width_reduction = (width_all_plots - available_width)
-        width_all_plots_reducible = (width_all_plots - width_yaxis_text - legend_width)
-        rel_width_reduction = width_all_plots_reducible / (width_all_plots_reducible - total_width_reduction)
+        width_all_plots_reducible = (width_all_plots - width_yaxis_text -
+                                     legend_width)
+        rel_width_reduction = (width_all_plots_reducible /
+                               (width_all_plots_reducible -
+                                total_width_reduction))
 
     return x_shift, rel_width_reduction
 
@@ -1912,10 +2028,15 @@ def hor_center_plot(ax, x_shift, rel_width_reduction):
 
     return x_shift
 
-def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue, hue_order,
-                                            col, col_order, x, x_order, total_nb_columns,
-                                            outer_border, group_padding, auto_width_reduction_factor,
-                                            legend_width, auto_scale_group_padding, plot_type, hor_alignment,
+def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
+                                             hue_order, col, col_order, x,
+                                             x_order, total_nb_columns,
+                                            outer_border, group_padding,
+                                             auto_width_reduction_factor,
+                                            legend_width,
+                                             auto_scale_group_padding,
+                                             plot_type,
+                                             hor_alignment,
                                              continuous_plot_types):
     fig = plt.gcf()
     plot_nb = 1
@@ -1930,16 +2051,25 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue, hue_o
                 # but should be the same for all plots
                 nb_boxes = total_nb_columns / len(col_order)
             else:
-                nb_boxes = get_nb_of_boxes(data, x, x_order, hue, hue_order, col, col_order=[col_val])
+                nb_boxes = get_nb_of_boxes(data, x, x_order, hue, hue_order,
+                                           col, col_order=[col_val])
 
-            x_shift, rel_width_reduction = get_x_shift_to_hor_center_plot(ax, col_order, nb_boxes, total_nb_columns, x_shift,
-                                    outer_border, group_padding, auto_width_reduction_factor, legend_width,
-                                                                          auto_scale_group_padding, hor_alignment)
+            (x_shift,
+             rel_width_reduction) = get_x_shift_to_hor_center_plot(ax, col_order,
+                                                                   nb_boxes, total_nb_columns,
+                                                                   x_shift,
+                                                                   outer_border,
+                                                                   group_padding,
+                                                                   auto_width_reduction_factor,
+                                                                   legend_width,
+                                                                   auto_scale_group_padding,
+                                                                   hor_alignment)
             # adjust width and x position annotation plot accordingly
             ax_annot_coords = ax_annot.get_position()
             left = ax_annot_coords.x0 + x_shift
             width = ax_annot_coords.width / rel_width_reduction
-            ax_annot.set_position([left, ax_annot_coords.y0, width, ax_annot_coords.height])
+            ax_annot.set_position([left, ax_annot_coords.y0,
+                                   width, ax_annot_coords.height])
 
         x_shift = hor_center_plot(ax, x_shift, rel_width_reduction)
 
@@ -1967,7 +2097,8 @@ def add_background_grid_lines_to_plots(all_axs, col_order, line_width, letter):
 def add_background_grid_lines(ax_first, ax_last, line_width, letter, color,
                               excluded_ytick_id = None):
     """
-    :param excluded_ytick_ids: list of list-ids in yticks that should be removed from y_ticks
+    :param excluded_ytick_ids: list of list-ids in yticks
+                                that should be removed from y_ticks
     """
     fig = plt.gcf()
     ax_first_coords = ax_first.get_position()
@@ -2007,11 +2138,15 @@ def add_labels_within_ax(all_labels_to_add):
     This way, the labels are not affected by repositioning of the plot
     that happened between adding the label and the plot being done
     :param all_labels_to_add: List of dicts
-                    with the method by which the label should be added as value with the key "label_method"
-                    and all parameters of the label method as other key with value
-                    value can also be a partial function, in which case the value will be retrieved
+                    with the method by which the label should be added as
+                    value with the key "label_method"
+                    and all parameters of the label method
+                    as other key with value
+                    value can also be a partial function,
+                    in which case the value will be retrieved
                     at the time of adding the label
-                    this should usually be done for the position of the label since this position
+                    this should usually be done
+                    for the position of the label since this position
                     will change if the ax is changed (resized etc.)
     """
     for label_to_add in all_labels_to_add:
@@ -2084,11 +2219,19 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         plots always will the entire y space but not necessarily the entire x space.
                         therefore alignment in x matters but not in y
 
-    :param bar_plot_dodge: Bool; dodge parameter for barplot, will lead to stacked barplots if hue is defined
+    :param bar_plot_dodge: Bool; dodge parameter for barplot, will lead to
+                            stacked barplots if hue is defined
     :param pvalue_format_string: defaults to `"{.3e}"`
-    :param pvalue_thresholds: list of lists, or tuples. Default is: For "star" text_format: `[[1e-4, "****"], [1e-3, "***"], [1e-2, "**"], [0.05, "*"], [1, "ns"]]`. For "simple" text_format : `[[1e-5, "1e-5"], [1e-4, "1e-4"], [1e-3, "0.001"], [1e-2, "0.01"]]`
+    :param pvalue_thresholds: list of lists, or tuples. Default is:
+                                For "star" text_format: `[[1e-4, "****"],
+                                [1e-3, "***"], [1e-2, "**"], [0.05, "*"],
+                                [1, "ns"]]`. For "simple" text_format :
+                                `[[1e-5, "1e-5"], [1e-4, "1e-4"],
+                                [1e-3, "0.001"], [1e-2, "0.01"]]`
     :param pvalues: list of p-values for each box pair comparison.
-    :param neg_y_vals: are there data points below zero, if not lowest y axis value is 0 (margin settings will make it lower than zero otherwise)
+    :param neg_y_vals: are there data points below zero, if not lowest y axis
+                        value is 0 (margin settings will make it lower
+                        than zero otherwise)
     :param padding: padding between panels in inches (is autoscaled by size factor in figure script)
     :param box_width: maximum box width in inches - scaled by width of one column in inches / 2
     :param group_padding: space between two cols in inches - scaled by width of one column in inches / 2
@@ -2159,20 +2302,24 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     box_pairs = validate_arguments(perform_stat_test,test,pvalues,test_short_name,
                            box_pairs,loc,text_format,text_annot_custom)
 
-    pvalue_thresholds, pvalue_format_string, simple_format_string = set_pval_arguments(text_format,
-                                                                    verbose,pvalue_thresholds,
-                                                                    pvalue_format_string)
+    (pvalue_thresholds,
+     pvalue_format_string,
+     simple_format_string) = set_pval_arguments(text_format, verbose,
+                                                pvalue_thresholds,
+                                                pvalue_format_string)
 
     ax_annot = add_annotation_subplot(letter, outer_border)
 
     # initiate variables
-    all_box_structs_dics, all_box_names, all_box_structs, all_axs, axs_by_position = ({}, {}, {}, {}, {})
+    (all_box_structs_dics, all_box_names,
+     all_box_structs, all_axs, axs_by_position) = ({}, {}, {}, {}, {})
 
     # start counter of current subplot
     plot_nb = 1
     # start counter of current column (not current subpot!) and initialize other variables
     # y_shift is shift iny  from the bottom
-    current_column, max_yrange, min_y, max_y, x_shift, y_shift, rel_width_reduction = (0, 0, 0, 0, 0, 0, 0)
+    (current_column, max_yrange, min_y, max_y,
+     x_shift, y_shift, rel_width_reduction) = (0, 0, 0, 0, 0, 0, 0)
     auto_width_reduction_factor = 0
     longest_legend_handles = []
 
@@ -2227,7 +2374,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                 nb_x_vals *= len(new_hue_order)
         else:
             # for continuous x data
-            # every plot should have the same size independent of the number of x values
+            # every plot should have the same size
+            # independent of the number of x values
             nb_x_vals = total_nb_columns / len(col_order)
 
             # if type(x_range) != type(None):
@@ -2448,7 +2596,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                                         all_box_pairs,max_level_of_pairs,
                                                                         test_short_name,test_result_list,
                                                                         annotate_nonsignificant,verbose)
-        # print(test_result_list)
+
         # Build array that contains the x and y_max position of the highest annotation or box data at
         # a given x position, and also keeps track of the number of stacked annotations.
         # This array will be updated when a new annotation is drawn.
@@ -2504,7 +2652,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         max_y_group = max(max_y_group, max_y)
                 max_y_groups[box_tuple] = max_y_group
 
-            box_struct_pairs_grouped = {k: v for k, v in sorted(box_struct_pairs_grouped.items(), key=lambda item: max_y_groups[item[0]])}
+            box_struct_pairs_grouped = {k: v for k, v in
+                                        sorted(box_struct_pairs_grouped.items(),
+                                               key=lambda item:
+                                               max_y_groups[item[0]])}
 
             if x_val == "different_x":
                 # calculate correction factor for increased height of plot after adding plots
@@ -2517,20 +2668,31 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             for box_tuple,box_struct_pairs in box_struct_pairs_grouped.items():
                 box = box_tuple[0]
                 # annotate all box_pairs in a group
-                ax_annot, all_axs,annotated_pairs,y_stack_arr,ann_list = annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
-                                all_axs, ax_annot, annotated_pairs, text_offset,
-                                fontsize, h, ann_list, line_width, loc, y_offset_to_box,
-                                y_offset, color, use_fixed_offset, show_data_points, fliersize)
+                (ax_annot,
+                 all_axs,
+                 annotated_pairs,
+                 y_stack_arr,
+                 ann_list) = annotate_box_pair_group(box_struct_pairs, box_tuple,
+                                                     box, y_stack_arr,
+                                                     all_axs, ax_annot,
+                                                     annotated_pairs, text_offset,
+                                                     fontsize, h, ann_list,
+                                                     line_width, loc,
+                                                     y_offset_to_box,
+                                                     y_offset, color,
+                                                     use_fixed_offset,
+                                                     show_data_points, fliersize)
 
     for col_val,box_structs in all_box_structs.items():
         # if any data was plotted for this col_val
-        if (len(box_structs) > 0) | (col_val == "_-_-None-_-_"):
-            ax = all_axs[col_val]
-            # adjust several parameters of plots to improve visuals and used labels
-            ax = finetune_plot(ax, box_structs,col, col_order, perform_stat_test,
-                                line_width, line_width_thin, inner_padding,
-                                fontsize, col_val, plot_type, vertical_lines,
-                               show_col_labels_below, always_show_col_label)
+        if (len(box_structs) == 0) & (col_val != "_-_-None-_-_"):
+            continue
+        ax = all_axs[col_val]
+        # adjust several parameters of plots to improve visuals and used labels
+        ax = finetune_plot(ax, box_structs,col, col_order, perform_stat_test,
+                            line_width, line_width_thin, inner_padding,
+                            fontsize, col_val, plot_type, vertical_lines,
+                           show_col_labels_below, always_show_col_label)
 
     # if no neg_y_vals are in the plot
     # set lower ylim as slightly below 0
@@ -2543,33 +2705,33 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
     for ax in all_axs.values():
 
+        if type(y_range) == type(None):
+            continue
 
-        if type(y_range) != type(None):
+        # ax.set_ylim(y_range[0], y_range[1])
+        # ax.tick_params(axis="y", which="minor", )
+        # ax.tick_params(axis='y', which='minor', bottom=False)
+        # ax.set_yticks([0.75, 0.85, .95], minor=True)
 
-            # ax.set_ylim(y_range[0], y_range[1])
-            # ax.tick_params(axis="y", which="minor", )
-            # ax.tick_params(axis='y', which='minor', bottom=False)
-            # ax.set_yticks([0.75, 0.85, .95], minor=True)
+        if plot_type == "line":
+            line_color = "0.7"
+        else:
+            line_color = "0.8"
 
-            if plot_type == "line":
-                line_color = "0.7"
-            else:
-                line_color = "0.8"
+        ax.grid(b=True, color=line_color, linestyle='-', which="major",
+                axis="y", linewidth=line_width)
 
-            ax.grid(b=True, color=line_color, linestyle='-', which="major",
-                    axis="y", linewidth=line_width)
+        if plot_type == "line":
+            # visible needs to be set True for line plots
+            # it seems that somewhere the grid is switched off
+            # and therefore just supplying kwargs to the function
+            # does not automatically turn the grid visibility on
+            ax.grid(visible=True,color=line_color, linestyle='-', which="major",
+                    axis="x", linewidth=line_width)
 
-            if plot_type == "line":
-                # visible needs to be set True for line plots
-                # it seems that somewhere the grid is switched off
-                # and therefore just supplying kwargs to the function
-                # does not automatically turn the grid visibility on
-                ax.grid(visible=True,color=line_color, linestyle='-', which="major",
-                        axis="x", linewidth=line_width)
-
-            if show_y_minor_ticks:
-                ax.grid(visible=True, b=False, color=line_color, linestyle='-',
-                        which="minor", axis="y", linewidth=line_width_thin)
+        if show_y_minor_ticks:
+            ax.grid(visible=True, b=False, color=line_color, linestyle='-',
+                    which="minor", axis="y", linewidth=line_width_thin)
         
 
     # move plot to within outer_border horizontally (axes labeling is outside of ax and thereby of outer_border)
@@ -2578,10 +2740,14 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     # then reduce width of all plots together by the width of the y axes label that needs to move into the outer_border
     # needs to be last step since x shift and width reduction depend on y tick label
     # which are adjusted while ylim is changed and when annotations are added
-    move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue, hue_order,
-                                            col, col_order, x, x_order, total_nb_columns,
-                                            outer_border, group_padding, auto_width_reduction_factor,
-                                            legend_width, auto_scale_group_padding, plot_type, hor_alignment,
+    move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
+                                             hue_order, col, col_order, x,
+                                             x_order, total_nb_columns,
+                                             outer_border, group_padding,
+                                             auto_width_reduction_factor,
+                                             legend_width,
+                                             auto_scale_group_padding,
+                                             plot_type, hor_alignment,
                                              continuous_plot_types)
 
 
