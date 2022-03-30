@@ -376,6 +376,8 @@ class FigurePanel():
 
         self.initiate_show_images_variables()
 
+        self.sub_padding_factor = sub_padding_factor
+
         if type(channels_to_show_first_nonzoomed_timeframe) == type(None):
             channels_to_show_first_nonzoomed_timeframe = []
 
@@ -682,7 +684,7 @@ class FigurePanel():
                                                       zoom_nb_padding,
                                                       show_single_zoom_numbers)
 
-    def initiate_show_image_variables(self):
+    def initiate_show_images_variables(self):
         self.y_space = 0
         self.x_space = 0
         self.all_images_by_position = {}
@@ -719,7 +721,6 @@ class FigurePanel():
         # initialize map of cmap names to channel ints
         self.cmap_to_channels = {}
 
-        self.sub_padding_factor = sub_padding_factor
 
         #  dict that saves how much space there is
         #  on each site already for labels
@@ -5220,7 +5221,8 @@ class FigurePanel():
                      font_size = None, padding=2,
                     font_size_factor = None, label_orientation = None,
                     start_time = 0, time_per_frame="1m", format="hh:mm",
-                     show_unit=True, first_time_difference=1, frame_jumps=None, **kwargs):
+                     show_unit=True, first_time_difference=1, frame_jumps=None,
+                     long_unit_names = True, all_units_shown = False, **kwargs):
         label_cat = "frames"
         # get frame to annotate automatically
         if texts == None:
@@ -5229,7 +5231,8 @@ class FigurePanel():
             for frame_point in frame_points:
                 text = self.get_frame_string(frame_point, start_time,
                                              time_per_frame, format, show_unit,
-                                            first_time_difference, frame_jumps)
+                                            first_time_difference, frame_jumps,
+                                            long_unit_names, all_units_shown)
                 texts.append(text)
 
         self._label_category(label_cat, texts, site = site,
@@ -6835,7 +6838,7 @@ class FigurePanel():
 
     def group_and_average_data(self, average_columns, data):
         # create new data by averaging units
-        if type(average_columns) != type(None):
+        if type(average_columns) == type(None):
             return data
         # add x, hue, col and row so that these columns are
         # not dropped
@@ -6848,8 +6851,9 @@ class FigurePanel():
 
     def exclude_data_with_column_vals_not_in_all_groups(self,
                                                         columns_same_in_groups,
-                                                        data):
-        if type(columns_same_in_groups) != type(None):
+                                                        data,
+                                                        x, hue, col):
+        if type(columns_same_in_groups) == type(None):
             return data
 
         # exclude data with column values not present in all groups
@@ -6887,7 +6891,7 @@ class FigurePanel():
 
         # smoothing_rad
         if type(smoothing_rad) == type(None):
-            return data
+            return data[y]
         data.reset_index(inplace=True)
         smoothen_func = lambda x: x.rolling(smoothing_rad).mean()
         data_normalized = self.transform_y_data(data, y, smoothen_func,
@@ -7216,14 +7220,14 @@ class FigurePanel():
                 data[column] = data[column].apply(str)
 
         data = self.exclude_data_with_column_vals_not_in_all_groups(columns_same_in_groups,
-                                                                    data)
+                                                                    data, x,
+                                                                    hue, col)
 
         # remove baseline from values before processing numbers further
         data[y] = data[y] - baseline
 
         data[y] = self.smoothen_data(data, y, ["hue", "col", "row"],
                                      smoothing_rad, hue, col, row)
-
 
         # only replace row values now
         # this is needed since the row_value
@@ -7250,7 +7254,6 @@ class FigurePanel():
         if (type(self.y) == list) | (type(self.y) == tuple):
             multiple_y = True
 
-
         #  create facet plot made out of several sub figure panels
         #  within the current figure panel
         #  based on values in the "row" column
@@ -7264,60 +7267,27 @@ class FigurePanel():
             self.data = data
 
             self.plot_multi_rows(inner_border,  show_legend, **kwargs)
+            return None
 
-        else:
+        # replace everything except the row values
+        # for each row separately
+        # otherwise, inclusion criteria would need to be updated
+        # for each row depending on strings that were replaced
+        strs_to_replace = {}
+        strs_to_replace[x] = x_labels
+        strs_to_replace[hue] = hue_labels
+        strs_to_replace[col] = col_labels
+        data = self.replace_strs_in_data(data, strs_to_replace)
 
+        data = self.rename_column_values(data, renaming_dicts)
 
-            # replace everything except the row values
-            # for each row separately
-            # otherwise, inclusion criteria would need to be updated
-            # for each row depending on strings that were replaced
-            strs_to_replace = {}
-            strs_to_replace[x] = x_labels
-            strs_to_replace[hue] = hue_labels
-            strs_to_replace[col] = col_labels
-            data = self.replace_strs_in_data(data, strs_to_replace)
+        (axs_by_position,
+         ax_annot) = self.plot_simple_row(data, x, y, hue, col, for_measuring,
+                                          increase_padding_above,
+                                          inner_border, width_y_axis,
+                                          show_legend, **kwargs)
 
-
-            #  renaming dict is a list of dicts
-            #  each dict is for one renaming
-            #  one key in the dict has to be "__from__" and the value
-            #  determines what should be changed
-            #  one key in the dict has to be "__to__" and the value
-            #  determines the value it should be changed to
-            #  one key in the dict has to be "__target_column__" and the value
-            #  determines in which column the change should occur
-            #  the other keys are column names and the corresponding values
-            #  determine the value the column must have
-            if type(renaming_dicts) != type(None):
-                for renaming_dict in renaming_dicts:
-                    excluded_keys = ["__from__", "__to__", "__target-column__"]
-                    #  get all rows that match the conditions
-                    #  except in the excluded keys
-                    matched_data = FigurePanel.get_rows_matching_criteria(data,
-                                                                          renaming_dict,
-                                                                          excluded_keys)
-
-                    mached_indices = matched_data.index.values
-                    column = renaming_dict["__target-column__"]
-                    value_to_replace = renaming_dict["__from__"]
-                    replaced_value = renaming_dict["__to__"]
-                    #  replce values in target column from "from" to "to"
-                    new_column_values = data.loc[mached_indices,
-                                                 column].str.replace(value_to_replace,
-                                                                     replaced_value)
-                    data.loc[mached_indices, column] = new_column_values
-
-                    (axs_by_position,
-                     ax_annot) = self.plot_simple_row(data, x, hue, col, for_measuring,
-                                              increase_padding_above,
-                                               inner_border, width_y_axis,
-                                               show_legend, **kwargs)
-
-                    return axs_by_position, ax_annot
-
-
-
+        return axs_by_position, ax_annot
 
     def plot_multi_rows(self, inner_border,  show_legend, **kwargs):
         """
@@ -7340,12 +7310,14 @@ class FigurePanel():
         else:
             row_values = self.data[self.row].drop_duplicates().values
 
-        (max_y_axis_width_px,
+        (axs_for_measuring,
+         max_y_axis_width_px,
          max_x_axis_height_px,
          max_row_label_width,
          max_col_label_height) = self.measure_max_dimensions_for_multi_row_plots(all_y,
-                                                                                 kwargs,
-                                                                                 show_legend)
+                                                                                 row_values,
+                                                                                 show_legend,
+                                                                                 **kwargs)
 
         fig_size = plt.gcf().get_size_inches()
         max_x_axis_height = max_x_axis_height_px / (fig_size[1] * plt.gcf().dpi)
@@ -7391,9 +7363,8 @@ class FigurePanel():
                                                                       "x")
         #  calculate width per col based on widest row
         #  only in that row we know the total width while we also know the
-
+        group_padding_rel = group_padding / fig_size[0]
         width_per_col = self.get_width_per_col_for_multi_row(max_width_y_axis,
-                                                             group_padding,
                                                              group_padding_rel,
                                                              x_padding_rel)
 
@@ -7434,11 +7405,10 @@ class FigurePanel():
             # it was already mapped to the correct y
             if "y_range" in tmp_kwargs:
                 y_range = tmp_kwargs.pop("y_range")
-            else: :
+            else:
                 y_min = self.data[self.y].min()
                 y_max = self.data[self.y].max()
                 y_range = [y_min, y_max]
-
 
             (all_axs,
              height_this_sub_panel) = self.plot_one_row(row_nb, row_value,
@@ -7463,6 +7433,7 @@ class FigurePanel():
 
 
 
+
             #  increase row pos by span of sub_panels
             current_y_pos += height_this_sub_panel
 
@@ -7470,11 +7441,10 @@ class FigurePanel():
             # (row and column position)
             all_positions = []
             for position, ax in all_axs.items():
-                # ensure that no axes is overwritten
+                # ensure that no axis is overwritten
                 assert (row_nb, position) not in all_positions
                 all_positions.append((row_nb, position))
                 self.all_axs[(row_nb, position[1])] = ax
-
 
         for ax_for_measuring in axs_for_measuring.values():
             # remove last remaining ax from measuring
@@ -7483,7 +7453,8 @@ class FigurePanel():
             if type(ax_for_measuring.figure) != type(None):
                 ax_for_measuring.remove()
 
-    def measure_max_dimensions_for_multi_row_plots(self, all_y, show_legend,
+    def measure_max_dimensions_for_multi_row_plots(self, all_y, row_values,
+                                                   show_legend,
                                                    **kwargs):
         """
         Measure maximum dimensions for multi row plots considering all y values
@@ -7491,7 +7462,8 @@ class FigurePanel():
         col label height
         :param all_y: list of all y column names
         :param show_legend: Boolean, whether legend should be shown
-        :return: maximum y axis width,
+        :return: axes for measuring (any future values for specific y value)
+                 maximum y axis width,
                  maimum x axis height,
                  maimum row label width,
                  maimum col label height
@@ -7503,11 +7475,11 @@ class FigurePanel():
         tmp_kwargs = copy.deepcopy(kwargs)
         tmp_kwargs["x_range"] = x_range
         tmp_kwargs["show_x_axis"] = True
+        tmp_kwargs["add_background_lines"] = False
         # not sure why these values needed to be set to False
         # would think that this makes maximum dimensions wrong or
         # even determining them unnecessary...
         # tmp_kwargs["show_row_label"] = False
-        # tmp_kwargs["add_background_lines"] = False
         # tmp_kwargs["show_col_labels_above"] = False
 
         axs_for_measuring = {}
@@ -7532,7 +7504,6 @@ class FigurePanel():
                                                     increase_padding_above=False,
                                                     show_legend=show_legend,
                                                     **tmp_kwargs_y)
-
             max_y_axis_width_px = self.get_max_axis_dimension(all_test_axs,
                                                               "yaxis",
                                                               "width")
@@ -7559,10 +7530,11 @@ class FigurePanel():
 
             ax_annot.remove()
 
-            return (max_y_axis_width_px,
-                    max_x_axis_height_px,
-                    max_row_label_width,
-                    max_col_label_height)
+        return (axs_for_measuring,
+                max_y_axis_width_px,
+                max_x_axis_height_px,
+                max_row_label_width,
+                max_col_label_height)
 
     def get_x_range(self, **kwargs):
         x_range = None
@@ -7640,18 +7612,19 @@ class FigurePanel():
             error_msg = ("As axis_str only 'yaxis' and 'xaxis' are allowed.")
             raise ValueError(error_msg)
         if dimension == "width":
-            starting_position = ax.get_position().x0
+            starting_pos_str = "x0"
         elif dimension == "height":
-            starting_position = ax.get_position().y0
+            starting_pos_str = "y0"
         else:
             raise ValueError("For 'dimension' only 'width' or 'height' "
                              "are allowed")
-        dimension_px = 0
+        max_dimension_px = 0
         for ax in all_axs.values():
             axis = getattr(ax, axis_str)
+            starting_pos = getattr(ax.get_position(), starting_pos_str)
             dimension_px = statannot.get_axis_dimension(ax, axis,
                                                            "width",
-                                                           starting_position)
+                                                           starting_pos)
             max_dimension_px = max(max_dimension_px, dimension_px)
         return max_dimension_px
 
@@ -7682,6 +7655,7 @@ class FigurePanel():
         :param ax_for_measuring: Matplotlib axes to measure size
         :return:
         """
+        max_text_width = 0
         for text in texts:
 
             if self.is_none(text):
@@ -7695,7 +7669,7 @@ class FigurePanel():
             max_text_width = max(max_text_width, text_width)
         return max_text_width
 
-    def get_max_col_label_height(self, ax_for_measuring, kwargs, row_values):
+    def get_max_col_label_height(self, ax_for_measuring, row_values, **kwargs):
         max_col_label_height = 0
         #  there may not be any row values which need to be measured
         #  if only multiple y values are supplied but no column for rows
@@ -7720,14 +7694,13 @@ class FigurePanel():
         return max_col_label_height
 
     def get_width_per_col_for_multi_row(self, max_width_y_axis,
-                                        group_padding, group_padding_rel,
+                                        group_padding_rel,
                                         x_padding_rel):
         width_of_widest_col = (self.width * self.fig_width_available -
                                max_width_y_axis - x_padding_rel )
 
         #  deduct the group_padding which will be included between plots
         #  therefore will be included number of cols - 1
-        group_padding_rel = group_padding / fig_size[0]
         width_of_widest_col -= group_padding_rel * (self.max_col)
         width_per_col = width_of_widest_col / (self.max_col + 1)
         return width_per_col
@@ -7775,7 +7748,8 @@ class FigurePanel():
 
     def plot_one_row(self, row_nb, row_value, nb_rows,
                      width_per_col, height_sub_panel,
-                     nb_col_vals, current_y_pos,sub_padding,
+                     nb_col_vals, current_y_pos, sub_padding,
+                     inner_border,
                      max_row_label_width, x_tick_overhang_rel,
                      height_x_axis, max_col_label_height,
                      max_width_y_axis, x_padding_rel,
@@ -7888,6 +7862,9 @@ class FigurePanel():
         # and except processing, since that was done already
         # and will be accessible for new figure panel
         # since data is used for __init__
+
+        # TODO:
+        #  should "width_y_axis_ parameter for show_data be max_width_y_axis?
         all_axs, _ = sub_panel.show_data(self.x, self.y, x_labels=self.x_labels,
                                          hue=self.hue,
                                          hue_labels=self.hue_labels,
@@ -7901,7 +7878,7 @@ class FigurePanel():
                                          show_x_axis=show_x_axis,
                                          x_range = x_range,
                                          increase_padding_above=False,
-                                        width_y_axis = width_y_axis,
+                                        width_y_axis = max_width_y_axis,
                                          group_padding=group_padding,
                                         auto_scale_group_padding = False,
                                          show_legend=show_legend,
@@ -7981,8 +7958,9 @@ class FigurePanel():
         return 1
 
 
-    def plot_simple_row(self, data, x, hue, col, for_measuring, increase_padding_above,
-                 inner_border, width_y_axis, show_legend, **kwargs):
+    def plot_simple_row(self, data, x, y, hue, col,
+                        for_measuring, increase_padding_above,
+                        inner_border, width_y_axis, show_legend, **kwargs):
         """
         Plot a single row of data plots.
         :param data:
@@ -8021,9 +7999,9 @@ class FigurePanel():
 
 
         if increase_padding_below:
-            inner_border = self.do_increase_of_padding_below_plot(kwargs)
-
-        kwargs["show_data_points"] = show_data_points
+            inner_border = self.do_increase_of_padding_below_plot(inner_border,
+                                                                  data, x, col,
+                                                                  **kwargs)
 
         (axs_by_position,
          ax_annot) = self.plot_results(data, x, y, inner_border,
@@ -8032,13 +8010,13 @@ class FigurePanel():
                                        show_legend=show_legend,
                                        **kwargs)
 
-        self.all_axs = axs_by_position
 
         # initiate label matrices for adding labels by position later
         self.initiate_label_matrices()
 
         # TODO: Improvde (shorten) function name
-        self.included_data = self.get_data_in_order_params_for_representative_data(x,
+        self.included_data = self.get_data_in_order_params_for_representative_data(data,
+                                                                                   x,
                                                                                    hue,
                                                                                    col,
                                                                                    kwargs)
@@ -8047,10 +8025,13 @@ class FigurePanel():
                                 if column != None]
         self.grouped_data = self.included_data.groupby(by=columns_for_grouping)
 
+        self.all_axs = axs_by_position
+
         return axs_by_position, ax_annot
 
 
-    def do_increase_of_padding_below_plot(self, kwargs):
+    def do_increase_of_padding_below_plot(self, inner_border,
+                                          data, x, col, **kwargs):
         if "col_order" in kwargs:
             col_order = kwargs["col_order"]
         else:
@@ -8080,7 +8061,7 @@ class FigurePanel():
         return inner_border
 
 
-    def get_data_in_order_params_for_representative_data(self, x, hue,
+    def get_data_in_order_params_for_representative_data(self, data, x, hue,
                                                          col, kwargs):
         # preparation for getting representative data?
         # exclude data with values not in order parameter
@@ -8283,6 +8264,38 @@ class FigurePanel():
                                                             regex=False)
         return data
 
+
+    def rename_column_values(self, data, renaming_dicts):
+        #  renaming dict is a list of dicts
+        #  each dict is for one renaming
+        #  one key in the dict has to be "__from__" and the value
+        #  determines what should be changed
+        #  one key in the dict has to be "__to__" and the value
+        #  determines the value it should be changed to
+        #  one key in the dict has to be "__target_column__" and the value
+        #  determines in which column the change should occur
+        #  the other keys are column names and the corresponding values
+        #  determine the value the column must have
+        if type(renaming_dicts) == type(None):
+            return data
+        for renaming_dict in renaming_dicts:
+            excluded_keys = ["__from__", "__to__", "__target-column__"]
+            #  get all rows that match the conditions
+            #  except in the excluded keys
+            matched_data = FigurePanel.get_rows_matching_criteria(data,
+                                                                  renaming_dict,
+                                                                  excluded_keys)
+
+            mached_indices = matched_data.index.values
+            column = renaming_dict["__target-column__"]
+            value_to_replace = renaming_dict["__from__"]
+            replaced_value = renaming_dict["__to__"]
+            #  replce values in target column from "from" to "to"
+            new_column_values = data.loc[mached_indices,
+                                         column].str.replace(value_to_replace,
+                                                             replaced_value)
+            data.loc[mached_indices, column] = new_column_values
+        return data
 
     def plot_results(self, data, x, y, inner_border, for_measuring, **kwargs):
 
@@ -9355,7 +9368,8 @@ class FigurePanel():
 
     def get_frame_string(self, frame, start_time,
                          time_per_frame, format, show_unit,
-                        first_time_difference, frame_jumps):
+                        first_time_difference, frame_jumps,
+                         long_unit_names, all_units_shown):
 
         if frame_jumps == None:
             frame_jumps = {}
@@ -9421,10 +9435,23 @@ class FigurePanel():
         final_format_string = ":".join(final_format_strings)
 
         if show_unit:
-            unit_string = format_steps[0][0]
-            if unit_string == "m":
-                unit_string = "min"
-            final_format_string += " " + unit_string
+            unit_name_map = {}
+            unit_name_map["s"] = "sec"
+            unit_name_map["m"] = "min"
+            unit_name_map["h"] = "hour"
+            unit_strings = format_steps[0]
+            for unit_nb, unit_string in enumerate(unit_strings):
+                # take first letter in unit string
+                unit_string = unit_string[0]
+                if long_unit_names:
+                    unit_string = unit_name_map[unit_string]
+                if unit_nb > 0:
+                    final_format_string += ":"
+                else:
+                    final_format_string += " "
+                final_format_string += unit_string
+                if not all_units_shown:
+                    break
 
         return final_format_string
 
@@ -9435,7 +9462,8 @@ class FigurePanel():
                       show_unit=False, first_time_difference = 1,
                        frame_jumps = None,
                       only_show_in_rows=None, only_show_in_columns=None,
-                      show_unit_only_once=True):
+                      show_unit_only_once=True, long_unit_names=False,
+                      all_units_shown = False):
         """
         Add timestamp text to each image in panel. 
         timestamps MUST be added after other annotations were added
@@ -9453,6 +9481,13 @@ class FigurePanel():
                             before which the jump occurs
                             and the value is the number of frames
                             that the jump was long
+        long_unit_names (Boolean): Whether long ("sec", "min", "hour") or
+                                    short ("s", "m", "h") unit names should
+                                    be shown
+        all_units_shown (Boolean): Whether all units should be shown in
+                                    timestamp
+                                    if True, for format "ss:mm":
+                                    "s:m" / "sec:min" will be shown
         """
 
         if font_size == None:
@@ -9500,7 +9535,9 @@ class FigurePanel():
                                                         time_per_frame, format,
                                                         show_unit,
                                                         first_time_difference,
-                                                        frame_jumps)
+                                                        frame_jumps,
+                                                        long_unit_names,
+                                                        all_units_shown)
 
             txt_width_px,_ = FigurePanel.get_dimension_of_text(final_format_string,
                                                                font_size_pt, ax)
