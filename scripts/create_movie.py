@@ -72,7 +72,7 @@ figure.create_panel(letter="G", height=0.34, hor_alignment="right",
                     vert_alignment="center")
 
 """
-Crop image or images in last added panel. 
+Add zoomed region of image/s as separate image. 
 Needs to be done before show_images.
 
 Arguments:
