@@ -6,6 +6,8 @@ A lot of the code to plot data and add significance information (statannot.py) i
 FastFig was used to generate all figures and all movies from Schelski and Bradke 2021 (examples from paper at the bottom of this page):<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 <br/>
+Some documentation of how to generate movies can be found under scripts in create_movies.py. <br/>
+<br/>
 Documentation and code base under development.<br/>
 
 
