@@ -86,6 +86,8 @@ class FigurePanel():
         # figure is the parent figure object
         # not a matplotlib figure!
 
+        self.itertypes = set([tuple, list])
+
         self.figure = figure
         self.fig = fig
         self.fig_padding = fig_padding
@@ -148,11 +150,11 @@ class FigurePanel():
         else:
             # expand padding into nested list where the first dimension
             # is x / y and the second is left/right or top/bottom
-            if (type(padding) == list) | (type(padding) == tuple):
+            if type(padding) in self.itertypes:
                 self.padding = []
                 for dim_nb, padding_one_dim in enumerate(padding):
                     self.padding.append([])
-                    if (type(padding_one_dim) == list) | (type(padding_one_dim) == tuple):
+                    if (type(padding_one_dim) in self.itertypes):
                         self.padding[dim_nb] = padding_one_dim
                     else:
                         self.padding[dim_nb] = [padding_one_dim, padding_one_dim]
@@ -418,7 +420,6 @@ class FigurePanel():
          order_of_categories) = self._get_map_of_categories(allowed_categories, 
                                                             order_of_categories)
 
-
         self.inv_map = { v : k for k, v in self.map.items() }
 
         # define datatype of all dimensions where data type is not string
@@ -502,12 +503,32 @@ class FigurePanel():
             self.inv_identity_remap_correction = {v: k for k, v in
                                                   identity_remap_correction.items()}
 
+
+            # think about how to organize order_of_categories if none were supplied
+            # if some were supplied use those supplied in that order first
+            # then add remaining categories afterwards in specific order
+
+            cats_similar_for_all_images = self.get_similar_categories_of_identities(all_images_by_identity.keys())
+
+            flexible_order_first = []
+            flexible_order_second = []
+            cats_similar_for_all_images = set([self.inv_map[cat]
+                                                for cat in
+                                                cats_similar_for_all_images])
+            for category in order_of_categories["flexible"]:
+                if category in cats_similar_for_all_images:
+                    flexible_order_second.append(category)
+                else:
+                    flexible_order_first.append(category)
+
+            order_of_categories["flexible"] = [*flexible_order_first,
+                                               *flexible_order_second]
+
             # --------------------AUTO ENLARGE IMAGES----------------------
 
             # if only one dimension is not similar for all images
             # then no auto enlarge is possible
             # since everything can be displayed in a single row
-            cats_similar_for_all_images = self.get_similar_categories_of_identities(all_images_by_identity.keys())
             nb_categories = len(list(all_images_by_identity.keys())[0])
             nb_of_categories_different = nb_categories - len(cats_similar_for_all_images)
 
@@ -543,46 +564,133 @@ class FigurePanel():
                                                                           order_of_categories,
                                                                           cats_similar_for_all_images)
 
+                if self.is_none(show_focus_in):
+                    all_show_focus_in = ["rows", "cols"]
+                elif type(show_focus_in) not in self.itertypes:
+                    all_show_focus_in = [show_focus_in]
+                else:
+                    all_show_focus_in = show_focus_in
+
+                if self.is_none(enlarged_image_site):
+                    enlarged_image_sites = ["top", "left"]
+                elif type(enlarged_image_site) not in self.itertypes:
+                    enlarged_image_sites = [enlarged_image_site]
+                else:
+                    enlarged_image_sites = enlarged_image_site
+
 
                 # go through all
+                all_scores = {}
                 for first_dimension, second_dimension in dimension_combinations:
+                    enlarge_combinations = itertools.product(all_show_focus_in,
+                                                             enlarged_image_sites)
                     # calculate size increase factor as number
                     # of different values in first or second dimension
                     # try out both dimensions
-                    # will be done through variation_nbs
-                    (variation_nbs,
-                     size_increase_is_focus) = self._get_variation_nbs_for_enlarged_image_site(show_focus_in,
-                                                                                               enlarged_image_site)
+                    # will be done through different show_focus_in
+                    # and through different enlarged_image_site
+                    for (show_focus_in,
+                         enlarged_image_site) in enlarge_combinations:
 
-                    for variation_nb in variation_nbs:
+                        all_images_by_identity_tmp = copy.copy(all_images_by_identity)
+
+                        (size_increase_dim_nb,
+                         size_increase_cat_is_focus) = self._get_size_increase_cat_for_enlarged_image_site(
+                                                                                                show_focus_in,
+                                                                                                enlarged_image_site)
+
+                        order_of_categories_tmp = self.resort_order_of_categories_from_primer([first_dimension, second_dimension],
+                                                                                              order_of_categories)
+
                         # size increase dim is the category that determines
                         #  how much the image will be enlarged
+                        (all_images_by_identity_tmp,
+                        _, _, _) = self._auto_enlarge_images(images_enlarge,
+                                                            first_dimension,
+                                                           second_dimension,
+                                                            size_increase_dim_nb,
+                                                            size_increase_cat_is_focus,
+                                                           order_of_categories_tmp,
+                                                            all_images_by_identity_tmp,
+                                                            show_focus_in)
 
-                        all_images_by_identity = self._auto_enlarge_images(images_enlarge,
-                                                                            first_dimension,
-                                                                           second_dimension,
-                                                                            variation_nb,
-                                                                            size_increase_is_focus,
-                                                                           order_of_categories,
-                                                                            all_images_by_identity,
-                                                                            show_focus_in)
+                        # if all images where returned as None,
+                        # then the current combination cannot be used to
+                        # enlarge images but the images themselves indicate
+                        # that some images should be enlarged
+                        # since enlarging is not possible, don't use combination
+                        if self.is_none(all_images_by_identity_tmp):
+                            continue
+
                         width_imgs, height_imgs = self.get_width_height_matrices_of_categories(
                                                         self.inv_map,
-                                                        all_images_by_identity)
+                                                        all_images_by_identity_tmp)
 
-                        #  write function to find how many different values there are for the dimension
-                        #  extract number of different values for additional_padding and use this to calculate width/height to find best permutation
-                        # the supplied map determines the order of categories
-                        permutation_differences = self.get_differences_of_permutations(
-                                                                    order_of_categories,
-                                                                    self.map, width_imgs,
-                                                                    height_imgs, focus,
-                                                                    additional_padding,
-                                                                    all_images_by_identity,
-                                                                    show_focus_in)
+                        (column_categories,
+                         row_categories) = self.get_dimension_categories(first_dimension,
+                                                                         second_dimension,
+                                                                         size_increase_cat_is_focus,
+                                                                         size_increase_dim_nb,
+                                                                         order_of_categories_tmp,
+                                                                         show_focus_in)
 
-                        best_permutation = self.get_best_permutation_of_cats_for_axes(
-                                                                        permutation_differences)
+                        grid_fit_score = self.get_image_category_grid_fit_score(column_categories,
+                                                                           row_categories,
+                                                                           all_images_by_identity_tmp,
+                                                                           width_imgs, height_imgs,
+                                                                           additional_padding
+                                                                           )
+                        best_permutation = (column_categories, row_categories)
+                        # save best score for current combination
+                        score_key = [first_dimension, second_dimension,
+                                      show_focus_in, enlarged_image_site,
+                                     best_permutation]
+
+                        all_scores[tuple(score_key)] = grid_fit_score
+
+                # after the best permutation for the best combination of
+                # show_focus_in and enlarged_image_site is found,
+                # use the combination to:
+                # 1) _auto_enlarge_images
+                # 2) get_width_and_height_matrices_of_categories
+                best_score = np.inf
+                for combination, score in all_scores.items():
+                    if score < best_score:
+                        best_score = score
+                        best_combination = combination
+                
+                (first_dimension,
+                 second_dimension,
+                 show_focus_in,
+                 enlarged_image_site,
+                 best_permutation) = best_combination
+
+                (size_increase_dim_nb,
+                 size_increase_cat_is_focus) = self._get_size_increase_cat_for_enlarged_image_site(
+                                                            show_focus_in,
+                                                            enlarged_image_site)
+
+                order_of_categories = self.resort_order_of_categories_from_primer([first_dimension, second_dimension],
+                                                                                      order_of_categories)
+
+                (all_images_by_identity,
+                 self.inv_increase_size_map,
+                 self.size_factors_for_identities,
+                 self.place_holder_identity_map) = self._auto_enlarge_images(
+                                                                images_enlarge,
+                                                                first_dimension,
+                                                                second_dimension,
+                                                                size_increase_dim_nb,
+                                                                size_increase_cat_is_focus,
+                                                                order_of_categories,
+                                                                all_images_by_identity,
+                                                                show_focus_in)
+
+                (width_imgs,
+                 height_imgs) = self.get_width_height_matrices_of_categories(
+                                                                            self.inv_map,
+                                                                            all_images_by_identity)
+
             else:
 
                 # move ALL other images in that direction as well
@@ -610,7 +718,7 @@ class FigurePanel():
                                                                 all_images_by_identity,
                                                                 show_focus_in)
 
-                best_permutation = self.get_best_permutation_of_cats_for_axes(
+                best_permutation, _ = self.get_best_permutation_of_cats_for_axes(
                                                             permutation_differences)
 
             self.set_max_row_and_col_in_auto_mode(best_permutation, width_imgs)
@@ -859,7 +967,7 @@ class FigurePanel():
                 continue
 
             for value in values:
-                if (type(value) != list):
+                if (type(value) not in self.itertypes):
                     continue
                 additional_categories[category+"_sub"] = values
                 break
@@ -869,7 +977,7 @@ class FigurePanel():
             if values != None:
                 new_values = []
                 for value in values:
-                    if (type(value) == list):
+                    if (type(value) in self.itertypes):
                         new_values += value
                     else:
                         new_values.append(value)
@@ -879,26 +987,38 @@ class FigurePanel():
 
 
     def _get_map_of_categories(self, allowed_categories, order_of_categories):
-        # order in which the categories are sorted
-        #  when on the same axes (column or rows)
-        # can be determined by changing mapping
+
         if self.is_none(order_of_categories):
-            order_of_categories = allowed_categories
+            order_of_categories = []
 
-        for category in allowed_categories:
-            if category not in order_of_categories:
-                order_of_categories.append(category)
-
-        map = {}
-        for nb, category in enumerate(order_of_categories):
+        for category in order_of_categories:
             if category not in allowed_categories:
                 raise ValueError("The supplied category '{}' for "
                                  "order_of_category is not allowed. Only the "
                                  "following categories are allowed: "
                                  "{}.".format(category,
                                               ", ".join(allowed_categories) ))
-            map[category] = nb
-        return map, order_of_categories
+
+        order_of_categories_dict = {}
+
+        # set fixed order of categories as pre-defined order of categories
+        order_of_categories_dict["fixed"] = order_of_categories
+        order_of_categories_dict["flexible"] = []
+
+        # order in which the categories are sorted
+        #  when on the same axes (column or rows)
+        # can be determined by changing mapping
+
+        for category in allowed_categories:
+            if category not in order_of_categories_dict["fixed"]:
+                order_of_categories_dict["flexible"].append(category)
+
+        map = {}
+        for cat_nb, category in enumerate([*order_of_categories_dict["fixed"],
+                                           *order_of_categories_dict["flexible"]]):
+            map[category] = cat_nb
+
+        return map, order_of_categories_dict
 
     def _add_new_categories(self, additional_categories):
         sub_category_map = {}
@@ -1230,7 +1350,7 @@ class FigurePanel():
 
             # if dim_val is indeed a list now
             # check whether each channel from the list is in image
-            if type(dim_val) == tuple:
+            if type(dim_val) in self.itertypes:
                 dim_val_in_image = True
                 for one_channel in dim_val:
 
@@ -1312,7 +1432,7 @@ class FigurePanel():
 
                     # only create list of all pre identities
                     # if dimension actually contains multiple values
-                    if (type(dim_val) != list) & (type(dim_val) != tuple):
+                    if (type(dim_val) not in self.itertypes):
                         continue
 
                     # if another dimension already is overlay
@@ -1644,7 +1764,7 @@ class FigurePanel():
         return maps
 
     def sort_category_vals_key(self, value):
-        if type(value) == tuple:
+        if type(value) in self.itertypes:
             return max(value) + 0.5
         elif type(value) == str:
             values = value.split("-")
@@ -1745,7 +1865,7 @@ class FigurePanel():
             if type(criterion_val) == type(range(1)):
                 criterion_val = list(criterion_val)
 
-            if type(criterion_val) == list:
+            if type(criterion_val) in self.itertypes:
                 if identity[self.map[criterion_cat]] not in criterion_val:
                     return False
             else:
@@ -1915,51 +2035,50 @@ class FigurePanel():
         :param cats_similar_for_all_images: list of ints; numbers of categories
                                             which are the same for all images
         """
-        first_dimensions = [focus]
 
-        #  if length of order_of_categories is at least 1
-        #  then first dimension by which images
-        #  are split is already defined
-        #  otherwise, try each other dimension
-        if self.is_none(order_of_categories):
-            second_dimensions = [order_of_categories]
+        flexible_order_not_similar_for_imgs = (set(order_of_categories["flexible"]) -
+                                               cats_similar_for_all_images)
+
+        # should only be focus IF focus is defined
+        # if focus is not defined, use first value of "fixed" map of categories
+        # if there is no fixed part, try ALL category not similar for all images
+        # if ALL categories are the same for all images, use ANY category
+        if not self.is_none(focus):
+            first_dimensions = [focus]
+        elif len(order_of_categories["fixed"]) > 0:
+            first_dimensions = [order_of_categories["fixed"][0]]
+        elif len(flexible_order_not_similar_for_imgs) > 0:
+            first_dimensions = flexible_order_not_similar_for_imgs
         else:
-            second_dimensions = [order_of_categories[0]]
+            first_dimensions = [order_of_categories["flexible"][0]]
 
-        categories = list(self.map.keys())
+        second_dimensions = []
+        # second dimensions should be earliest fixed dimension
+        # which is not in first_dimensions
+        if len(order_of_categories["fixed"]) > 0:
+            for category in order_of_categories["fixed"]:
+                if category not in first_dimensions:
+                    second_dimensions = [category]
 
-        #  get all dimensions that should be tried
-        #  for the first and second dimension
-        # the first entry in list is first the second the second dimension
-        dimensions_lists = [first_dimensions, second_dimensions]
+        if len(second_dimensions) == 0:
+            if len(flexible_order_not_similar_for_imgs) > 0:
+                second_dimensions = flexible_order_not_similar_for_imgs
+            else:
+                for category in order_of_categories:
+                    if category not in first_dimensions:
+                        second_dimensions = [category]
 
-        # since categories values are strings (names of categories)
-        # remap cats_similar also to names of categories
-        cats_similar_for_all_images = [self.inv_map[cat_nb]
-                                       for cat_nb in cats_similar_for_all_images]
-
-        for dimension_nb, one_dimension_list in enumerate(dimensions_lists):
-            if not self.is_none(one_dimension_list[0]):
-                continue
-            dimensions_lists[dimension_nb] = []
-            for category in categories:
-                #  when creating arrays for first and second dimension
-                #  remove dimensions which are similar in all images
-                if category not in cats_similar_for_all_images:
-                    dimensions_lists[dimension_nb].append(category)
-
-
-        dimension_combinations = []
         #  combine all first and second dimensions that should be tried
         dimension_combinations = []
-        for first_dimension in dimensions_lists[0]:
-            for second_dimension in dimensions_lists[1]:
+        for first_dimension in first_dimensions:
+            for second_dimension in second_dimensions:
                 #  combinations should include two different dimensions
                 if first_dimension != second_dimension:
                     dimension_combinations.append((first_dimension, second_dimension))
+
         return dimension_combinations
 
-    def _get_variation_nbs_for_enlarged_image_site(self, show_focus_in,
+    def _get_size_increase_cat_for_enlarged_image_site(self, show_focus_in,
                                                    enlarged_image_site):
         """
         Get variation number to display enlarged image on specific site
@@ -1974,34 +2093,41 @@ class FigurePanel():
         # set variation number so that the enlarged image is left or top
         if show_focus_in == "rows":
             if enlarged_image_site == "left":
-                variation_nbs = [0]
-                size_increase_is_focus = True
+                size_increase_dim_nb = 0
+                size_increase_cat_is_focus = True
             elif enlarged_image_site == "top":
-                variation_nbs = [1]
-                size_increase_is_focus = False
+                size_increase_dim_nb = 1
+                size_increase_cat_is_focus = False
 
         elif (show_focus_in.find("col") != -1):
             if enlarged_image_site == "left":
-                variation_nbs = [1]
-                size_increase_is_focus = False
+                size_increase_dim_nb = 1
+                size_increase_cat_is_focus = False
             elif enlarged_image_site == "top":
-                variation_nbs = [0]
-                size_increase_is_focus = True
+                size_increase_dim_nb = 0
+                size_increase_cat_is_focus = True
 
         else:
             if not self.is_none(enlarged_image_site):
-                raise ValueError("Parameter 'enlarged_image_size' can only"
-                                 "be 'left' or 'top'.")
+                raise ValueError("Parameter 'show_focus_in' can only"
+                                 "be 'rows' or contain 'col'.")
 
-        if self.is_none(enlarged_image_site):
-            variation_nbs = [0,1]
+        return size_increase_dim_nb, size_increase_cat_is_focus
 
-        return variation_nbs, size_increase_is_focus
+    def resort_order_of_categories_from_primer(self, order_primer,
+                                               order_of_categories):
+        new_order_of_categories = order_primer
+        for category in [*order_of_categories["fixed"],
+                         *order_of_categories["flexible"]]:
+            if category not in new_order_of_categories:
+                new_order_of_categories.append(category)
+        return new_order_of_categories
+
 
     def _auto_enlarge_images(self, images_enlarge,
                             first_dimension, second_dimension,
-                            variation_nb,
-                            size_increase_is_focus, order_of_categories,
+                            size_increase_dim_nb,
+                            size_increase_cat_is_focus, order_of_categories,
                             all_images_by_identity,
                             show_focus_in):
         """
@@ -2010,17 +2136,16 @@ class FigurePanel():
         of the images based on the mapped identity
         """
 
-        size_increase_dim = [first_dimension, second_dimension][variation_nb]
-        size_increase_dim = self.map[size_increase_dim]
+        size_increase_cat = [first_dimension, second_dimension][size_increase_dim_nb]
+        size_increase_cat = self.map[size_increase_cat]
 
         # other_dim is the other category needed
         #  for enlarging images
         # which determines in the direction
         #  of which category images will be pushed
-        other_dim = [first_dimension, second_dimension][variation_nb - 1]
+        other_dim = [first_dimension, second_dimension][size_increase_dim_nb - 1]
         other_dim = self.map[other_dim]
 
-        focus = first_dimension
         new_order_of_categories = [second_dimension]
         #  if more than one order of categories was supplied
         #  append the remaining order to the new order to try out
@@ -2034,7 +2159,7 @@ class FigurePanel():
          min_cat_vals) = self._get_nb_and_min_cat_vals(all_images_by_identity,
                                                        images_enlarge)
 
-        size_factor = nb_of_cat_vals[size_increase_dim]
+        size_factor = nb_of_cat_vals[size_increase_cat]
 
         # if focus is already defined, never change it
         # the same is true for order_of_categories
@@ -2058,34 +2183,41 @@ class FigurePanel():
         # most efficiently
 
         # plotting focus in rows or columns should not make a difference here
-
         (category_change,
          new_cat_val) = self._get_changed_category_and_value(all_images_by_identity,
                                                             images_enlarge,
-                                                            size_increase_dim,
+                                                            size_increase_cat,
                                                             other_dim,
-                                                            order_of_categories)
+                                                            order_of_categories,
+                                                            size_factor)
+        # if a category that was changed was found
+        # but no category value in which should be changed
+        # that indicates that it would not be cleanly possible to enlarge image
+        # therefore, don't use this combination
+        if (not np.isnan(category_change)) & (np.isnan(new_cat_val)):
+            return (None, None, None, None)
 
         #  move each size_factor and all identities matching it except in other_dim
         (increase_size_map,
          place_holder_identities,
-         other_dim_dict_of_enlarged_images) = self._make_space_for_enlarged_images(images_enlarge,
-                                                                               size_factor,
-                                                                                   size_increase_dim,
-                                                                               other_dim,
-                                                                                   min_cat_vals,
-                                                                                 category_change,
-                                                                                 new_cat_val,
-                                                                                 show_focus_in,
-                                                                                   size_increase_is_focus,
-                                                                               all_images_by_identity)
-
+         other_dim_dict_of_enlarged_images,
+         size_factors_for_identities,
+         place_holder_identity_map) = self._make_space_for_enlarged_images(images_enlarge,
+                                                                           size_factor,
+                                                                           size_increase_cat,
+                                                                           other_dim,
+                                                                           min_cat_vals,
+                                                                           category_change,
+                                                                            new_cat_val,
+                                                                            show_focus_in,
+                                                                            size_increase_cat_is_focus,
+                                                                            all_images_by_identity)
 
         #  apply mapping right away to allow the next mapping to be based on that
         all_images_by_identity = self.apply_mapping(all_images_by_identity,
                                                     increase_size_map)
 
-        self.inv_increase_size_map = {v: k for k, v in increase_size_map.items()}
+        inv_increase_size_map = {v: k for k, v in increase_size_map.items()}
 
         place_holder_pre_identity = tuple([-1
                                            for _ in range(len(images_enlarge[0]))])
@@ -2094,9 +2226,12 @@ class FigurePanel():
             #  add place_holder_identities to inv_map
             #  to map them to a clearly identifieable identitiy
             #  when converting the identity to pre_identity
-            self.inv_increase_size_map[place_holder_identity] = place_holder_pre_identity
+            inv_increase_size_map[place_holder_identity] = place_holder_pre_identity
             all_images_by_identity[place_holder_identity] = np.expand_dims(image[0], axis=0)
-        return all_images_by_identity
+
+        return (all_images_by_identity, inv_increase_size_map,
+               size_factors_for_identities,
+               place_holder_identity_map)
 
 
     def _get_nb_and_min_cat_vals(self, all_images_by_identity, images_enlarge):
@@ -2142,8 +2277,8 @@ class FigurePanel():
 
     def _get_changed_category_and_value(self, all_images_by_identity,
                                         images_enlarge,
-                                        size_increase_dim, other_dim,
-                                        order_of_categories
+                                        size_increase_cat, other_dim,
+                                        order_of_categories, size_factor
                                         ):
         """
         Get the number of the category which needs to be changed in enlarged
@@ -2163,8 +2298,18 @@ class FigurePanel():
         image_to_be_enlarged = images_enlarge[0]
         category_change = np.nan
         new_cat_val = np.nan
+
+        size_increase_vals = {}
+        new_cat_vals = {}
         #  if not, then the values for a category have to be changed
         #  for the to be enlarged image to be shown next to not enlarged images
+
+        # since tested identity and the identity of the to be enlarged image
+        # are different in more categories
+        # than size_increase_cat and other_dim
+        # find the category which needs to be changed to put the
+        # enlarged image along the same axis as the other images
+        # based on which the size was increase
         for identity in all_images_by_identity.keys():
 
             same = self.check_if_identities_are_the_same_except_categories(
@@ -2177,31 +2322,33 @@ class FigurePanel():
 
             #  check whether any identity that should not be enlarged
             #  has similar category values except in
-            #  size_increase_dim and other_dim
-            cats_can_be_different = [size_increase_dim, other_dim]
+            #  size_increase_cat and other_dim
+            cats_can_be_different = [size_increase_cat, other_dim]
             similar = self.check_if_identities_are_the_same_except_categories(
                 identity,
                 image_to_be_enlarged,
                 cats_can_be_different)
             if similar:
-                break
+                continue
 
-            #  to find in which category the values need to be changed,
-            #  get first category with more values (for all images) than just one
-            #  which is earliest in the order of categories
+            # The category_change is the category different
+            # from the images based on which the image was enlarged,
+            # for each category save all size_increase_cat values
+            # to find the category which has the same number of different
+            # values in the size_increase as size_factor
 
             # create a set of all categories
             all_categories = set(order_of_categories)
             # remove categories which already can be different
             other_categories = all_categories - set(cats_can_be_different)
 
-            # since tested identity and the identity of the to be enlarged image
-            # are different in more categories
-            # than size_increase_dim and other_dim
-            # find the dimension in which they are different that is earliest
-            # in order_of_categories and save the corresponding
-            # value of the tested identity in that category
-            for category in other_categories:
+            # order categories based on order_of_categories
+            included_order_of_categories = []
+            for cat in order_of_categories:
+                if cat in other_categories:
+                    included_order_of_categories.append(cat)
+
+            for category in included_order_of_categories:
                 test_cats_different = copy.copy(cats_can_be_different)
                 test_cats_different.append(category)
                 similar = self.check_if_identities_are_the_same_except_categories(
@@ -2211,22 +2358,41 @@ class FigurePanel():
                 if not similar:
                     continue
 
-                if np.isnan(category_change):
-                    category_change = category
-                    new_cat_val = identity[category]
-                    continue
+                if category not in size_increase_vals:
+                    size_increase_vals[category] = []
 
-                if category < category_change:
-                    new_cat_val = identity[category]
+                size_increase_vals[category].append(identity[size_increase_cat])
+
+                if category not in new_cat_vals:
+                    new_cat_vals[category] = []
+
+                new_cat_vals[category].append(identity[category])
+
+
+        # check for which categories there are as many different values
+        # as the image is increased in size
+        # find the category for this that is earliest
+        # in order_of_categories and save the corresponding
+        # value of the tested identity in that category
+        for category in included_order_of_categories:
+            if category in size_increase_vals:
+                cat_vals = size_increase_vals[category]
+                if len(np.unique(cat_vals)) == size_factor:
                     category_change = category
+                    new_cat_vals_one_cat = np.unique(new_cat_vals[category])
+                    # there should only be one new cat val for the correct
+                    # category
+                    if len(new_cat_vals_one_cat) == 1:
+                        new_cat_val = new_cat_vals_one_cat[0]
+                        break
 
         return category_change, new_cat_val
 
     def _make_space_for_enlarged_images(self, images_enlarge, size_factor,
-                                        size_increase_dim, other_dim,
+                                        size_increase_cat, other_dim,
                                         min_cat_vals, category_change,
                                         new_cat_val, show_focus_in,
-                                        size_increase_is_focus,
+                                        size_increase_cat_is_focus,
                                         all_images_by_identity):
         """
         Shift category values for images to make space for enlarged images.
@@ -2244,8 +2410,10 @@ class FigurePanel():
                             (category_change) has to be changed into
         """
         increase_size_map = {}
+        size_factors_for_identities = {}
         place_holder_identities = {}
         other_dim_dict_of_enlarged_images = {}
+        place_holder_identity_map = {}
 
         nb_elements_to_add = size_factor - 1
         for image_to_enlarge in images_enlarge:
@@ -2255,7 +2423,7 @@ class FigurePanel():
 
             image_to_enlarge_pre_identity = self.get_pre_identity(image_to_enlarge)
             # save information on how much an image with a specific identity was enlarged
-            self.size_factors_for_identities[image_to_enlarge_pre_identity] = size_factor
+            size_factors_for_identities[image_to_enlarge_pre_identity] = size_factor
 
             other_dim_dict_of_enlarged_images[image_to_enlarge_pre_identity] = other_dim
 
@@ -2263,8 +2431,7 @@ class FigurePanel():
             all_images_to_remap.add(image_to_enlarge)
 
             for identity in all_images_by_identity.keys():
-                add_identity = True
-                dims_allowed_different = [size_increase_dim,
+                dims_allowed_different = [size_increase_cat,
                                           other_dim,
                                           category_change]
                 add_identity = self.check_if_identities_are_the_same_except_categories(identity,
@@ -2279,7 +2446,6 @@ class FigurePanel():
                                                                           nb_elements_to_add,
                                                                           min_cat_vals,
                                                                           increase_size_map)
-
             #  create set to identify added identities / images
             #  save place holder identities to add after applying remapping
             #  at the end remove the images from the set again
@@ -2290,21 +2456,21 @@ class FigurePanel():
             # should always be lower left
             # since size of image will be increased towards top-right
             # lower left position is where image to enlarge should be moved to
-            # first value in position is size_increase_dim, second is other_dim
+            # first value in position is size_increase_cat, second is other_dim
             lower_left_pos = self._get_lower_left_position_in_grid(show_focus_in,
-                                         size_increase_is_focus,
+                                         size_increase_cat_is_focus,
                                          nb_elements_to_add,
-                                         min_cat_vals, size_increase_dim)
+                                         min_cat_vals, size_increase_cat)
 
             all_place_holder_identities = []
-            for cat1_value in range(min_cat_vals[size_increase_dim],
+            for cat1_value in range(min_cat_vals[size_increase_cat],
                                     nb_elements_to_add +
-                                    min_cat_vals[size_increase_dim] + 1):
+                                    min_cat_vals[size_increase_cat] + 1):
 
                 for cat2_value in range(0, nb_elements_to_add + 1):
                     #  if cat2_value == 0:
                     place_holder_identity = list(image_to_enlarge)
-                    place_holder_identity[size_increase_dim] = cat1_value
+                    place_holder_identity[size_increase_cat] = cat1_value
                     place_holder_identity[other_dim] = cat2_value
                     # change category value that needs to be changed
                     # to put images next to one another
@@ -2318,7 +2484,6 @@ class FigurePanel():
                     else:
                         #  if (cat1_value, cat2_value) == lower_left_pos:
                         # remap original image to lower left position
-
                         increase_size_map[image_to_enlarge] = tuple(place_holder_identity)
 
             # go through all place_holder identities
@@ -2326,11 +2491,13 @@ class FigurePanel():
             # of the corresponding enlarged image
             enlarged_image_pre_identity = self.get_pre_identity(image_to_enlarge)
             for place_holder_identity in all_place_holder_identities:
-                self.place_holder_identity_map[place_holder_identity] = enlarged_image_pre_identity
+                place_holder_identity_map[place_holder_identity] = enlarged_image_pre_identity
 
         return (increase_size_map,
                 place_holder_identities,
-                other_dim_dict_of_enlarged_images)
+                other_dim_dict_of_enlarged_images,
+                size_factors_for_identities,
+                place_holder_identity_map)
 
 
     def _shift_cat_values_for_enlarged_image(self, all_images_to_remap,
@@ -2352,28 +2519,29 @@ class FigurePanel():
 
 
     def _get_lower_left_position_in_grid(self, show_focus_in,
-                                         size_increase_is_focus,
+                                         size_increase_cat_is_focus,
                                          nb_elements_to_add,
                                          min_cat_vals,
-                                         size_increase_dim):
+                                         size_increase_cat):
         # there are 4 variants of how the enlarged image is positioned
         # for each position the lower left corner is defined differently
         if show_focus_in == "rows":
-            if size_increase_is_focus:
+            if size_increase_cat_is_focus:
 
                 lower_left_pos = (nb_elements_to_add +
-                                  min_cat_vals[size_increase_dim] ,
+                                  min_cat_vals[size_increase_cat] ,
                                   0)
-                #  lower_left_pos = (nb_elements_to_add +1 , min_cat_vals[size_increase_dim] - 1)
+                #  lower_left_pos = (nb_elements_to_add +1 , min_cat_vals[size_increase_cat] - 1)
             else:
-                lower_left_pos = (nb_elements_to_add, nb_elements_to_add)
+                lower_left_pos = (min_cat_vals[size_increase_cat],
+                                  nb_elements_to_add)
         else:
-            if size_increase_is_focus:
-                lower_left_pos = (min_cat_vals[size_increase_dim],
+            if size_increase_cat_is_focus:
+                lower_left_pos = (min_cat_vals[size_increase_cat],
                                   nb_elements_to_add)
             else:
                 lower_left_pos = (nb_elements_to_add +
-                                  min_cat_vals[size_increase_dim] ,
+                                  min_cat_vals[size_increase_cat] ,
                                   0)
         return lower_left_pos
 
@@ -2610,7 +2778,7 @@ class FigurePanel():
     def check_if_identities_are_the_same_except_categories(self, identity1,
                                                          identity2, categories):
         identites_similar = True
-        if (type(categories) != list) & (type(categories) != tuple):
+        if (type(categories) not in self.itertypes):
             categories = [categories]
 
         for cat_nb, cat_val in enumerate(identity1):
@@ -2733,7 +2901,7 @@ class FigurePanel():
                         if same_image_sub & range_defined:
                             # if range is tuple, only use position in tuple
                             # corresponding to the current overlay
-                            if type(ranges) == tuple:
+                            if type(ranges) in self.itertypes:
                                 ranges = self.get_range_from_min_max(ranges,
                                                                     image_nb_overlay)
                             else:
@@ -2975,10 +3143,12 @@ class FigurePanel():
         :param map: dict with names of categories as key and number of category
                     in identity as value
         """
+
+
         allowed_focus_vals = map.keys()
         possible_focus_vals = []
 
-        if focus != None:
+        if not self.is_none(focus):
             if focus not in allowed_focus_vals:
                 raise ValueError("The supplied focus '{}' is not valid. "
                                  "Only the following focus values are allowed:"
@@ -2986,7 +3156,13 @@ class FigurePanel():
                                                ", ".join(allowed_focus_vals)))
             possible_focus_vals.append(focus)
         else:
-            possible_focus_vals = allowed_focus_vals
+            if len(order_of_categories["fixed"]) > 0:
+                possible_focus_vals = [order_of_categories["fixed"][0]]
+            else:
+                possible_focus_vals = allowed_focus_vals
+
+        order_of_categories = [*order_of_categories["fixed"],
+                               *order_of_categories["flexible"]]
 
         permutations = []
         # get all permutations for focus and non-focus combination
@@ -3016,69 +3192,145 @@ class FigurePanel():
                                  "are allowed".format({show_focus_in}))
 
 
+        # get dict with ratio of width to height for each permutation
+        permutation_differences = {}
+        for column_categories, row_categories in permutations:
+
+            if type(column_categories) not in self.itertypes:
+                column_categories = [column_categories]
+            if type(row_categories) not in self.itertypes:
+                row_categories = [row_categories]
+
+            grid_fit_score = self.get_image_category_grid_fit_score(column_categories,
+                                                                    row_categories,
+                                                                    all_images_by_identity,
+                                                                    width_imgs, height_imgs,
+                                                                    additional_padding
+                                                                    )
+
+            permutation_differences[tuple(column_categories),
+                                    tuple(row_categories)] = grid_fit_score
+
+        return permutation_differences
+
+
+    def get_image_category_grid_fit_score(self, column_categories,
+                                          row_categories,
+                                          all_images_by_identity,
+                                          width_imgs, height_imgs,
+                                          additional_padding
+                                          ):
+        """
+        Get fit of image grid determined by categories shown in
+        columns and categories shown in rows.
+
+        :param column_categories:
+        :type column_categories: list
+        :param row_categories:
+        :type row_categories: list
+        :param all_images_by_identity:
+        :type all_images_by_identity: dict
+        :param width_imgs:
+        :type width_imgs: numpy array
+        :param height_imgs:
+        :type height_imgs: numpy array
+        :param additional_padding:
+        :return: fit score
+        :rtype: float
+        """
         # calculate sub padding which is the padding
         #  that will be introduced between the images
         fig = plt.gcf()
         fig_size = fig.get_size_inches()
         sub_xpadding = self.xpadding[0] / 4
         sub_ypadding = self.ypadding[0] / 4
-        # get dict with ratio of width to height for each permutation
-        permutation_differences = {}
+        if type(column_categories) not in self.itertypes:
+            column_categories = [column_categories]
+        if type(row_categories) not in self.itertypes:
+            row_categories = [row_categories]
 
-        for column_categories, row_categories in permutations:
-            if type(column_categories) != tuple:
-                column_categories = [column_categories]
-            if type(row_categories) != tuple:
-                row_categories = [row_categories]
+        # one width-height pair for permutation
+        permutation_widths = np.amax(width_imgs,tuple(row_categories))
+        permutation_heights = np.amax(height_imgs,tuple(column_categories))
+        permutation_width = np.sum(permutation_widths)
+        permutation_height = np.sum(permutation_heights)
+        permutation_ratio = permutation_width / permutation_height
 
-            # one width-height pair for permutation
-            permutation_widths = np.amax(width_imgs,tuple(row_categories))
-            permutation_heights = np.amax(height_imgs,tuple(column_categories))
-            permutation_width = np.sum(permutation_widths)
-            permutation_height = np.sum(permutation_heights)
-            permutation_ratio = permutation_width / permutation_height
+        # calculate additional padding in each dimension
+        add_x_padding = 0
+        add_y_padding = 0
+        for column_cat in column_categories:
+            cat_str = self.inv_map[column_cat]
+            if cat_str not in additional_padding:
+                continue
+            nb_cat_vals = self.get_number_of_vals_for_cat(column_cat,
+                                                          all_images_by_identity.keys())
+            # subtract 1 from nb cat vals since padding
+            #  is added BETWEEN the vals
+            # subtract one from value from additional_padding
+            #  since it is a factor
+            # and 2 means twice the padding, therefore one frame
+            #  the padding more than usually
+            add_x_padding += (nb_cat_vals - 1) * (additional_padding[cat_str] - 1)
 
-            # calculate additional padding in each dimension
-            add_x_padding = 0
-            add_y_padding = 0
-            for column_cat in column_categories:
-                cat_str = self.inv_map[column_cat]
-                if cat_str in additional_padding:
-                    nb_cat_vals = self.get_number_of_vals_for_cat(column_cat,
-                                                                  all_images_by_identity.keys())
-                    # subtract 1 from nb cat vals since padding
-                    #  is added BETWEEN the vals
-                    # subtract one from value from additional_padding
-                    #  since it is a factor
-                    # and 2 means twice the padding, therefore one frame
-                    #  the padding more than usually
-                    add_x_padding += (nb_cat_vals - 1) * (additional_padding[cat_str] - 1)
-            for row_cat in row_categories:
-                cat_str = self.inv_map[row_cat]
-                if cat_str in additional_padding:
-                    nb_cat_vals = self.get_number_of_vals_for_cat(row_cat,
-                                                                  all_images_by_identity.keys())
-                    add_y_padding += ((nb_cat_vals - 1) * 
-                                      (additional_padding[cat_str] - 1))
+        for row_cat in row_categories:
+            cat_str = self.inv_map[row_cat]
+            if cat_str not in additional_padding:
+                continue
+            nb_cat_vals = self.get_number_of_vals_for_cat(row_cat,
+                                                          all_images_by_identity.keys())
+            add_y_padding += ((nb_cat_vals - 1) *
+                              (additional_padding[cat_str] - 1))
 
 
-            # factor in spaces between images as well for available ratio
-            # get dict with differences of permutation ratio to available ratio
-            # calculate available ratio with inches
-            available_width = ((self.inner_border[1] - self.inner_border[0]) *
-                               fig_size[0] -
-                               (permutation_widths.size + add_x_padding) *
-                               sub_xpadding)
-            available_height = ((self.inner_border[3] - self.inner_border[2]) *
-                                fig_size[1] -
-                                (permutation_height.size + add_y_padding) *
-                                sub_ypadding)
+        # factor in spaces between images as well for available ratio
+        # get dict with differences of permutation ratio to available ratio
+        # calculate available ratio with inches
+        available_width = ((self.inner_border[1] - self.inner_border[0]) *
+                           fig_size[0] -
+                           (permutation_widths.size + add_x_padding) *
+                           sub_xpadding)
+        available_height = ((self.inner_border[3] - self.inner_border[2]) *
+                            fig_size[1] -
+                            (permutation_height.size + add_y_padding) *
+                            sub_ypadding)
 
-            available_ratio = available_width / available_height
-            permutation_differences[tuple(column_categories),tuple(row_categories)] = max(available_ratio/permutation_ratio, permutation_ratio/available_ratio)
+        available_ratio = available_width / available_height
 
-        return permutation_differences
+        fit_score = max(available_ratio/permutation_ratio,
+                   permutation_ratio/available_ratio)
+        return fit_score
 
+    def get_dimension_categories(self, first_dimension, second_dimension,
+                                 size_increase_cat_is_focus, size_increase_dim_nb,
+                                 order_of_categories, show_focus_in):
+        # get row and column categories
+        if size_increase_cat_is_focus:
+            focus_dim_nb = size_increase_dim_nb
+        else:
+            focus_dim_nb = 1 - size_increase_dim_nb
+        focus = [first_dimension,
+                 second_dimension][focus_dim_nb]
+
+        non_focus_categories = [[first_dimension,
+                                second_dimension]
+                                [1 - focus_dim_nb]]
+
+        for cat in order_of_categories:
+            if cat not in [focus, *non_focus_categories]:
+                non_focus_categories.append(cat)
+
+        if show_focus_in == "rows":
+            row_categories = tuple([focus])
+            column_categories = non_focus_categories
+        else:
+            column_categories = tuple([focus])
+            row_categories = non_focus_categories
+
+        column_categories = tuple([self.map[cat] for cat in column_categories])
+        row_categories = tuple([self.map[cat] for cat in row_categories])
+
+        return column_categories, row_categories
 
     def get_best_permutation_of_cats_for_axes(self, permutation_differences, 
                                               enforce_rectangle = False):
@@ -3107,7 +3359,7 @@ class FigurePanel():
                 min_difference = difference
                 best_permutation = permutation
 
-        return best_permutation
+        return best_permutation, min_difference
 
 
     def get_number_of_vals_for_cat(self, category, all_identities):
@@ -3165,20 +3417,16 @@ class FigurePanel():
             # for this count number of cells in width matrix
             #  for categories with non zero values
             position = []
-            row_categories = copy.copy(best_permutation[1])
-            column_categories = copy.copy(best_permutation[0])
-            if type(row_categories) != tuple:
-                row_categories = [row_categories]
-            if type(column_categories) != tuple:
-                column_categories = [column_categories]
 
             # go through both dimensions (rows and columns)
             # and save position in that dimension of the current identity
             for dimension_nb, categories in enumerate(best_permutation):
+                # categories are usually not incrementing
+
                 #  dim_matrix = np.amax(width_imgs,
                 #                       axis=best_permutation[1 - dimension_nb])
 
-                if type(categories) != tuple:
+                if type(categories) not in self.itertypes:
                     categories = [categories]
 
                 # sort images by order of categories, which means
@@ -3208,9 +3456,13 @@ class FigurePanel():
                     # the position is always 0.
                     new_categories = [0]
                 else:
-                    # Otherwise the position is reduced by one
-                    # if the category comes after the removed category
-                    # (from the other dimension)
+                    # Otherwise the categoriy is reduced by one
+                    # if the category comes after (ist larger)
+                    # the removed category (from the other dimension)
+                    # the reason is that the the dimension of width
+                    # corresponding to the other dimension will be removed
+                    # and therefore all dimensions after this dimension
+                    # will be technically one dimension lower
                     new_categories = [cat - len(best_permutation[1 - dimension_nb])
                                   if cat > best_permutation[1 - dimension_nb][0]
                                   else cat for cat in categories]
@@ -3218,6 +3470,7 @@ class FigurePanel():
                 nb_imgs_before = 0
                 # convert identity to numpy array to allow a list of
                 # multiple, non-ascending/-descending indices
+
                 identity_array = np.array(identity)
                 # get maximum width across category/ies of other dimension
                 # thereby get nonzero width at positions in current dimension
@@ -3234,8 +3487,17 @@ class FigurePanel():
                 # before that
                 for nb_category, category in enumerate(categories):
 
+                    # categories need to be sorted in order to keep
+                    # the order in the identity correct
+                    # otherwise the positions in the identity refer to
+                    # the wrong category and thereby to the wrong dimension
+                    # in the widths
+                    categories_for_identity = list(categories)
+                    categories_for_identity.sort()
+
                     # get the identity values of categories of current dimension
-                    idx = list(identity_array[[categories]])
+                    idx = list(identity_array[[categories_for_identity]])
+
                     # go through each category  (new_category numbers are needed
                     # since non-category positions in identity array were
                     # already removed)
@@ -3248,7 +3510,7 @@ class FigurePanel():
                         if new_nb_category < nb_category:
                             idx[new_category] = slice(None)
                         elif new_nb_category == nb_category:
-                                idx[new_category] = slice(idx[new_category])
+                            idx[new_category] = slice(idx[new_category])
 
                     sub_widths = new_width_imgs[tuple(idx)]
 
@@ -3352,7 +3614,6 @@ class FigurePanel():
 
         if remapped_identity in self.inv_remap_for_orientation:
             remapped_identity = self.inv_remap_for_orientation[remapped_identity]
-
         if remapped_identity in self.inv_increase_size_map:
             remapped_identity = self.inv_increase_size_map[remapped_identity]
 
@@ -3400,7 +3661,7 @@ class FigurePanel():
                         pre_identity_val = identity_val
 
                 pre_identity.append(pre_identity_val)
-        pre_identity = tuple([val if type(val) == tuple else int(val)
+        pre_identity = tuple([val if type(val) in self.itertypes else int(val)
                               for val in pre_identity])
 
         return pre_identity
@@ -3754,7 +4015,7 @@ class FigurePanel():
         all_pre_identities = [pre_identity]
         is_overlay = False
         for cat_nb, cat_val in enumerate(pre_identity):
-            if (type(cat_val) != list) & (type(cat_val) != tuple):
+            if (type(cat_val) not in self.itertypes):
                 continue
             is_overlay = True
             #  create nested list with one entry for each
@@ -3810,7 +4071,7 @@ class FigurePanel():
             column = position[1]
             if len(make_image_size_equal) >= 2:
                 # allow for adding px with multiple settings
-                if type(make_image_size_equal[0]) == list:
+                if type(make_image_size_equal[0]) in self.itertypes:
                     for one_make_image_size_equal in make_image_size_equal:
                         image = self.add_px_to_image_dimension(image, row,
                                                                column,
@@ -3861,7 +4122,7 @@ class FigurePanel():
                     # replace nan in images by value
                     image[np.isnan(image)] = replace_nan_with
                     # if cmaps was supplied as list, separate by channels
-                    if type(cmaps_to_use) == list:
+                    if type(cmaps_to_use) in self.itertypes:
                         channel = pre_identity[self.map["channels"]]
                         if channel >= len(cmaps_to_use):
                             raise ValueError("More than one cmap was supplied but "
@@ -3933,14 +4194,12 @@ class FigurePanel():
         row_correct = True
         col_correct = True
 
-        if ((type(show_axes_in_rows) != tuple) &
-            (type(show_axes_in_rows) != list) &
+        if ((type(show_axes_in_rows) not in self.itertypes) &
             (type(show_axes_in_rows) != type(None))
             ):
             show_axes_in_rows = [show_axes_in_rows]
 
-        if ((type(show_axes_in_columns) != tuple) &
-            (type(show_axes_in_columns) != list) &
+        if ((type(show_axes_in_columns) not in self.itertypes) &
             (type(show_axes_in_columns) != type(None))
             ):
             show_axes_in_columns = [show_axes_in_columns]
@@ -4209,8 +4468,7 @@ class FigurePanel():
     def get_vals_without_nan_and_values(self, matrix, values_to_exclude=None):
         matrix = matrix[~np.isnan(matrix)]
         if type(values_to_exclude) != type(None):
-            if ((type(values_to_exclude) != list) &
-                    (type(values_to_exclude) != tuple)):
+            if (type(values_to_exclude) not in self.itertypes):
                 values_to_exclude = [values_to_exclude]
             for value_to_exclude in values_to_exclude:
                 matrix = matrix[matrix != value_to_exclude]
@@ -5283,16 +5541,15 @@ class FigurePanel():
          label_vals) = self.pool_adjacent_similar_labels(label_vals, all_cat_vals,
                                                          positions_for_cat_vals,
                                                          label_cat)
-
         # initiate counter for multiple categories (overlay channels)
-        for cat_val in all_cat_vals:
+        for cat_nb, cat_val in enumerate(all_cat_vals):
             site_positions = positions_for_cat_vals[cat_val]
 
             # for overlays either label wth default_overlay_label or with
             # combination of labels of respective channels
             # labeling with channel names in respective colors is not possible
             # this has to be done within the image
-            if type(cat_val) == tuple:
+            if type(cat_val) in self.itertypes:
                 label_text = ""
                 if (label_overlays) | (default_overlay_label != None):
                     if not label_overlays:
@@ -5313,11 +5570,11 @@ class FigurePanel():
                                 label_text += string_separating_channels
                             label_text += str(label_vals[overlay_cat_val])
             else:
-                if cat_val >= len(label_vals):
+                if cat_nb >= len(label_vals):
                     print("WARNING: Not enough labels were supplied for labeling "
                           "category in panel {}".format(self.letter))
                     break
-                label_text = label_vals[cat_val]
+                label_text = label_vals[cat_nb]
 
             label_positions = site_positions[site]
             row_start = label_positions[0][0]
@@ -6791,7 +7048,7 @@ class FigurePanel():
                 continue
 
             # if values is only one value convert to list to make it iterable
-            if type(values) != list:
+            if type(values) not in [list, tuple]:
                 final_query = column + values
                 included_indices = new_included_data.query(final_query).index
             else:
@@ -7203,7 +7460,7 @@ class FigurePanel():
 
         # allow for multiple y to be plotted in separate rows
         # prepare y values to be list to i
-        if (type(self.y) == list) | (type(self.y) == tuple):
+        if (type(self.y) in self.itertypes):
             all_y = self.y
         else:
             all_y = [self.y]
@@ -7251,7 +7508,7 @@ class FigurePanel():
 
         # check whether multiple columns for y were provided
         multiple_y = False
-        if (type(self.y) == list) | (type(self.y) == tuple):
+        if (type(self.y) in self.itertypes):
             multiple_y = True
 
         #  create facet plot made out of several sub figure panels
@@ -7268,6 +7525,8 @@ class FigurePanel():
 
             self.plot_multi_rows(inner_border,  show_legend, **kwargs)
             return None
+
+        kwargs["show_data_points"] = show_data_points
 
         # replace everything except the row values
         # for each row separately
@@ -7300,7 +7559,7 @@ class FigurePanel():
         """
         # allow for multiple y to be plotted in separate rows
         # prepare y values to be list to i
-        if (type(self.y) == list) | (type(self.y) == tuple):
+        if (type(self.y) in self.itertypes):
             all_y = self.y
         else:
             all_y = [self.y]
@@ -7566,7 +7825,7 @@ class FigurePanel():
 
         y_param_values = {}
         for y_param in y_params:
-            if type(y_param) == tuple:
+            if type(y_param) in self.itertypes:
                 y_param_name = y_param[0]
             else:
                 y_param_name = y_param
@@ -7576,14 +7835,13 @@ class FigurePanel():
         #  otherwise leave it as is
         for y_param, y_param_value in y_param_values.items():
             multiple_y_considered = False
-            if (type(y_param_value) == list) | (type(y_param_value) == tuple):
+            if (type(y_param_value) in self.itertypes):
                 # if y param is usually an iterable
                 # then go one step deeper into iterable to check
                 # whether any value is still an iterable
-                if (type(y_param) == tuple):
+                if (type(y_param) in self.itertypes):
                     for y_param_to_check in y_param_value:
-                        if ((type(y_param_to_check) == list) |
-                                (type(y_param_to_check) == tuple)):
+                        if (type(y_param_to_check) in self.itertypes):
                             multiple_y_considered = True
                             break
                     y_param = y_param[0]
@@ -8001,6 +8259,7 @@ class FigurePanel():
         if increase_padding_below:
             inner_border = self.do_increase_of_padding_below_plot(inner_border,
                                                                   data, x, col,
+                                                                  fig_height,
                                                                   **kwargs)
 
         (axs_by_position,
@@ -8031,7 +8290,8 @@ class FigurePanel():
 
 
     def do_increase_of_padding_below_plot(self, inner_border,
-                                          data, x, col, **kwargs):
+                                          data, x, col, fig_height,
+                                          **kwargs):
         if "col_order" in kwargs:
             col_order = kwargs["col_order"]
         else:
@@ -8667,7 +8927,7 @@ class FigurePanel():
         """
         scale_bar_widths = np.zeros((self.max_row + 1, self.max_col +1))
 
-        if type(lengths_um) != list:
+        if type(lengths_um) not in self.itertypes:
             lengths_um = [lengths_um]
 
         # sort lengths descending
@@ -8799,7 +9059,7 @@ class FigurePanel():
 
             # padding is calculated in image dimensions
 
-            if (type(padding) == list) | (type(padding) == tuple):
+            if (type(padding) in self.itertypes):
                 padding_x = padding[0] / (ax_coords.width * fig_size[0]) * width
                 padding_y = padding[1] / (ax_coords.width * fig_size[1]) * width
             else:
@@ -8896,7 +9156,7 @@ class FigurePanel():
         fig = plt.gcf()
         ax_width = smallest_width * fig.get_size_inches()[0] * fig.dpi
         # get padding on both sides of ax for text
-        if (type(padding) == list) | (type(padding) == tuple):
+        if (type(padding) in self.itertypes):
             ax_padding = ax_width * padding[0] * 2
         else:
             ax_padding = ax_width * padding * 2
@@ -9257,7 +9517,7 @@ class FigurePanel():
         If the array is None, all entries are filled with standard_value.
         """
         channels = identity[self.map["channels"]]
-        if (type(channels)  != tuple):
+        if (type(channels) not in self.itertypes):
             channels = [channels]
         # get all channel_names and channel_colors for each channel in the image
         info_one_image = []
@@ -9621,7 +9881,7 @@ class FigurePanel():
         width = 1
         height = 1
 
-        if (type(padding) == list) | (type(padding) == tuple):
+        if (type(padding) in [list, tuple]):
             padding_x = padding[0] / ax_width_inch
             padding_y = (padding[1] - less_y_padding_inch)/ ax_height_inch
         else:
