@@ -1085,7 +1085,7 @@ class FigurePanel():
             # reshape ranges to have two columns (one for min, one for max)
             # and as many rows as channels
             ranges = np.reshape(ranges, ( int(len(ranges)/2 ) , 2) )
-        else:
+        elif "min" in imagej_tags:
             ranges = np.array( [ [ imagej_tags["min"], imagej_tags["max"] ] ] )
 
         return ranges
