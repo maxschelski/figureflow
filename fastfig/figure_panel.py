@@ -1094,7 +1094,8 @@ class FigurePanel():
         """
         Extracts order of dimensions of imageJ image and image width and height
         """
-        with Image.open(file_path) as img:
+        # with Image.open(file_path) as img:
+        with TiffFile(file_path) as img:
             file_name = os.path.basename(file_path)
             # get key that is used for imagedescription in ".tag" dict
             tiff_tags_inv_dict = {v:k for k,v in tiff_tags_dict.items()}
@@ -1102,20 +1103,23 @@ class FigurePanel():
             # use create ordered dict of imagedescription
             # order in dict determines which dimension in the array is used
             # counting starts from right
+            # print( dir(img))
+            # print( img.tiff.tagformat1)
+            # print( img.tiff.tagformat2)
 
             data_dict = OrderedDict()
-            if tiff_tag not in img.tag:
+            if tiff_tag not in img.pages[0].tags:
                 print("WARNING: The file '{}' has not been opened and saved "
                       "by ImageJ yet.".format(file_name))
             else:
-                data = img.tag[tiff_tag][0]
+                data = img.pages[0].tags[tiff_tag].value
                 data_values = data.split("\n")
                 for value in data_values:
                     value_split = value.split("=")
                     if len(value_split) == 2:
                         data_dict[value_split[0]] = value_split[1]
-            img_width = np.array(img).shape[-1]
-            img_height = np.array(img).shape[-2]
+            img_width = np.array(img.asarray()).shape[-1]
+            img_height = np.array(img.asarray()).shape[-2]
         return data_dict, img_width, img_height
 
 
@@ -1182,7 +1186,6 @@ class FigurePanel():
                 raise Exception("The data file '{}' can only be used "
                                 "if a single file is provided "
                                 "for the panel.".format(file_name))
-
 
             data_dict, img_width, img_height = self.get_image_properties(file_path)
 
