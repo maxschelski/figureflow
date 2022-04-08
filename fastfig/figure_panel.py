@@ -5508,7 +5508,7 @@ class FigurePanel():
                         label_sub_remapped=False, label_overlays=False,
                         default_overlay_label=None, font_size=None, padding=2,
                         font_size_factor=None, label_orientation = None,
-                        plot_line=True, string_separating_channels=" + ",
+                        plot_line=None, string_separating_channels=" + ",
                         **kwargs):
         """
         :param label_cat: category that should be labeled, can be "images", "channels", or "frames"
@@ -5533,7 +5533,7 @@ class FigurePanel():
 
         # check if plot_line should be switched to False
         # since no label has more than one row
-        if plot_line == True:
+        if self.is_none(plot_line):
             plot_line = False
             plot_line = self.check_if_label_has_multiple_rows(all_cat_vals,
                                                               positions_for_cat_vals,
@@ -5774,7 +5774,7 @@ class FigurePanel():
                 ((not multi_image) & (not align_all_labels)) |
                 (plot_line_for_all)):
             padding *= 0.4
-
+            
         padding_px = padding * fig.dpi / 72
 
 
