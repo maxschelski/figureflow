@@ -5835,7 +5835,7 @@ class FigurePanel():
             # are not aligned in rows with similar heights and columns with similar widths
             # COMMENT: probably those asymmetrical figures will not be generated
             # but in case this will be implemented, the current code should support labels for those as well
-            self.shift_and_transform_axs(site, total_x_shift, 
+            self.shift_and_transform_axs(site, total_x_shift,
                                          total_y_shift, padding_px)
 
 
@@ -6572,7 +6572,6 @@ class FigurePanel():
             for child in ax.get_children():
                 if not isinstance(child, matplotlib.text.Annotation):
                     continue
-
                 if child.get_label() != "inside_image":
                     continue
 
@@ -6581,19 +6580,22 @@ class FigurePanel():
 
                 ax_coords_px = self.bbox_to_list(ax_coords)
                 # get ax coords
+
                 ax_coords_px[0] *= fig_size_px[0]
-                ax_coords_px[2] *= fig_size_px[1]
-                ax_coords_px[1] *= fig_size_px[0]
+                ax_coords_px[1] *= fig_size_px[1]
+                ax_coords_px[2] *= fig_size_px[0]
                 ax_coords_px[3] *= fig_size_px[1]
                 # get child_coords in relative figure coords
                 # get px coords in ax
+                
                 child_coords[0] -= ax_coords_px[0]
                 child_coords[1] -= ax_coords_px[1]
                 child_coords[2] -= ax_coords_px[0]
                 child_coords[3] -= ax_coords_px[1]
-                ax_width_px = ax_coords_px[2] - ax_coords_px[0]
-                ax_height_px = ax_coords_px[3] - ax_coords_px[1]
-
+                
+                ax_width_px = ax_coords.width * fig_size_px[0]
+                ax_height_px = ax_coords.height * fig_size_px[1]
+                
                 child_coords[0] /= ax_width_px
                 child_coords[1] /= ax_height_px
                 child_coords[2] /= ax_width_px
@@ -6640,7 +6642,8 @@ class FigurePanel():
                         child_coords[0] += (child_coords[0] *
                                             (distance_increase_factor - 1))
 
-                child.set_position([child_coords[0], child_coords[1]])
+                child.set_position([child_coords[0],
+                                    child_coords[1]])
 
             ax.set_position([x_position, y_position, new_width, new_height])
 
