@@ -445,13 +445,31 @@ class Figure():
                      height=None, padding = None, **kwargs):
 
         print("CREATING PANEL {}...................".format(letter))
-        if type(padding) != type(None):
-            for pad_nb, pad_val in enumerate(padding):
-                if type(pad_val) == type(None):
-                    padding[pad_nb] = self.padding[pad_nb]
-        else:
-            padding = copy.copy(self.padding)
-
+        if (type(padding) == tuple) | (type(padding) == list):
+            expanded_padding = []
+            # seperate by x an y dimension
+            for dim_nb, pad_val in enumerate(padding):
+                expanded_padding.append([])
+                if (type(pad_val) == tuple) | (type(pad_val) == list):
+                    # separate by padding from each site
+                    # for x: first left then right
+                    # for y: first top then bottom
+                    for pad_site_val in pad_val:
+                        if type(pad_site_val) == type(None):
+                            expanded_padding[dim_nb].append(self.padding[dim_nb])
+                        else:
+                            expanded_padding[dim_nb].append(pad_site_val)
+                elif type(pad_val) == type(None):
+                    expanded_padding[dim_nb] = [self.padding[dim_nb],
+                                                self.padding[dim_nb]]
+                else:
+                    expanded_padding[dim_nb] = [padding[dim_nb],
+                                                 padding[dim_nb]]
+            padding = expanded_padding
+        elif (type(padding) == type(None)):
+            padding_copy = copy.copy(self.padding)
+            padding = [[padding_copy[0], padding_copy[0]],
+                       [padding_copy[1], padding_copy[1]]]
 
 
         #check if dimensions should be taken from csv
@@ -638,7 +656,6 @@ class Figure():
                 self.current_panel.show_function_called = True
                 if "frames" in kwargs:
                     self.current_panel.video_frames = kwargs["frames"]
-                    print(kwargs["frames"])
                     self.all_video_frames = kwargs["frames"]
             if (function_name.find("vid_") == -1) & (self.current_panel.show_function_called):
                 #instead save the function with arguments in panel

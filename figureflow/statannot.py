@@ -948,8 +948,13 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
             #             # add the corrected pval
             #             stat_results.loc[first_group_val, second_group_val] = p_val * nb_tests
 
-            stat_results = posthocs.posthoc_dunn(one_group_data,val_col=y,group_col="constructed_group",p_adjust="bonferroni")
-            
+            # stat_results = posthocs.posthoc_dunn(one_group_data,val_col=y,group_col="constructed_group",p_adjust="bonferroni")
+            stat_results = posthocs.posthoc_nemenyi_friedman(one_group_data,
+                                                             y_col=y,
+                                                             group_col="constructed_group",
+                                                             block_col=col,
+                                                             melted=True)
+            print(stat_results)
             # one_group_data.to_csv("C:\\Users\\Maxsc\\Desktop\\data_"+str(a)+".csv")
             # a += 1
             # print(stat_results)
@@ -1157,7 +1162,8 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
                         show_legend,
                         borderaxespad_, legend_handle_length,
                         show_x_label_in_all_columns,
-                        _leave_space_for_legend):
+                        _leave_space_for_legend,
+                        data_is_continuous):
 
     fig = plt.gcf()
 
@@ -1194,7 +1200,6 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
                             borderpad=0, handletextpad=legend_spacing,
                             borderaxespad=borderaxespad_, title=legend_title,
                             handlelength=legend_handle_length)
-
         # set font size of legend title same as rest of legend
         plt.setp(legend.get_title(),fontsize=fontsize_points)
         legend._legend_box.align = "left"
@@ -1258,13 +1263,14 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
             ((show_x_label_in_all_columns) |
              (plot_nb == 1))):
         ax.set_xlabel(x_axis_label, labelpad=borderaxespad_)
+    elif data_is_continuous:
+        ax.set(xticklabels=[])
 
     if not show_x_axis:
         ax.set(xticklabels=[])
 
-
     # if there is only one x tick label in ALL plots, dont show xticklabels
-    if len(x_order) == 1:
+    if (len(x_order) == 1) & (not data_is_continuous):
         ax.set(xticklabels=[])
 
     return legend_width, handles
@@ -2037,15 +2043,14 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
                                              auto_width_reduction_factor,
                                             legend_width,
                                              auto_scale_group_padding,
-                                             plot_type,
-                                             hor_alignment,
-                                             continuous_plot_types):
+                                             data_is_continuous,
+                                             hor_alignment):
     fig = plt.gcf()
     for plot_nb, col_val in enumerate(col_order):
         ax = all_axs[col_val]
         col_data = data.loc[data[col] == col_val]
         if plot_nb == 0:
-            if (plot_type in continuous_plot_types):
+            if data_is_continuous:
                 # for continuous plot types, the width of each
                 # plot should not depend on the x values
                 # but should be the same for all plots
@@ -2264,6 +2269,17 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     if show_col_labels_above:
         show_col_labels_below = False
 
+    # do not scale group padding for continuous plots
+    if plot_type in continuous_plot_types:
+        data_is_continuous = True
+    else:
+        data_is_continuous = False
+
+    if data_is_continuous:
+        auto_scale_group_padding = False
+        show_data_points = False
+
+
     # convert all values according to size factor
     # inner_padding *= size_factor
     # text_offset *= size_factor
@@ -2271,9 +2287,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     # line_width_thin *= size_factor
     box_width *= size_factor
     # group_padding *= size_factor
-
-    if (plot_type in continuous_plot_types):
-        show_data_points = False
 
     adjust_figure_aesthetics(background_color)
 
@@ -2367,7 +2380,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
         new_hue_order = get_all_vals_from_order_in_data(col_data, hue, hue_order)
 
-        if (plot_type not in continuous_plot_types):
+        if (not data_is_continuous):
             if (hue != "no_hue_defined"):
                 nb_x_vals *= len(new_hue_order)
         else:
@@ -2398,7 +2411,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
         ax.set_ylim(y_range[0], y_range[1])
 
-
         if show_y_minor_ticks:
             ax.minorticks_on()
             ax.xaxis.set_tick_params(which='minor', bottom=False)
@@ -2418,7 +2430,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         # advance currentColumn ticker
         current_column += nb_x_vals
 
-        if (plot_type not in continuous_plot_types):
+        if (not data_is_continuous):
             # adjust size of ax to standardize size of box, needs to be done before plotting data
             # if done after plotting data, swarmplot will be squeezed, leading to overlap of points
             (ax,
@@ -2441,7 +2453,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                show_regression_stats, figure_panel,
                                                 swarmplot_point_size, bar_plot_dodge, x_range)
 
-
         all_labels_to_add = [*all_labels_to_add, *labels_to_add]
 
         rel_height_change = 0
@@ -2463,8 +2474,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         # get overflow of y-axis tick labels (going above axis)
         # and correct for that
 
-
-
         # rotate x axis labels
         if x_tick_label_rotation == True:
             # rotate x labels
@@ -2473,15 +2482,17 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                 label.set_rotation(45)
 
         # set the legend as well as axes labels and padding
-        legend_width, longest_legend_handles = set_legend_and_axes(ax, col_order,
-                                                                   plot_nb, hue_order,
-                            y_axis_label, x_order, fontsize, legend_spacing, longest_legend_handles,
+        (legend_width,
+         longest_legend_handles) = set_legend_and_axes(ax, col_order, plot_nb,
+                                                       hue_order, y_axis_label,
+                                                       x_order, fontsize,
+                                                       legend_spacing, longest_legend_handles,
                             show_x_axis, x_axis_label, legend_title, show_row_label,
                             row_label_text,row_label_orientation,
                             show_legend, borderaxespad_,
                             legend_handle_length, show_x_label_in_all_columns,
-                                                                   _leave_space_for_legend)
-
+                                                                   _leave_space_for_legend,
+                                                       data_is_continuous)
 
         # if y axis should not be shown
         # until now only used if x axis without anythoing else should be plotted
@@ -2617,7 +2628,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                               show_test_name,text_format)
 
         h = line_height * max_yrange
-
         for x_val, box_pairs_of_x in box_pairs_grouped.items():
             if (x_val != "different_x") & (hue != "no_hue_defined") & show_stats_to_control_without_lines:
                 (box_pairs_of_x,
@@ -2705,7 +2715,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         for ax in all_axs.values():
             ax.set_ylim(-0.05, ax.get_ylim()[1])
 
-
     for ax in all_axs.values():
 
         if type(y_range) == type(None):
@@ -2749,8 +2758,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                              auto_width_reduction_factor,
                                              legend_width,
                                              auto_scale_group_padding,
-                                             plot_type, hor_alignment,
-                                             continuous_plot_types)
+                                             data_is_continuous, hor_alignment)
 
     # move overhanging axis tick labels into inner_border
     for ax in all_axs.values():
@@ -2759,7 +2767,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         # do the same for the x axis but with x and width instead of y and height
         # however, only if the plot is a continuous plot
         # meaning that it has a continuous x axis where values can be at the end
-        if plot_type in continuous_plot_types:
+        if data_is_continuous:
             x_axis_tick_overhang_rel = get_axis_tick_labels_overhang(ax, "x")
         else:
             x_axis_tick_overhang_rel = 0
@@ -2777,4 +2785,4 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         add_background_grid_lines_to_plots(all_axs, col_order,
                                            line_width, letter)
 
-    return all_axs, axs_by_position, ax_annot, test_result_list, ann_list
+    return axs_by_position, ax_annot, test_result_list
