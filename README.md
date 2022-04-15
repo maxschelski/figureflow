@@ -65,7 +65,7 @@ The package was developed in Windows and the exact package versions for the envi
 4. Install FigureFlow locally using pip:
 > pip install -e .
 5. You can now import FigureFlow and use it to build figures and generate movies as figure objects
-> from figureflow import figure
+> from figureflow.figure import Figure
 
 For any questions feel free to contact me via E-Mail to max.schelski@googlemail.com.
 # Examples
