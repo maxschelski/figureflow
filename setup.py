@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
 setup(
-      name="fastfig",
+      name="figureflow",
       packages=find_packages()
       )
