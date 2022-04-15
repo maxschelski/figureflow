@@ -1,7 +1,7 @@
 
-# impor package to work with
-from fastfig import figure
-Figure = figure.Figure
+# import package to work with
+from figureflow.figure import Figure
+
 """
 For all strings (e.g. text which are labeled, title page etc), 
 "\n" in the string/text will make line break.
