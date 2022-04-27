@@ -690,11 +690,11 @@ class Figure():
         self.duration_title_page = duration_title_page
         self.title_page = None
 
+        video_name = self.name + "S" + str(self.number)
 
-        self.tmp_video_folder = os.path.join(self.folder, "video_tmp")
+        self.tmp_video_folder = os.path.join(self.folder, video_name + "_tmp")
         if not os.path.exists(self.tmp_video_folder ):
             os.mkdir(self.tmp_video_folder)
-
 
         all_videos = []
         #if there should be a title page with text
@@ -743,10 +743,9 @@ class Figure():
             shutil.copyfile(data_video_path, new_data_video_path)
             all_videos.append(editor.VideoFileClip(new_data_video_path))
 
-
         complete_video = editor.concatenate_videoclips(all_videos)
-        video_name = self.name + "S" + str(self.number) + ".mp4"
-        video_path = os.path.join(self.folder, video_name)
+        video_file_name = video_name + ".mp4"
+        video_path = os.path.join(self.folder, video_file_name)
 
         #set bitrate to None (automatically determine)
         #for moviepy
@@ -756,10 +755,9 @@ class Figure():
             bitrate = str(bitrate)
 
         complete_video.write_videofile(video_path, fps=self.fps,
-                                    remove_temp=True, bitrate=bitrate)
+                                       remove_temp=True, bitrate=bitrate)
 
         shutil.rmtree(self.tmp_video_folder)
-
 
     def create_video(self, animate_function, nb_frames,
                      bitrate=-1, name=""):
