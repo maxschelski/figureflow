@@ -7003,6 +7003,47 @@ class FigurePanel():
         if self.panel_file_paths[0].find(".csv") == -1:
             raise Exception("Only showing data from a csv file is supported.")
 
+    def remove_unpaired_data(self, data, pair_unit_columns,
+                             col, x, hue):
+        
+        def get_paired_data(data, pair_level_column, pair_unit_columns):
+            pair_values = data[pair_level_column].drop_duplicates().values
+
+            # first get all paired units which are present in all pair values
+            paired_data_units = data.loc[data[pair_level_column] == pair_values[0]]
+            for pair_value in pair_values[1:]:
+                new_data = data.loc[data[pair_level_column] == pair_value]
+                paired_data_units = paired_data_units.merge(new_data,
+                                                            on=pair_unit_columns,
+                                                            how="inner")
+            all_paired_units = paired_data_units[pair_unit_columns].drop_duplicates().values
+            all_paired_units = [tuple(unit) for unit in all_paired_units]
+
+            data_pair_indexed = data.set_index(pair_unit_columns)
+            paired_data = data_pair_indexed.loc[all_paired_units].reset_index()
+
+            for pair_value in pair_values:
+                new_data = paired_data.loc[paired_data[pair_level_column] == pair_value]
+
+            return paired_data
+
+        # if pair columns are defined, only paired data is allowed
+        # remove data for which no paired samples are available
+        # go through each group of pairs
+        # NOTE: one group can also contain more than two connected
+        # groups for which datapoints will be connected
+        if type(hue) != type(None):
+            group_level_columns = [col, x]
+            pair_level_column = hue
+        else:
+            group_level_columns = [col]
+            pair_level_column = x
+        data = data.groupby(group_level_columns,
+                                 as_index=False).apply(get_paired_data,
+                                                            pair_level_column,
+                                                            pair_unit_columns)
+
+        return data
 
     def show_data_columns(self, nb_vals = 10):
         self.validate_data_file()
@@ -7276,8 +7317,8 @@ class FigurePanel():
                   renaming_dicts = None, increase_padding_above = True,
                   width_y_axis = 0, col_labels_every_row = False,
                   sub_padding_y_factor = 0.25, show_y_label_in_all_rows = False,
-                  for_measuring = False, normalize_after_data_exclusion=False,
-                  video_frame=None, show_legend=True,
+                  for_measuring = False, normalize_after_data_exclusion=True,
+                  video_frame=None, show_legend=True, pair_unit_columns=None,
                   **kwargs):
         """
         Plot data of file for panel.
@@ -7357,8 +7398,10 @@ class FigurePanel():
                             the current frame of the video
                             and thereby the current maximum x value
                             that should be plotted
-
-
+        :param pair_unit_columns: list of columns that uniquely identify one
+                            set of dependent datapoints (needed to connect
+                            paired datapoints and also needed as preprocessing
+                            to allow statistics tests for paired data)
         """
         
         if self.is_none(self.x) & self.is_none(x):
@@ -7429,14 +7472,22 @@ class FigurePanel():
             self.col_labels_every_row = col_labels_every_row
             self.sub_padding_y_factor = sub_padding_y_factor
             self.show_y_label_in_all_rows = show_y_label_in_all_rows
-
+            self.pair_unit_columns = pair_unit_columns
 
         self.validate_data_file()
+
 
         data = self.data
 
         if normalize_after_data_exclusion:
             data = self.exclude_data(data, inclusion_criteria)
+
+        # without paired data do not connect data points
+        if type(pair_unit_columns) == type(None):
+            kwargs["connect_paired_data_points"] = False
+        else:
+            data = self.remove_unpaired_data(data, pair_unit_columns,
+                                              col, x, hue)
 
         # normalization should usually be done before exclusion of data
         # otherwise excluded units would change normalization
@@ -8578,6 +8629,8 @@ class FigurePanel():
                                                         figure_panel = self,
                                                         hor_alignment = self.hor_alignment,
                                                         for_measuring = for_measuring,
+                                                        pair_unit_columns =
+                                                        self.pair_unit_columns,
                                                         **kwargs)
 
         (axs_by_position,

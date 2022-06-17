@@ -9,20 +9,15 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from seaborn.utils import remove_na
-import math
 import scikit_posthocs as posthocs
 from scipy import stats
 import statsmodels
 import copy
 import matplotlib as mpl
 from matplotlib.patches import PathPatch
-import tkinter as tk
-from tkinter import font
 import scipy
-import re
 import functools
-import importlib
-from inspect import getmembers, isfunction
+import itertools
 
 from scipy import stats
 
@@ -52,22 +47,26 @@ def adjust_figure_aesthetics(background_color):
     #     'axes.facecolor':background_color,
     #     'figure.facecolor':'white'})
 
-def pval_annotation_text(x, pvalue_thresholds):
+def pval_annotation_text(pvals, pvalue_thresholds):
     single_value = False
-    if type(x) is np.array:
-        x1 = x
+    if type(pvals) is np.array:
+        pvals = pvals
     else:
-        x1 = np.array([x])
+        pvals = np.array([pvals])
         single_value = True
+
     # Sort the threshold array
-    pvalue_thresholds = pd.DataFrame(pvalue_thresholds).sort_values(by=0, ascending=False).values
-    x_annot = pd.Series(["" for _ in range(len(x1))])
-    for i in range(0, len(pvalue_thresholds)):
+    pvalue_thresholds = pd.DataFrame(pvalue_thresholds).sort_values(by=0,
+                                                                    ascending=False).values
+    x_annot = pd.Series(["" for _ in range(len(pvals))])
+    for i in range(len(pvalue_thresholds)):
         if i < len(pvalue_thresholds)-1:
-            condition = (x1 <= pvalue_thresholds[i][0]) & (pvalue_thresholds[i+1][0] < x1)
+            # p value must be smaller than the threshold
+            condition = (pvals < pvalue_thresholds[i][0]) & (pvalue_thresholds[i+1][0] <= pvals)
+            print(condition)
             x_annot[condition] = pvalue_thresholds[i][1]
         else:
-            condition = x1 < pvalue_thresholds[i][0]
+            condition = pvals < pvalue_thresholds[i][0]
             x_annot[condition] = pvalue_thresholds[i][1]
 
     return x_annot if not single_value else x_annot.iloc[0]
@@ -500,7 +499,8 @@ def plot_data(ax, x, y, hue, data,
               fliersize, show_formula, position_regression_text,
                 show_regression_stats,
               figure_panel, swarmplot_point_size,
-              bar_plot_dodge, x_range):
+              bar_plot_dodge, x_range,
+              connect_paired_data_points):
 
     if plot_colors == -1:
         plot_colors = sns.xkcd_palette(["white","grey"])
@@ -510,7 +510,9 @@ def plot_data(ax, x, y, hue, data,
 
     labels_to_add = []
 
-    if (show_data_points) & ( (plot_type == "box") | (plot_type == "bar") | (plot_type.lower() == "points")):
+    if ((show_data_points | connect_paired_data_points) & ( (plot_type == "box") |
+                                                     (plot_type == "bar") |
+                                                     (plot_type.lower() == "points"))):
         show_outliers =False
         if hue != None:
             dodge = True
@@ -518,9 +520,18 @@ def plot_data(ax, x, y, hue, data,
             dodge = False
         size = swarmplot_point_size * size_factor # * 0.83  # 0.83 is sqrt of 0.7
         swarmplot_line_width = swarmplot_point_size/3.5 * size_factor
+        if not show_data_points:
+            # if no datapoints should be shown but there should still be
+            # connections between grouped datapoints, then datapoints
+            # need to be plotted without being visible
+            # to be then connected later
+            alpha = 0
+        else:
+            alpha=0.55
         plot = sns.swarmplot(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order,
                                     dodge=dodge, edgecolor="black", linewidth=swarmplot_line_width, size = size,
-                                    alpha=0.55, fc="white")# # fc="none" for empty markers
+                                    alpha=alpha, fc="white")# # fc="none" for empty markers
+
     else:
         show_outliers= True
 
@@ -590,8 +601,6 @@ def plot_data(ax, x, y, hue, data,
             ax.set_xlim(min_x, max_x)
 
         plot.plot(ax,{})
-
-
 
     elif plot_type == "scatter":
 
@@ -735,6 +744,91 @@ def plot_data(ax, x, y, hue, data,
 
     return plot, labels_to_add
 
+
+def add_lines_to_connect_paired_data_points(col_data, ax, nb_x_vals, x, y, hue,
+                                     new_x_order, new_hue_order,
+                                     connecting_line_color,
+                                     connecting_line_alpha,
+                                     connecting_line_width,
+                                            pair_unit_columns):
+    if nb_x_vals <= 1:
+        return
+    # Code to connect paired points from S.A. on stackoverflow:
+    # https://stackoverflow.com/questions/51155396/plotting-colored-lines-connecting-individual-data-points-of-two-swarmplots
+    # go through each set of two groups out of all groups
+    # get all groups from new_x_order and new_hue_order combinations
+    if len(new_hue_order) == 0:
+        sorted_hue_vals = np.unique(col_data[hue].values)
+    else:
+        sorted_hue_vals = new_hue_order
+
+    col_data = col_data.sort_values(pair_unit_columns)
+
+    # without hue there is only one group containing all x values
+    all_x_vals = col_data[x].drop_duplicates().values
+    all_data_groups = []
+    if len(new_hue_order) == 0:
+        all_data_groups.append(list(itertools.product(all_x_vals,
+                                                      sorted_hue_vals)))
+    else:
+        # with hue there are as many groups as there are x values
+        # and for each x there are as many groups
+        for x_val in new_x_order:
+            new_groups = itertools.product(x_val, sorted_hue_vals)
+            all_data_groups.append(new_groups)
+
+    current_group_start_number = 0
+    for data_group in all_data_groups:
+        sub_group_numbers = list(range(len(data_group)))
+        # go through all group numbers in pairs of two
+        # by taking the group number and one further
+        # therefore stop one before the last group number
+        for sub_group_nb in sub_group_numbers[:-1]:
+
+            # get x and hue values of first group
+            data_group1 = data_group[sub_group_nb]
+            data_group1_vals = col_data.loc[(col_data[x] == data_group1[0]) &
+                                            (col_data[hue] == data_group1[1]), y]
+            # get x and hue values of second group
+            data_group2 = data_group[sub_group_nb + 1]
+            data_group2_vals = col_data.loc[(col_data[x] == data_group2[0]) &
+                                            (col_data[hue] == data_group2[1]), y]
+            # do not connect groups if there is only one datapoint
+            if (len(data_group1_vals) <= 1) | (len(data_group2_vals) <= 1):
+                return
+
+            # get the number of the current data group
+            # with respect to the
+            data_group_nb1 = current_group_start_number + sub_group_nb
+            data_group_nb2 = data_group_nb1 + 1
+
+            locs1 = ax.get_children()[data_group_nb1].get_offsets()
+            locs2 = ax.get_children()[data_group_nb2].get_offsets()
+
+            # before plotting, we need to sort so that the data points
+            # correspond to each other as they did in the original data
+            # since in the plot the data points are sorted ascendingly
+            # by their value
+            sort_group1 = np.argsort(data_group1_vals)
+            sort_group2 = np.argsort(data_group2_vals)
+
+            # revert "ascending sort" through sort_group2.argsort(),
+            # and then sort into order corresponding with data_group2_vals
+            locs2_sorted = locs2[sort_group2.argsort()][sort_group1]
+
+            for data_point_nb in range(locs1.shape[0]):
+                # the first column corresponds to the x coordinates
+                x_for_line = [locs1[data_point_nb, 0],
+                              locs2_sorted[data_point_nb, 0]]
+                # the second column corresponds to the y coordinates
+                y_for_line = [locs1[data_point_nb, 1],
+                              locs2_sorted[data_point_nb, 1]]
+                ax.plot(x_for_line, y_for_line, color=connecting_line_color,
+                        alpha=connecting_line_alpha,
+                        lw=connecting_line_width)
+
+        # increase the current group start number for next groups
+        current_group_start_number += len(data_group)
 
 
 def add_column_plot_title_above(ax, col_val, col_label_padding, fontsize):
@@ -1163,7 +1257,8 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
                         borderaxespad_, legend_handle_length,
                         show_x_label_in_all_columns,
                         _leave_space_for_legend,
-                        data_is_continuous):
+                        data_is_continuous,
+                        show_data_points, connect_paired_data_points):
 
     fig = plt.gcf()
 
@@ -1173,6 +1268,15 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
     # set handles and labels of legend as first to in the legend,
     # position legend upper right corner next to plot
     handles, labels = ax.get_legend_handles_labels()
+    # If datapoints should not be shown but only connected
+    # then datapoints are in fact plotted but with alpha=0 (not visible)
+    # therefore, the first part of the legend still corresponds to the
+    # datapoints
+    # to prevent this remove the part of the legend corresponding to the
+    # points
+    if (len(hue_order) > 0) & (not show_data_points) & connect_paired_data_points:
+        handles = handles[len(hue_order):]
+        labels = labels[len(hue_order):]
     if len(handles) < len(longest_legend_handles):
         handles = longest_legend_handles
 
@@ -1614,8 +1718,7 @@ def group_box_pairs_in_same_x(all_box_pairs):
 def get_annotated_text_dict(p_values,pvalue_format_string,test_short_name,
                             pvalue_thresholds,show_test_name,text_format):
     pval_texts = {}
-    for box_pair in p_values:
-        pval = p_values[box_pair]
+    for box_pair,pval in p_values.items():
 
         # if text_annot_custom is not None:
         #     text = text_annot_custom[i_box_pair]
@@ -1623,13 +1726,14 @@ def get_annotated_text_dict(p_values,pvalue_format_string,test_short_name,
         if text_format == 'full':
             text = ("{} p = {}".format('{}', pvalue_format_string)
                     .format(test_short_name, pval))
-        elif text_format is None:
+        elif type(text_format) == type(None):
             text = None
         elif text_format is 'star':
             text = pval_annotation_text(pval, pvalue_thresholds)
         elif text_format is 'simple':
             test_short_name = show_test_name and test_short_name or ""
             text = simple_text(pval, simple_format_string, pvalue_thresholds, test_short_name)
+
         pval_texts[box_pair] = text
     return pval_texts
 
@@ -2166,7 +2270,8 @@ def add_labels_within_ax(all_labels_to_add):
 def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[],
                         hue_order=[], box_pairs=[], col=None, col_order=[],
                         y_range = None, x_range = None, hor_alignment ="left",
-                        show_col_labels_above = False,show_col_labels_below=True,
+                        show_col_labels_above = False,
+                                 show_col_labels_below=True,
                         perform_stat_test=True,
                         pvalues=None, test_short_name=None,
                         test="Dunn", text_format='star', pvalue_format_string=DEFAULT,
@@ -2181,7 +2286,11 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         use_fixed_offset=False, line_offset_to_box=None,
                         line_offset=None, line_height=0.15, text_offset=1,
                         color='0.2', line_width=0.8, line_width_thin=0.3,
-                        fontsize='medium', verbose=False, plot_colors=-1, show_data_points=True,
+                        fontsize='medium', verbose=False, plot_colors=-1,
+                        show_data_points=True, connect_paired_data_points=True,
+                        pair_unit_columns=None,
+                        connecting_line_width=1, connecting_line_alpha=0.2,
+                        connecting_line_color="black",
                         neg_y_vals=True, inner_padding=1, box_width=0.4,background_color="0.98",
                         size_factor=1, group_padding=0.04, legend_spacing = 0.25,
                         x_axis_label = None, x_tick_interval=None, y_tick_interval=None,
@@ -2353,7 +2462,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                   show_data_points, line_width, size_factor, plot_type,
                   fliersize, show_formula, position_formula,
                   show_regression_stats, figure_panel,
-                  swarmplot_point_size, bar_plot_dodge, x_range)
+                  swarmplot_point_size, bar_plot_dodge, x_range,
+                  connect_paired_data_points)
         y_range = ax.get_ylim()
         ax.remove()
 
@@ -2380,6 +2490,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
         new_hue_order = get_all_vals_from_order_in_data(col_data, hue, hue_order)
 
+        # TODO: get number of x vals for each hue instead of assuming
+        # that each hue is present for each x!
         if (not data_is_continuous):
             if (hue != "no_hue_defined"):
                 nb_x_vals *= len(new_hue_order)
@@ -2451,7 +2563,16 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                 show_data_points, line_width, size_factor, plot_type,
                                                 fliersize, show_formula, position_formula,
                                                show_regression_stats, figure_panel,
-                                                swarmplot_point_size, bar_plot_dodge, x_range)
+                                                swarmplot_point_size, bar_plot_dodge, x_range,
+                                               connect_paired_data_points)
+
+        if (connect_paired_data_points):
+            add_lines_to_connect_paired_data_points(col_data, ax, nb_x_vals, x, y, hue,
+                                             new_x_order, new_hue_order,
+                                                connecting_line_color,
+                                                connecting_line_alpha,
+                                                connecting_line_width,
+                                                    pair_unit_columns)
 
         all_labels_to_add = [*all_labels_to_add, *labels_to_add]
 
@@ -2486,13 +2607,19 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
          longest_legend_handles) = set_legend_and_axes(ax, col_order, plot_nb,
                                                        hue_order, y_axis_label,
                                                        x_order, fontsize,
-                                                       legend_spacing, longest_legend_handles,
-                            show_x_axis, x_axis_label, legend_title, show_row_label,
-                            row_label_text,row_label_orientation,
-                            show_legend, borderaxespad_,
-                            legend_handle_length, show_x_label_in_all_columns,
-                                                                   _leave_space_for_legend,
-                                                       data_is_continuous)
+                                                       legend_spacing,
+                                                       longest_legend_handles,
+                                                       show_x_axis, x_axis_label,
+                                                       legend_title, show_row_label,
+                                                       row_label_text,
+                                                       row_label_orientation,
+                                                       show_legend, borderaxespad_,
+                                                       legend_handle_length,
+                                                       show_x_label_in_all_columns,
+                                                       _leave_space_for_legend,
+                                                       data_is_continuous,
+                                                       show_data_points,
+                                                       connect_paired_data_points)
 
         # if y axis should not be shown
         # until now only used if x axis without anythoing else should be plotted
@@ -2643,17 +2770,21 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                 y_stack_arr, h, use_fixed_offset, loc)
 
 
-            box_counter, all_boxes = count_occurences_of_boxes_in_pairs(box_pairs_of_x, pval_texts)
+            box_counter, all_boxes = count_occurences_of_boxes_in_pairs(box_pairs_of_x,
+                                                                        pval_texts)
 
             # sort pairs by number of occurence of most occuring box in pair
             # make ranking of all boxes
-            all_boxes_sorted = sorted(all_boxes, reverse=True, key=lambda x: box_counter[x])
+            all_boxes_sorted = sorted(all_boxes, reverse=True,
+                                      key=lambda x: box_counter[x])
+
             box_struct_pairs_grouped = get_box_dict_pairs_grouped_by_ranking(all_boxes_sorted,
                                                                              box_pairs_of_x,
                                                                              pval_texts,
                                                                              all_box_names,
                                                                              all_box_structs_dics,
                                                                              col)
+
             # sort groups by max y so that lower positioned annotations are done first
             max_y_groups = {}
             for box_tuple, box_struct_pairs in box_struct_pairs_grouped.items():
