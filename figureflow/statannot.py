@@ -1041,13 +1041,14 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
             #             # add the corrected pval
             #             stat_results.loc[first_group_val, second_group_val] = p_val * nb_tests
 
-            # stat_results = posthocs.posthoc_dunn(one_group_data,val_col=y,group_col="constructed_group",p_adjust="bonferroni")
-            stat_results = posthocs.posthoc_nemenyi_friedman(one_group_data,
-                                                             y_col=y,
-                                                             group_col="constructed_group",
-                                                             block_col=col,
-                                                             melted=True)
-            print(stat_results)
+            stat_results = posthocs.posthoc_dunn(one_group_data,val_col=y,
+                                                 group_col="constructed_group",
+                                                 p_adjust="bonferroni")
+            # stat_results = posthocs.posthoc_nemenyi_friedman(one_group_data,
+            #                                                  y_col=y,
+            #                                                  group_col="constructed_group",
+            #                                                  block_col=col,
+            #                                                  melted=True)
             # one_group_data.to_csv("C:\\Users\\Maxsc\\Desktop\\data_"+str(a)+".csv")
             # a += 1
             # print(stat_results)
@@ -2810,7 +2811,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             # go through each of the groups ranked by commonly occuring boxes
             for box_tuple,box_struct_pairs in box_struct_pairs_grouped.items():
                 box = box_tuple[0]
-                print(box_tuple)
                 # annotate all box_pairs in a group
                 (ax_annot,
                  all_axs,
