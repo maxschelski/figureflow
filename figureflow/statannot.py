@@ -787,17 +787,17 @@ def add_lines_to_connect_paired_data_points(col_data, ax, nb_x_vals, x, y, hue,
             # get x and hue values of first group
             data_group1 = data_group[sub_group_nb]
             data_group1_vals = col_data.loc[(col_data[x] == data_group1[0]) &
-                                            (col_data[hue] == data_group1[1]), y]
+                                            (col_data[hue] == data_group1[1]), y].values
             # get x and hue values of second group
             data_group2 = data_group[sub_group_nb + 1]
             data_group2_vals = col_data.loc[(col_data[x] == data_group2[0]) &
-                                            (col_data[hue] == data_group2[1]), y]
+                                            (col_data[hue] == data_group2[1]), y].values
             # do not connect groups if there is only one datapoint
             if (len(data_group1_vals) <= 1) | (len(data_group2_vals) <= 1):
                 return
 
             # get the number of the current data group
-            # with respect to the
+            # with respect to the start number
             data_group_nb1 = current_group_start_number + sub_group_nb
             data_group_nb2 = data_group_nb1 + 1
 
@@ -838,7 +838,8 @@ def add_column_plot_title_above(ax, col_val, col_label_padding, fontsize):
     fig = plt.gcf()
     # not sure why divided by 10... little bit of confusion why this works well
     col_label_padding_px = points_to_pixel(col_label_padding) / 10
-    col_label_height = (col_label_height_px +col_label_padding_px) / (fig.get_size_inches()[0] * fig.dpi)
+    col_label_height = ((col_label_height_px +col_label_padding_px) /
+                        (fig.get_size_inches()[0] * fig.dpi))
     return col_label_height
 
 
@@ -2289,7 +2290,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         fontsize='medium', verbose=False, plot_colors=-1,
                         show_data_points=True, connect_paired_data_points=True,
                         pair_unit_columns=None,
-                        connecting_line_width=1, connecting_line_alpha=0.2,
+                        connecting_line_width=1, connecting_line_alpha=0.1,
                         connecting_line_color="black",
                         neg_y_vals=True, inner_padding=1, box_width=0.4,background_color="0.98",
                         size_factor=1, group_padding=0.04, legend_spacing = 0.25,
@@ -2297,7 +2298,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         axis_padding=10, fliersize=3,
                         show_formula=True, position_formula="top-right",
                                  show_regression_stats = True, legend_title=None,
-                        show_legend=True, col_label_padding=0.8,
+                        show_legend=True, col_label_padding=4,
                         swarmplot_point_size = 2, show_row_label = False,
                         row_label_text=None, row_label_orientation = "vert",
                         auto_scale_group_padding = True,
@@ -2583,7 +2584,9 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             else:
                 title_above = plot_title
 
-            col_label_height = add_column_plot_title_above(ax, title_above, col_label_padding, fontsize)
+            col_label_height = add_column_plot_title_above(ax, title_above,
+                                                           col_label_padding,
+                                                           fontsize)
 
             coords = ax.get_position()
             # change in size cannot be included in y_shift
