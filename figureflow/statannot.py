@@ -63,7 +63,6 @@ def pval_annotation_text(pvals, pvalue_thresholds):
         if i < len(pvalue_thresholds)-1:
             # p value must be smaller than the threshold
             condition = (pvals < pvalue_thresholds[i][0]) & (pvalue_thresholds[i+1][0] <= pvals)
-            print(condition)
             x_annot[condition] = pvalue_thresholds[i][1]
         else:
             condition = pvals < pvalue_thresholds[i][0]
@@ -1907,9 +1906,9 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
     box_struct_pairs_sorted = sorted(box_struct_pairs,
                                      key=lambda x:get_x_pos_of_other_box(x,box))
 
-    turn_point = len(box_struct_pairs)
+    turn_point = len(box_struct_pairs_sorted)
     # get id at which left of reference box changes to right of reference box
-    for i, box_struct_pair in enumerate(box_struct_pairs):
+    for i, box_struct_pair in enumerate(box_struct_pairs_sorted):
         box_struct1 = box_struct_pair[0]
         # temporary fix for comparing something WITHOUT any col for grouping
         box2 = box_struct1['box']
@@ -2811,6 +2810,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             # go through each of the groups ranked by commonly occuring boxes
             for box_tuple,box_struct_pairs in box_struct_pairs_grouped.items():
                 box = box_tuple[0]
+                print(box_tuple)
                 # annotate all box_pairs in a group
                 (ax_annot,
                  all_axs,
