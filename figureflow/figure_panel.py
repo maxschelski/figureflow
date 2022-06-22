@@ -7021,9 +7021,8 @@ class FigurePanel():
 
             data_pair_indexed = data.set_index(pair_unit_columns)
             paired_data = data_pair_indexed.loc[all_paired_units].reset_index()
-
-            for pair_value in pair_values:
-                new_data = paired_data.loc[paired_data[pair_level_column] == pair_value]
+            # for pair_value in pair_values:
+            #     new_data = paired_data.loc[paired_data[pair_level_column] == pair_value]
 
             return paired_data
 
@@ -7035,15 +7034,23 @@ class FigurePanel():
         if type(hue) != type(None):
             group_level_columns = [col, x]
             pair_level_column = hue
-        else:
+        elif type(col) != type(None):
             group_level_columns = [col]
             pair_level_column = x
-        data = data.groupby(group_level_columns,
-                                 as_index=False).apply(get_paired_data,
-                                                            pair_level_column,
-                                                            pair_unit_columns)
+        else:
+            group_level_columns = []
+            pair_level_column = x
 
-        return data
+        if len(group_level_columns) > 0:
+            paired_data = data.groupby(group_level_columns,
+                                       as_index=False).apply(get_paired_data,
+                                                                pair_level_column,
+                                                                pair_unit_columns)
+        else:
+            paired_data = get_paired_data(data, pair_level_column, 
+                                          pair_unit_columns)
+
+        return paired_data
 
     def show_data_columns(self, nb_vals = 10):
         self.validate_data_file()
