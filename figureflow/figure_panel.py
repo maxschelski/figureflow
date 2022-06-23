@@ -7319,8 +7319,6 @@ class FigurePanel():
         std = data[y].std()
         mean = data[y].mean()
         max_data_val = mean + std * nb_stds_outliers
-        print(data[["region", "manipulation"]].drop_duplicates())
-        print(max_data_val)
         min_data_val = mean - std * nb_stds_outliers
         data = data.loc[(data[y] > min_data_val) &
                         (data[y] < max_data_val)]
