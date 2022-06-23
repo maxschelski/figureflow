@@ -448,8 +448,8 @@ def set_offsets(line_offset,loc,line_offset_to_box,yrange):
                 line_offset_to_box = 0.04
         elif loc == 'outside':
             line_offset_to_box = line_offset
-    y_offset = line_offset*yrange
-    y_offset_to_box = line_offset_to_box*yrange
+    y_offset = line_offset * yrange
+    y_offset_to_box = line_offset_to_box * yrange
     return line_offset, loc, line_offset_to_box, yrange,y_offset,y_offset_to_box
 
 
@@ -852,6 +852,7 @@ def get_all_box_pairs(box_pairs,data,col,col_order,x,x_order,hue,hue_order):
     else:
         all_box_pairs = []
         for box_pair in box_pairs:
+            print(box_pair)
             if (type(box_pair[0]) != tuple):
                 box_pair[0] = [box_pair[0]]
             if(type(box_pair[1]) != tuple):
@@ -1842,7 +1843,7 @@ def draw_line(line_x,line_y,line_width,color,ax, transform=None):
     if type(transform) == type(None):
         transform= ax.transData
     line = lines.Line2D(line_x, line_y, lw=line_width, c=color,
-                        transform=transform, solid_capstyle="butt")
+                        transform=transform, solid_capstyle="projecting")
     line.set_clip_on(False)
     ax.add_line(line)
     return ax
@@ -1932,14 +1933,17 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
     if turn_point < len(box_struct_pairs):
         box_struct_pairs_split['right'] = box_struct_pairs_sorted[turn_point:]
 
-    if (turn_point > 0) & (turn_point < len(box_struct_pairs)):
-        both_sites_have_boxes = True
-    else:
-        both_sites_have_boxes = False
+    # if (turn_point > 0) & (turn_point < len(box_struct_pairs)):
+    #     both_sites_have_boxes = True
+    # else:
+    #     both_sites_have_boxes = False
 
     # if there is only one pair to compare, use smaller h
-    # if (len(box_struct_pairs) == 1):
-    #     h = h/2
+    if (len(box_struct_pairs) == 1):
+        h = h/2
+        y_offset -= h/2
+        # y_offset_to_box -= h/2
+
     h = h / 2
     for site in box_struct_pairs_split:
         # set index of box to which comparison is done
@@ -2022,7 +2026,7 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
         # annotate significance
         # more label closer to line for stars
         if pval_text.find("*") != -1:
-            y_text = y - y_offset/3
+            y_text = y - y_offset/5
         else:
             y_text = y
 
@@ -2044,14 +2048,14 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
         # there is already a line down to half the height
         # dont understand comment above anymore -
         # only draw line down for plots which were not annotated yet
-        if (len(box_struct_pairs_sorted)== 1) | (not both_sites_have_boxes):
-            # draw line down for each box
-            for box_struct_pair in box_struct_pairs_sorted:
-                box_struct = box_struct_pair[box_index]
-                line_x  = [box_struct['x'], box_struct['x']]
-                line_y = [y +h/2, y]
+        # if (len(box_struct_pairs_sorted)== 1) | (both_sites_have_boxes):
+        # draw line down for each box
+        for box_struct_pair in box_struct_pairs_sorted:
+            box_struct = box_struct_pair[box_index]
+            line_x  = [box_struct['x'], box_struct['x']]
+            line_y = [y +h/2, y]
 
-                ax = draw_line(line_x, line_y, line_width, color, ax)
+            ax = draw_line(line_x, line_y, line_width, color, ax)
 
         
     return ax, all_ax_data,annotated_pairs,y_stack_arr,ann_list
@@ -2292,7 +2296,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         pair_unit_columns=None,
                         connecting_line_width=1, connecting_line_alpha=0.1,
                         connecting_line_color="black",
-                        neg_y_vals=True, inner_padding=1, box_width=0.4,background_color="0.98",
+                        neg_y_vals=True, inner_padding=1, box_width=0.4,
+                                 background_color="0.98",
                         size_factor=1, group_padding=0.04, legend_spacing = 0.25,
                         x_axis_label = None, x_tick_interval=None, y_tick_interval=None,
                         axis_padding=10, fliersize=3,
@@ -2323,10 +2328,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     :param line_height: in axes fraction coordinates
     :param text_offset: in points
     :param box_pairs: can be of either form:
-        For non-grouped boxplot: `[(cat1, cat2), (cat3, cat4)]`.
-        For boxplot grouped by hue: `[((cat1, hue1), (cat2, hue2)), ((cat3, hue3), (cat4, hue4))]`
+        For non-grouped boxplot: `[[cat1, cat2], [cat3, cat4]]`.
+        For boxplot grouped by hue: `[[(cat1, hue1), (cat2, hue2)], [(cat3, hue3), (cat4, hue4)]]`
         For boxplots grouped by hue and an additional column (col):
-            '[((col1,cat1, hue1), (col2,cat2, hue2)), ((col3,cat3, hue3), (col4,cat4, hue4))]'
+            '[[(col1,cat1, hue1), (col2,cat2, hue2)], [(col3,cat3, hue3), (col4,cat4, hue4)]]'
     :param col: group that is plotted in columns of plot for a three-level plot
     :param hor_alignment: "right", "left" or "center", horizontal alignment of plots in panel
                         plots always will the entire y space but not necessarily the entire x space.
@@ -2578,7 +2583,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         all_labels_to_add = [*all_labels_to_add, *labels_to_add]
 
         rel_height_change = 0
-        if ((show_col_labels_above) & (col != "no_col_defined")) | (type(plot_title) != type(None)):
+        if ((show_col_labels_above) & (col != "no_col_defined")) | \
+                (type(plot_title) != type(None)):
             if (show_col_labels_above) & (col != "no_col_defined"):
                 title_above = col_val
             else:
@@ -2678,18 +2684,13 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         # standardizing the box size to keep subplots close together
         x_shift -= width_reduction_by_changing_box_size
 
-        # only extract group information, if stat test should be performed
-        if perform_stat_test:
-            # get box structs containing all information about boxes plotted in this group (col)
-            box_structs_dic,box_names,box_structs = build_box_structs_dic(box_plotter,
-                                                                          col_val,
-                                                                          hue, ax,
-                                                                          ax_annot)
-
-        else:
-            box_structs = []
-            box_structs_dic = {}
-            box_names = []
+        # Always extract group information since it's also needed to plot
+        # col values below
+        # get box structs containing all information about boxes plotted in this group (col)
+        box_structs_dic,box_names,box_structs = build_box_structs_dic(box_plotter,
+                                                                      col_val,
+                                                                      hue, ax,
+                                                                      ax_annot)
 
 
         # add parameters to dict with group name as key
@@ -2803,16 +2804,24 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                key=lambda item:
                                                max_y_groups[item[0]])}
 
-            if x_val == "different_x":
-                # calculate correction factor for increased height of plot after adding plots
-                correction_factor = (1 + (len(box_struct_pairs_grouped) *
-                                          (line_height + y_offset) * 2))
-                h /= correction_factor/1.5
-                y_offset /= correction_factor
-                y_offset_to_box /= correction_factor
-
             # go through each of the groups ranked by commonly occuring boxes
-            for box_tuple,box_struct_pairs in box_struct_pairs_grouped.items():
+            for (annot_number,
+                 (box_tuple,
+                  box_struct_pairs)) in enumerate(box_struct_pairs_grouped.items()):
+
+                # if x_val == "different_x":
+                #     # calculate correction factor for increased height of plot after adding plots
+                #     correction_factor = (1 + ((len(box_struct_pairs_grouped) -
+                #                                annot_number) *
+                #                               (line_height +
+                #                                y_offset / yrange)))
+                #     h *= correction_factor / 1.5
+                #     y_offset *= correction_factor
+                #     y_offset_to_box *= correction_factor
+
+                # if annot_number == 1:
+                #     dasd
+
                 box = box_tuple[0]
                 # annotate all box_pairs in a group
                 (ax_annot,
