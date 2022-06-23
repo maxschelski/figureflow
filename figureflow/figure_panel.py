@@ -7155,7 +7155,8 @@ class FigurePanel():
         # not dropped
         for new_average_column in [self.x, self.hue, self.col, self.row]:
             if not self.is_none(new_average_column):
-                average_columns.append(new_average_column)
+                if new_average_column not in average_columns:
+                    average_columns.append(new_average_column)
         data = data.groupby(average_columns).mean().reset_index()
         return data
 
@@ -7314,10 +7315,22 @@ class FigurePanel():
             fraction_data = pd.concat([fraction_data, pd.DataFrame(fraction)])
         self.data = fraction_data.reset_index()
 
+    def remove_outliers(self, data, y, nb_stds_outliers):
+        std = data[y].std()
+        mean = data[y].mean()
+        max_data_val = mean + std * nb_stds_outliers
+        print(data[["region", "manipulation"]].drop_duplicates())
+        print(max_data_val)
+        min_data_val = mean - std * nb_stds_outliers
+        data = data.loc[(data[y] > min_data_val) &
+                        (data[y] < max_data_val)]
+        return data
+
 
     def show_data(self, x=None, y=None, x_labels=[], hue=None, hue_labels=[],
                   col=None, col_labels=[], row=None, row_labels=[],
                   inclusion_criteria= None, show_data_points=True,
+                  remove_outliers=False, nb_stds_outliers=4,
                     scale_columns=None, norm_cats=None, smoothing_rad = None,
                   average_columns = None,
                   normalize=False, baseline=0, columns_same_in_groups=None,
@@ -7519,6 +7532,16 @@ class FigurePanel():
             return
 
         data = self.group_and_average_data(average_columns, data)
+
+        if remove_outliers:
+            data_box_columns = []
+            for data_box_column in [x, col, hue]:
+                if data_box_column is not None:
+                    data_box_columns.append(data_box_column)
+            data = data.groupby(data_box_columns,
+                                as_index = False).apply(self.remove_outliers,
+                                                        y, nb_stds_outliers)
+
         # change data globally
         self.data = data
 
