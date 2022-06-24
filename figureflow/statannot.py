@@ -1664,6 +1664,7 @@ def finetune_plot(ax, box_structs, col, col_order, perform_stat_test,
         ax = draw_line(line_x=line_x, line_y=line_y,
                        line_width=line_width, color="black", ax=ax)
 
+
     title_fontsize = FontProperties(size=fontsize).get_size_in_points()
     nb_lines_title = len(col_val.split("\n"))
     if text_height == 0:
@@ -2690,7 +2691,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                                       hue, ax,
                                                                       ax_annot)
 
-
         # add parameters to dict with group name as key
         all_box_structs[col_val] = box_structs
             
@@ -2852,12 +2852,43 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         ax_annot.set_position([coords.x0, coords.y0, coords.width,
                              coords.height - col_label_height])
 
+    # move overhanging axis tick labels into inner_border
+    for ax_nb, ax in enumerate(all_axs.values()):
+
+        # only the first ax has a y column, therefore
+        # get values fom that ax
+        if ax_nb == 0:
+            y_axis_ticks_overhang_rel = get_axis_tick_labels_overhang(ax, "y")
+            # do the same for the x axis but with x and width instead of y and height
+            # however, only if the plot is a continuous plot
+            # meaning that it has a continuous x axis where values can be at the end
+            if data_is_continuous:
+                x_axis_tick_overhang_rel = get_axis_tick_labels_overhang(ax, "x")
+            else:
+                x_axis_tick_overhang_rel = 0
+
+        axis_size = ax.get_position()
+        # then set new axis position with reduced height and reduced width
+        ax.set_position([axis_size.x0, axis_size.y0,
+                        axis_size.width - x_axis_tick_overhang_rel,
+                        axis_size.height - y_axis_ticks_overhang_rel])
+
+    # also move ax_annot to have consistent positioning of annotations
+    axis_size = ax_annot.get_position()
+    # then set new axis position with reduced height and reduced width
+    ax_annot.set_position([axis_size.x0, axis_size.y0,
+                     axis_size.width - x_axis_tick_overhang_rel,
+                     axis_size.height - y_axis_ticks_overhang_rel])
+
+    # Finetuning plot needs to happen after final height is set
+    # otherwise the line collides with text
     for col_val,box_structs in all_box_structs.items():
         # if any data was plotted for this col_val
         if (len(box_structs) == 0) & (col_val != "_-_-None-_-_"):
             continue
         ax = all_axs[col_val]
         # adjust several parameters of plots to improve visuals and used labels
+        # ALSO add column labels below plot
         ax = finetune_plot(ax, box_structs,col, col_order, perform_stat_test,
                             line_width, line_width_thin, inner_padding,
                             fontsize, col_val, plot_type, vertical_lines,
@@ -2918,26 +2949,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                              auto_scale_group_padding,
                                              data_is_continuous, hor_alignment)
 
-    # move overhanging axis tick labels into inner_border
-    for ax_nb, ax in enumerate(all_axs.values()):
-
-        # only the first ax has a y column, therefore
-        # get values fom that ax
-        if ax_nb == 0:
-            y_axis_ticks_overhang_rel = get_axis_tick_labels_overhang(ax, "y")
-            # do the same for the x axis but with x and width instead of y and height
-            # however, only if the plot is a continuous plot
-            # meaning that it has a continuous x axis where values can be at the end
-            if data_is_continuous:
-                x_axis_tick_overhang_rel = get_axis_tick_labels_overhang(ax, "x")
-            else:
-                x_axis_tick_overhang_rel = 0
-
-        axis_size = ax.get_position()
-        # then set new axis position with reduced height and reduced width
-        ax.set_position([axis_size.x0, axis_size.y0,
-                        axis_size.width - x_axis_tick_overhang_rel,
-                        axis_size.height - y_axis_ticks_overhang_rel])
 
     add_labels_within_ax(all_labels_to_add)
     if add_background_lines:
