@@ -366,7 +366,7 @@ class Figure():
         files_in_separate_folders = False
         # panel_finder = re.compile(self.panel_str+letter)
         # match also multiple letters for one file
-        panel_finder = re.compile(self.panel_str.lower()+f"[\w]*[{letter.lower()}][\w]*_")
+        panel_finder = re.compile(self.panel_str.lower()+f"[A-Z]*[{letter.lower()}][A-Z]*_")
         for file_path in self.all_files:
             file_name = os.path.basename(file_path)
             full_panel_str = (self.panel_str + letter).lower()
