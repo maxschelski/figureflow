@@ -1461,7 +1461,7 @@ def get_accurate_x_tick_padding(ax, target_padding, size_factor = None):
     return axis_padding
 
 def get_y_shift_to_vert_fill_outer_border(ax, col, col_order,
-                                          col_val, y_shift, inner_padding,
+                                          max_nb_col_val_lines, y_shift, inner_padding,
                                           fontsize, outer_border,
                                           show_col_labels_below,
                                           always_show_col_label):
@@ -1476,7 +1476,6 @@ def get_y_shift_to_vert_fill_outer_border(ax, col, col_order,
             inner_padding = 0
         else:
             title_fontsize = FontProperties(size=fontsize).get_size_in_points()
-            nb_title_lines = len( col_val.split("\n") )
 
         fig = plt.gcf()
 
@@ -1508,7 +1507,7 @@ def get_y_shift_to_vert_fill_outer_border(ax, col, col_order,
             # fontsize is nb of px for dpi of 72
             _ , rel_height_title = get_px_size_rel_to_subplot(ax, width=0,
                                                               height= (title_fontsize *
-                                                                       nb_title_lines +
+                                                                       max_nb_col_val_lines +
                                                                        inner_padding * 2) *
                                                                       (fig.dpi/72) )
         else:
@@ -2499,6 +2498,12 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
      y_offset_to_box) = set_offsets(line_offset, loc,
                                     line_offset_to_box, yrange)
 
+    # get maximum number of lines in col val
+    max_nb_col_val_lines = 0
+    for col_val in col_order:
+        nb_lines_col_val = len(col_val.split("\n"))
+        max_nb_col_val_lines = max(max_nb_col_val_lines, nb_lines_col_val)
+
     all_labels_to_add = []
     for col_nb, col_val in enumerate(col_order):
 
@@ -2650,7 +2655,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             # for first plot (leftmost with y axis ticks and label)
             # set the total amount of y-shift necessary to have sufficient padding on top and bottom
             y_shift = get_y_shift_to_vert_fill_outer_border(ax, col,
-                                                            col_order, col_val,
+                                                            col_order,
+                                                            max_nb_col_val_lines,
                                                             y_shift, inner_padding,
                                                             fontsize, outer_border,
                                                             show_col_labels_below,
@@ -2715,7 +2721,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     ann_list = []
     test_result_list = []
     annotated_pairs = {}
-
     if perform_stat_test:
 
         # get all box pairs depending on grouping of data (group, hue) and whether pairs were added
