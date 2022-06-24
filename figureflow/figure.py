@@ -366,13 +366,16 @@ class Figure():
         files_in_separate_folders = False
         # panel_finder = re.compile(self.panel_str+letter)
         # match also multiple letters for one file
-        panel_finder = re.compile(self.panel_str.lower()+f"[A-Z]*[{letter.lower()}][A-Z]*_")
+        panel_finder = re.compile(self.panel_str.lower()+f"[A-Za-z]*[{letter.lower()}][A-Za-z]*_")
         for file_path in self.all_files:
             file_name = os.path.basename(file_path)
             full_panel_str = (self.panel_str + letter).lower()
             #exclude temporary windows files
             if file_name.find("~$") != -1:
                 continue
+            print(file_name.lower())
+            print(letter.lower())
+            print(panel_finder.search(file_name.lower()))
             if panel_finder.search(file_name.lower()) is None:
                 continue
             # check if current file_path is a folder
