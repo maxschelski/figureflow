@@ -10,7 +10,7 @@ Some documentation of how to generate movies can be found under scripts in creat
 <br/>
 Documentation and code base under development.<br/>
 
-For any questions, an introduction of how to use the package or more example scripts with data please contact me via E-Mail to max.schelski@googlemail.com.
+For any questions, an introduction of how to use the package example scripts for figures with data please contact me via E-Mail to max.schelski@googlemail.com. I am very happy to help people starting to use the package and I am very open to any feedback. 
 
 # Selected Features
 
