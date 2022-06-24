@@ -527,6 +527,7 @@ def plot_data(ax, x, y, hue, data,
             alpha = 0
         else:
             alpha=0.55
+
         plot = sns.swarmplot(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order,
                                     dodge=dodge, edgecolor="black", linewidth=swarmplot_line_width, size = size,
                                     alpha=alpha, fc="white")# # fc="none" for empty markers
@@ -836,7 +837,10 @@ def add_column_plot_title_above(ax_annot, col_val, col_label_padding, fontsize):
 
     # first set title to get the height of it which is necessary as padding
     # to move it into the border of the panel
-    title = ax_annot.set_title(col_val, pad = col_label_padding, fontsize=fontsize)
+    title = ax_annot.set_title(col_val, pad = col_label_padding,
+                               loc="center", fontsize=fontsize,
+                               x=0.5, ha="center")
+
     col_label_height_px = title.get_window_extent( fig.canvas.get_renderer() ).height
     fig = plt.gcf()
     # not sure why divided by 10... little bit of confusion why this works well
@@ -2160,7 +2164,8 @@ def hor_center_plot(ax, x_shift, rel_width_reduction):
 
     return x_shift
 
-def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
+def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, ax_labels,
+                                             data, hue,
                                              hue_order, col, col_order, x,
                                              x_order, total_nb_columns,
                                             outer_border, group_padding,
@@ -2170,6 +2175,9 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
                                              data_is_continuous,
                                              hor_alignment):
     fig = plt.gcf()
+    # get width of all axs together
+
+
     for plot_nb, col_val in enumerate(col_order):
         ax = all_axs[col_val]
         col_data = data.loc[data[col] == col_val]
@@ -2199,6 +2207,23 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
             width = ax_annot_coords.width / rel_width_reduction
             ax_annot.set_position([left, ax_annot_coords.y0,
                                    width, ax_annot_coords.height])
+
+            # adjust width and x position annotation plot accordingly
+            ax_labels_coords = ax_labels.get_position()
+            left = ax_labels_coords.x0 + x_shift
+            width = ax_labels_coords.width - x_shift
+            ax_labels.set_position([left, ax_labels_coords.y0,
+                                   width, ax_labels_coords.height])
+
+
+            # coords = ax_annot.get_position()
+            # # uncomment to see the borders of the panel
+            # # helpful to judge if boxes are properly aligned
+            # bg_ax = plt.gcf().add_axes([coords.x0,
+            #                             coords.y0,
+            #                             coords.width,
+            #                             coords.height
+            #                             ])
 
         x_shift = hor_center_plot(ax, x_shift, rel_width_reduction)
 
@@ -2451,6 +2476,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
     ax_annot = add_annotation_subplot(letter, outer_border)
 
+    ax_labels = add_annotation_subplot(letter + "_labels", outer_border)
+
     # initiate variables
     (all_box_structs_dics, all_box_names,
      all_box_structs, all_axs, axs_by_position) = ({}, {}, {}, {}, {})
@@ -2672,6 +2699,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         # adjust height of annotation plot once (for the first plot)
         if plot_nb == 1:
             adjust_annotation_plot_height_and_y(ax_annot, y_shift, rel_height_change)
+            adjust_annotation_plot_height_and_y(ax_labels, y_shift, rel_height_change)
+
 
         plot_nb += 1
 
@@ -2709,11 +2738,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         # the row value will be updated in a separate dict
         axs_by_position[(0, col_nb)] = ax
 
-
-
     # add ax_annot again with same position to make it appear on top of all other plots
     ax_annot = add_annotation_subplot(letter+"_new",outer_border,ax_annot)
-
 
     # exclude data based on order given for different columns
     included_data = exclude_data(data,col,col_order,x,x_order,hue,hue_order)
@@ -2841,10 +2867,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                      use_fixed_offset,
                                                      show_data_points, fliersize)
 
-    # plot a title above all plots (in ax_annot)
+    # plot a title above all plots (in ax_labels)
     if (type(plot_title) != type(None)):
         # plt.title(title_above)
-        col_label_height = add_column_plot_title_above(ax_annot,
+        col_label_height = add_column_plot_title_above(ax_labels,
                                                        plot_title,
                                                        col_label_padding,
                                                        fontsize)
@@ -2853,9 +2879,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             coords = ax.get_position()
             ax.set_position([coords.x0, coords.y0, coords.width,
                              coords.height - col_label_height])
-        coords = ax_annot.get_position()
-        ax_annot.set_position([coords.x0, coords.y0, coords.width,
-                             coords.height - col_label_height])
+        for ax in [ax_annot, ax_labels]:
+            coords = ax.get_position()
+            ax.set_position([coords.x0, coords.y0, coords.width,
+                                 coords.height - col_label_height])
 
     # move overhanging axis tick labels into inner_border
     for ax_nb, ax in enumerate(all_axs.values()):
@@ -2878,12 +2905,13 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         axis_size.width - x_axis_tick_overhang_rel,
                         axis_size.height - y_axis_ticks_overhang_rel])
 
-    # also move ax_annot to have consistent positioning of annotations
-    axis_size = ax_annot.get_position()
-    # then set new axis position with reduced height and reduced width
-    ax_annot.set_position([axis_size.x0, axis_size.y0,
-                     axis_size.width - x_axis_tick_overhang_rel,
-                     axis_size.height - y_axis_ticks_overhang_rel])
+    for ax in [ax_annot, ax_labels]:
+        # also move ax_annot to have consistent positioning of annotations
+        axis_size = ax.get_position()
+        # then set new axis position with reduced height and reduced width
+        ax.set_position([axis_size.x0, axis_size.y0,
+                         axis_size.width - x_axis_tick_overhang_rel,
+                         axis_size.height - y_axis_ticks_overhang_rel])
 
     # Finetuning plot needs to happen after final height is set
     # otherwise the line collides with text
@@ -2937,15 +2965,14 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             ax.grid(visible=True, b=False, color=line_color, linestyle='-',
                     which="minor", axis="y", linewidth=line_width_thin)
 
-
-
     # move plot to within outer_border horizontally (axes labeling is outside of ax and thereby of outer_border)
     # center the plot then horizontally
     # if the whole plot is wider than the available space (the axs fill up the outer border space),
     # then reduce width of all plots together by the width of the y axes label that needs to move into the outer_border
     # needs to be last step since x shift and width reduction depend on y tick label
     # which are adjusted while ylim is changed and when annotations are added
-    move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, data, hue,
+    move_plot_into_hor_borders_and_center_it(all_axs, ax_annot,
+                                             ax_labels, data, hue,
                                              hue_order, col, col_order, x,
                                              x_order, total_nb_columns,
                                              outer_border, group_padding,
@@ -2953,7 +2980,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                              legend_width,
                                              auto_scale_group_padding,
                                              data_is_continuous, hor_alignment)
-
 
     add_labels_within_ax(all_labels_to_add)
     if add_background_lines:
