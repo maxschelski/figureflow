@@ -830,14 +830,26 @@ def add_lines_to_connect_paired_data_points(col_data, ax, nb_x_vals, x, y, hue,
         current_group_start_number += len(data_group)
 
 
-def add_column_plot_title_above(ax, col_val, col_label_padding, fontsize):
+def add_column_plot_title_above(ax_annot, col_val, col_label_padding, fontsize):
     fig = plt.gcf()
-    # set title and move plot down (by decreasing height) accordingly right away
-    title = ax.set_title(col_val, pad = col_label_padding, fontsize=fontsize)
+    # set title and move plot down (by decreasing height) accordingly afterwards
+
+    # first set title to get the height of it which is necessary as padding
+    # to move it into the border of the panel
+    title = ax_annot.set_title(col_val, pad = col_label_padding, fontsize=fontsize)
     col_label_height_px = title.get_window_extent( fig.canvas.get_renderer() ).height
     fig = plt.gcf()
     # not sure why divided by 10... little bit of confusion why this works well
-    col_label_padding_px = points_to_pixel(col_label_padding) / 10
+    col_label_padding_px = points_to_pixels(col_label_padding) / 10
+    # padding_to_move_into_borders = pixels_to_points(col_label_height_px +
+    #                                                 col_label_padding_px)*10
+    # # set final title with correct padding
+    # title = plt.title(col_val, pad = -padding_to_move_into_borders,
+    #                   fontsize=fontsize)
+    # col_label_height_px = title.get_window_extent( fig.canvas.get_renderer() ).height
+    # fig = plt.gcf()
+    # # not sure why divided by 10... little bit of confusion why this works well
+    # col_label_padding_px = points_to_pixels(col_label_padding) / 10
     col_label_height = ((col_label_height_px +col_label_padding_px) /
                         (fig.get_size_inches()[0] * fig.dpi))
     return col_label_height
@@ -852,7 +864,6 @@ def get_all_box_pairs(box_pairs,data,col,col_order,x,x_order,hue,hue_order):
     else:
         all_box_pairs = []
         for box_pair in box_pairs:
-            print(box_pair)
             if (type(box_pair[0]) != tuple):
                 box_pair[0] = [box_pair[0]]
             if(type(box_pair[1]) != tuple):
@@ -1244,9 +1255,13 @@ def get_width_of_object(legend, borderaxespad_px, fig):
         legend_width = 0
     return legend_width
 
-def points_to_pixel(points):
+def points_to_pixels(points):
      # 10 is the basic unit for the spacing in font size (based on rcParams)
-    return 10 * points * plt.gcf().dpi / 72
+    return points * 10 * plt.gcf().dpi / 72
+
+def pixels_to_points(pixels):
+    # 10 is the basic unit for the spacing in font size (based on rcParams)
+    return pixels / ( 10* plt.gcf().dpi / 72)
 
 def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
                         y_axis_label,
@@ -1294,7 +1309,7 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
     nb_labels = len(hue_order)
 
     # add spacing between legend and ax to legend width
-    borderaxespad_px = points_to_pixel(borderaxespad_)
+    borderaxespad_px = points_to_pixels(borderaxespad_)
 
     legend = None
 
@@ -2583,23 +2598,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         all_labels_to_add = [*all_labels_to_add, *labels_to_add]
 
         rel_height_change = 0
-        if ((show_col_labels_above) & (col != "no_col_defined")) | \
-                (type(plot_title) != type(None)):
-            if (show_col_labels_above) & (col != "no_col_defined"):
-                title_above = col_val
-            else:
-                title_above = plot_title
-
-            col_label_height = add_column_plot_title_above(ax, title_above,
-                                                           col_label_padding,
-                                                           fontsize)
-
-            coords = ax.get_position()
-            # change in size cannot be included in y_shift
-            # since y shift is shift from bottom and not from top
-            rel_height_change = col_label_height / coords.height
-            ax.set_position([coords.x0, coords.y0, coords.width,
-                             coords.height - col_label_height])
 
         # get overflow of y-axis tick labels (going above axis)
         # and correct for that
@@ -2704,7 +2702,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         # if more than one row was plotted
         # the row value will be updated in a separate dict
         axs_by_position[(0, col_nb)] = ax
-
 
 
 
@@ -2839,6 +2836,22 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                      use_fixed_offset,
                                                      show_data_points, fliersize)
 
+    # plot a title above all plots (in ax_annot)
+    if (type(plot_title) != type(None)):
+        # plt.title(title_above)
+        col_label_height = add_column_plot_title_above(ax_annot,
+                                                       plot_title,
+                                                       col_label_padding,
+                                                       fontsize)
+        # move all data plots down
+        for ax in all_axs.values():
+            coords = ax.get_position()
+            ax.set_position([coords.x0, coords.y0, coords.width,
+                             coords.height - col_label_height])
+        coords = ax_annot.get_position()
+        ax_annot.set_position([coords.x0, coords.y0, coords.width,
+                             coords.height - col_label_height])
+
     for col_val,box_structs in all_box_structs.items():
         # if any data was plotted for this col_val
         if (len(box_structs) == 0) & (col_val != "_-_-None-_-_"):
@@ -2888,6 +2901,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             ax.grid(visible=True, b=False, color=line_color, linestyle='-',
                     which="minor", axis="y", linewidth=line_width_thin)
 
+
+
     # move plot to within outer_border horizontally (axes labeling is outside of ax and thereby of outer_border)
     # center the plot then horizontally
     # if the whole plot is wider than the available space (the axs fill up the outer border space),
@@ -2904,16 +2919,19 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                              data_is_continuous, hor_alignment)
 
     # move overhanging axis tick labels into inner_border
-    for ax in all_axs.values():
+    for ax_nb, ax in enumerate(all_axs.values()):
 
-        y_axis_ticks_overhang_rel = get_axis_tick_labels_overhang(ax, "y")
-        # do the same for the x axis but with x and width instead of y and height
-        # however, only if the plot is a continuous plot
-        # meaning that it has a continuous x axis where values can be at the end
-        if data_is_continuous:
-            x_axis_tick_overhang_rel = get_axis_tick_labels_overhang(ax, "x")
-        else:
-            x_axis_tick_overhang_rel = 0
+        # only the first ax has a y column, therefore
+        # get values fom that ax
+        if ax_nb == 0:
+            y_axis_ticks_overhang_rel = get_axis_tick_labels_overhang(ax, "y")
+            # do the same for the x axis but with x and width instead of y and height
+            # however, only if the plot is a continuous plot
+            # meaning that it has a continuous x axis where values can be at the end
+            if data_is_continuous:
+                x_axis_tick_overhang_rel = get_axis_tick_labels_overhang(ax, "x")
+            else:
+                x_axis_tick_overhang_rel = 0
 
         axis_size = ax.get_position()
         # then set new axis position with reduced height and reduced width
