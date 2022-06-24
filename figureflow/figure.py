@@ -365,26 +365,30 @@ class Figure():
         panel_files = []
         files_in_separate_folders = False
         # panel_finder = re.compile(self.panel_str+letter)
+        # match also multiple letters for one file
+        panel_finder = re.compile(self.panel_str.lower()+f"[\w]*[{letter.lower()}][\w]*_")
         for file_path in self.all_files:
             file_name = os.path.basename(file_path)
             full_panel_str = (self.panel_str + letter).lower()
             #exclude temporary windows files
-            if file_name.find("~$") == -1:
-                if file_name.lower().find(full_panel_str) != -1:
-                    # check if current file_path is a folder
-                    if os.path.isdir(file_path):
-                        files_in_separate_folders = True
-                        # files in folder do not need to follow the panel+letter at beginning
-                        # however, they do need to have an allowed extension
-                        for file_in_folder in os.listdir(file_path):
-                            file_path_in_folder = os.path.join(file_path, file_in_folder)
-                            if self.file_has_allowed_extension(file_path_in_folder):
-                                panel_files.append(file_path_in_folder)
-                    else:
-                        if files_in_separate_folders:
-                            print("WARNING: Files for panel {} are in separte folder/s and also in main folder.".format(
-                                letter))
-                        panel_files.append(file_path)
+            if file_name.find("~$") != -1:
+                continue
+            if panel_finder.search(file_name.lower()) is None:
+                continue
+            # check if current file_path is a folder
+            if os.path.isdir(file_path):
+                files_in_separate_folders = True
+                # files in folder do not need to follow the panel+letter at beginning
+                # however, they do need to have an allowed extension
+                for file_in_folder in os.listdir(file_path):
+                    file_path_in_folder = os.path.join(file_path, file_in_folder)
+                    if self.file_has_allowed_extension(file_path_in_folder):
+                        panel_files.append(file_path_in_folder)
+            else:
+                if files_in_separate_folders:
+                    print("WARNING: Files for panel {} are in separte folder/s and also in main folder.".format(
+                        letter))
+                panel_files.append(file_path)
 
         if len(panel_files) == 0:
             raise Exception("no files found for panel")
