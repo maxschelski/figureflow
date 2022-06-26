@@ -373,9 +373,6 @@ class Figure():
             #exclude temporary windows files
             if file_name.find("~$") != -1:
                 continue
-            print(file_name.lower())
-            print(letter.lower())
-            print(panel_finder.search(file_name.lower()))
             if panel_finder.search(file_name.lower()) is None:
                 continue
             # check if current file_path is a folder
@@ -630,6 +627,137 @@ class Figure():
         #bbox_inches="tight" option would allow to save whole plot, also outside of ax
         # self.fig.hide()
 
+
+    def get_representative_data_from_multiple_panels(self, panel_letters,
+                                                     unit_columns,
+                                                     group_columns,
+                                                     column_suffix =
+                                                     "___d___",
+                                                     merge_suffixes=None,
+                                                     nb_values_to_show=20):
+        """
+
+        """
+
+        panels_to_use = []
+        for panel_letter in panel_letters:
+            if panel_letter not in self.all_panels:
+                raise ValueError("For getting representative data all panels"
+                                 "supplied must have been defined before."
+                                 f"However, panel {panel_letter} is not defined.")
+            panels_to_use.append(self.all_panels[panel_letter])
+
+        # get unit columns to use as for each unit column
+        # the first in the iterable
+        # or if it is not an iterable just the string directly
+        unit_columns_to_use = [unit_column[0]
+                               if type(unit_column) in [tuple, list]
+                               else unit_column
+                               for unit_column in unit_columns]
+        if merge_suffixes is None:
+            merge_suffixes = ["___xXx___", "___yYy___"]
+
+        all_representative_data = pd.DataFrame(columns=unit_columns_to_use)
+        for panel_to_use in panels_to_use:
+            grouped_data_panel = panel_to_use.grouped_data.mean()
+            data_columns = grouped_data_panel.columns
+            unit_columns_for_panel = []
+            for unit_column_list in unit_columns:
+                if type(unit_column_list) not in [tuple, list]:
+                    unit_columns_for_panel. append(unit_column_list)
+                    continue
+                for one_unit_column in unit_column_list:
+                    if one_unit_column in data_columns:
+                        unit_columns_for_panel. append(one_unit_column)
+                        continue
+
+            panel_to_use.get_representative_data(unit_columns=
+                                                 unit_columns_for_panel,
+                                                 print_results=False,
+                                                 column_suffix=column_suffix)
+
+            representative_data = panel_to_use.representative_data.reset_index()
+            representative_data_columns = representative_data.columns
+            # since columns with the same value might have diffeent names
+            # in different data panels, allow unit columns supplied as
+            # multiple possible column names in a list
+            # for each data use the column name which is used there
+            # by adding a new data column with the first name in the list
+            # of possible ones
+            for unit_column_list in unit_columns:
+                if type(unit_column_list) not in [tuple, list]:
+                    continue
+                # only change data if the first unit column is not in
+                # representative data
+                if unit_column_list[0] in representative_data_columns:
+                    continue
+                for one_unit_column in unit_column_list[1:]:
+                    if one_unit_column in representative_data_columns:
+                        representative_data[unit_column_list[0]] = representative_data[one_unit_column]
+
+            # get representative data for all supplied panels
+            # and merge based on unit columns
+            # also make unique suffixes which should not be found in any column
+            # names
+            all_representative_data = all_representative_data.merge(representative_data,
+                                                                    how="outer",
+                                                                    on=unit_columns_to_use,
+                                                                     suffixes=merge_suffixes)
+
+            # get all column names and check which columns are doubled
+            # which means they are the same except a _letter addition
+            # (e.g. _x or _x_y)
+            # for those columns add their values together
+            for column in all_representative_data.columns:
+                # column might have been removed already
+                # therefore check if it is still present
+                if column not in all_representative_data.columns:
+                    continue
+                merged_column_found = False
+                for merge_suffix_nb, merge_suffix in enumerate(merge_suffixes):
+                    if column.find(merge_suffix) != -1:
+                        suffix_not_in_column = merge_suffixes[merge_suffix_nb - 1]
+                        base_column = column.replace(merge_suffix, "")
+                        other_column = base_column + suffix_not_in_column
+                        merged_column_found = True
+                        break
+                if not merged_column_found:
+                    continue
+
+                # only combine numeric columns, for other values use the first
+                # one and remove the other
+                if pd.api.types.is_numeric_dtype(all_representative_data[column]):
+                    combined_column = (all_representative_data[column].fillna(0) +
+                                       all_representative_data[other_column].fillna(0))
+                else:
+                    combined_column = all_representative_data[column]
+                all_representative_data[base_column] = combined_column
+                all_representative_data.drop(column, axis=1,
+                                         inplace=True)
+                all_representative_data.drop(other_column, axis=1,
+                                         inplace=True)
+
+        # get columns that should be shown
+        # as all unit columns
+        columns_to_be_shown = unit_columns_to_use
+        columns_to_be_shown.append("d_mean")
+        columns_to_be_shown.append("nb_measurements")
+        for new_column in all_representative_data.columns:
+            if new_column.find(column_suffix) != -1:
+                columns_to_be_shown.append(new_column)
+
+        all_groups = all_representative_data[group_columns].drop_duplicates()
+        all_representative_data.set_index(group_columns, inplace=True)
+        pd.set_option('display.max_columns', 500)
+        pd.set_option('display.width', 5000)
+        for group in all_groups.values:
+            group_data = all_representative_data.loc[tuple(group)]
+            sorted_group_data = group_data.sort_values(by=["nb_measurements",
+                                                           "d_mean"],
+                                                       ascending=[False,
+                                                                  True])
+            data_to_print = sorted_group_data[columns_to_be_shown]
+            print(data_to_print.head(nb_values_to_show))
 
 
     def add_all_figure_panel_functions(self):

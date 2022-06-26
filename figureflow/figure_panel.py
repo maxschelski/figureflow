@@ -525,7 +525,6 @@ class FigurePanel():
                                                *flexible_order_second]
 
             # --------------------AUTO ENLARGE IMAGES----------------------
-
             # if only one dimension is not similar for all images
             # then no auto enlarge is possible
             # since everything can be displayed in a single row
@@ -578,7 +577,6 @@ class FigurePanel():
                 else:
                     enlarged_image_sites = enlarged_image_site
 
-
                 # go through all
                 all_scores = {}
                 for first_dimension, second_dimension in dimension_combinations:
@@ -589,6 +587,7 @@ class FigurePanel():
                     # try out both dimensions
                     # will be done through different show_focus_in
                     # and through different enlarged_image_site
+                    
                     for (show_focus_in,
                          enlarged_image_site) in enlarge_combinations:
 
@@ -604,6 +603,7 @@ class FigurePanel():
 
                         # size increase dim is the category that determines
                         #  how much the image will be enlarged
+
                         (all_images_by_identity_tmp,
                         _, _, _) = self._auto_enlarge_images(images_enlarge,
                                                             first_dimension,
@@ -619,6 +619,7 @@ class FigurePanel():
                         # enlarge images but the images themselves indicate
                         # that some images should be enlarged
                         # since enlarging is not possible, don't use combination
+
                         if self.is_none(all_images_by_identity_tmp):
                             continue
 
@@ -2054,7 +2055,6 @@ class FigurePanel():
             first_dimensions = flexible_order_not_similar_for_imgs
         else:
             first_dimensions = [order_of_categories["flexible"][0]]
-
         second_dimensions = []
         # second dimensions should be earliest fixed dimension
         # which is not in first_dimensions
@@ -2062,6 +2062,7 @@ class FigurePanel():
             for category in order_of_categories["fixed"]:
                 if category not in first_dimensions:
                     second_dimensions = [category]
+                    break
 
         if len(second_dimensions) == 0:
             if len(flexible_order_not_similar_for_imgs) > 0:
@@ -2070,6 +2071,7 @@ class FigurePanel():
                 for category in order_of_categories:
                     if category not in first_dimensions:
                         second_dimensions = [category]
+                        break
 
         #  combine all first and second dimensions that should be tried
         dimension_combinations = []
@@ -2197,6 +2199,7 @@ class FigurePanel():
         # but no category value in which should be changed
         # that indicates that it would not be cleanly possible to enlarge image
         # therefore, don't use this combination
+
         if (not np.isnan(category_change)) & (np.isnan(new_cat_val)):
             return (None, None, None, None)
 
@@ -2371,23 +2374,25 @@ class FigurePanel():
 
                 new_cat_vals[category].append(identity[category])
 
-
         # check for which categories there are as many different values
         # as the image is increased in size
         # find the category for this that is earliest
         # in order_of_categories and save the corresponding
         # value of the tested identity in that category
         for category in included_order_of_categories:
-            if category in size_increase_vals:
-                cat_vals = size_increase_vals[category]
-                if len(np.unique(cat_vals)) == size_factor:
-                    category_change = category
-                    new_cat_vals_one_cat = np.unique(new_cat_vals[category])
-                    # there should only be one new cat val for the correct
-                    # category
-                    if len(new_cat_vals_one_cat) == 1:
-                        new_cat_val = new_cat_vals_one_cat[0]
-                        break
+            if category not in size_increase_vals:
+                continue
+            cat_vals = size_increase_vals[category]
+            if len(np.unique(cat_vals)) != size_factor:
+                continue
+            category_change = category
+            new_cat_vals_one_cat = np.unique(new_cat_vals[category])
+            # there should only be one new cat val for the correct
+            # category
+            if len(new_cat_vals_one_cat) != 1:
+                continue
+            new_cat_val = new_cat_vals_one_cat[0]
+            break
 
         return category_change, new_cat_val
 
@@ -7494,7 +7499,6 @@ class FigurePanel():
 
         self.validate_data_file()
 
-
         data = self.data
 
         if normalize_after_data_exclusion:
@@ -7529,6 +7533,7 @@ class FigurePanel():
         if len(data) == 0:
             return
 
+
         data = self.group_and_average_data(average_columns, data)
 
         if remove_outliers:
@@ -7560,6 +7565,7 @@ class FigurePanel():
         for column in [x,hue,col]:
             if column != None:
                 data[column] = data[column].apply(str)
+
 
         data = self.exclude_data_with_column_vals_not_in_all_groups(columns_same_in_groups,
                                                                     data, x,
@@ -8430,7 +8436,10 @@ class FigurePanel():
 
     def get_representative_data(self, unit_columns=None, cols_to_show=None,
                                 nb_of_measurements_matter=True,
-                                nb_vals_to_show=20):
+                                sort_by_relative_difference=True,
+                                print_results=True,
+                                nb_vals_to_show=20,
+                                column_suffix = "___d___"):
         """
         Get list of units (cells etc) that are closest to average of data.
         Data from one unit is in a single image, therefore cannot be separated
@@ -8457,6 +8466,8 @@ class FigurePanel():
         if (len(self.grouped_data) == 0) | (len(self.included_data) == 0):
             return
 
+
+
         grouped_means = self.grouped_data.mean()
         grouped_stds = self.grouped_data.std()
         group_columns = grouped_means.index.names
@@ -8476,17 +8487,20 @@ class FigurePanel():
             one_group_data = included_data_indexed.loc[values]
             group_means[values] = grouped_means[self.y].loc[values]
             group_stds[values] = grouped_stds[self.y].loc[values]
+
         evaluated_data = copy.copy(self.included_data)
         evaluated_data.loc[:,'d_mean'] = evaluated_data.apply(self.get_d_mean,
                                                               args=[group_means,
                                                                      group_stds,
                                                                      group_columns],
                                                               axis=1)
-        y_diff_column = self.y + "_d"
+        y_diff_column = self.y + column_suffix
         evaluated_data.loc[:, y_diff_column] = evaluated_data.apply(self.get_difference_to_mean,
                                                                        args=[group_means,
                                                                             group_columns],
                                                                        axis = 1)
+        y_abs_diff_column = y_diff_column + "abs"
+        evaluated_data.loc[:, y_abs_diff_column] = evaluated_data[y_diff_column].abs()
         # track number of measurements for
         evaluated_data.loc[:,"nb_measurements"] = 1
         cols_evaluated = []
@@ -8500,7 +8514,11 @@ class FigurePanel():
         if nb_of_measurements_matter:
             ascending_vals.append(False)
 
-        cols_evaluated.append("d_mean")
+        if sort_by_relative_difference:
+            cols_evaluated.append("d_mean")
+        else:
+            cols_evaluated.append(y_abs_diff_column)
+
         ascending_vals.append(True)
         # move columns evaluated first so that they are shown first
         cols_to_show = cols_evaluated + cols_to_show
@@ -8543,8 +8561,10 @@ class FigurePanel():
         if not nb_of_measurements_matter:
             cols_evaluated = cols_evaluated[1:]
 
-        # also show y values and average
+        if not print_results:
+            return
 
+        # also show y values and average
         for values in group_indices:
             # check if group index is in index of included data
             # it might have been removed by adding up values from same unit
