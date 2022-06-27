@@ -10064,6 +10064,44 @@ class FigurePanel():
                     ax.remove()
 
 
+    def draw_line_on_plots(self, positions, axis,
+                            line_width = 1, color = "white",
+                            line_style="-",**kwargs):
+        """
+        This is not implemented for multiple rows of data plots yet
+        """
+        if type(positions) not in [tuple, list]:
+            positions = [positions]
+        if axis.lower() == "x":
+            for position in positions:
+                self.draw_line_on_images(position, orientation="vert",
+                                    line_width=line_width, color=color,
+                                    line_style=line_style,
+                                    **kwargs)
+        elif axis.lower() == "y":
+            # first add lines between plots due to split by col values
+            ax_first = None
+            first_x = np.inf
+            ax_last = None
+            last_x = 0
+            for ax in self.all_axs.values():
+                ax_coords = ax.get_position()
+                if ax_coords.x0 < first_x:
+                    first_x = ax_coords.x0
+                    ax_first = ax
+                if ax_coords.x1 > last_x:
+                    last_x = ax_coords.x1
+                    ax_last = ax
+            statannot.add_background_grid_lines(ax_first, ax_last,
+                                                line_width, self.letter, color,
+                                                y_positions=positions)
+            # then plot lines for actual plots
+            for position in positions:
+                self.draw_line_on_images(position, orientation="hor",
+                                    line_width=line_width, color=color,
+                                    line_style=line_style,
+                                    **kwargs)
+
     def draw_line_on_images(self, position, orientation = "hor",
                             line_width = 1, color = "white",
                             line_style="-",

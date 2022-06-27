@@ -1849,6 +1849,7 @@ def get_box_dict_pairs_grouped_by_ranking(all_boxes_sorted,
                 if box_tuple not in box_pairs_sorted:
                     box_pairs_sorted[box_tuple] = []
                 box_pairs_sorted[box_tuple].append(box_pair)
+
     box_struct_pairs_grouped = {}
     for box_tuple,box_pairs in box_pairs_sorted.items():
         # get box_struct_pairs for pairs
@@ -1945,13 +1946,11 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
 
     # split into left and right of reference box
     box_struct_pairs_split = {}
-
     if turn_point > 0:
         box_struct_pairs_split['left'] = box_struct_pairs_sorted[0:turn_point]
 
     if turn_point < len(box_struct_pairs):
         box_struct_pairs_split['right'] = box_struct_pairs_sorted[turn_point:]
-
     # if (turn_point > 0) & (turn_point < len(box_struct_pairs)):
     #     both_sites_have_boxes = True
     # else:
@@ -2247,6 +2246,7 @@ def add_background_grid_lines_to_plots(all_axs, col_order, line_width, letter):
 
 
 def add_background_grid_lines(ax_first, ax_last, line_width, letter, color,
+                              y_positions=None,
                               excluded_ytick_id = None):
     """
     :param excluded_ytick_ids: list of list-ids in yticks
@@ -2256,11 +2256,15 @@ def add_background_grid_lines(ax_first, ax_last, line_width, letter, color,
     ax_first_coords = ax_first.get_position()
     ax_last_coords = ax_last.get_position()
     y_lim = ax_first.get_ylim()
-    yticks = ax_first.get_yticks()
-    ylim_low = min(y_lim[0], y_lim[1])
-    ylim_high = max(y_lim[0], y_lim[1])
-    yticks = [tick for tick in yticks
-              if (tick >= ylim_low) & (tick <= ylim_high)]
+    if y_positions is None:
+        yticks = ax_first.get_yticks()
+        ylim_low = min(y_lim[0], y_lim[1])
+        ylim_high = max(y_lim[0], y_lim[1])
+        yticks = [tick for tick in yticks
+                  if (tick >= ylim_low) & (tick <= ylim_high)]
+        if excluded_ytick_id is not None:
+            del yticks[excluded_ytick_id]
+        y_positions = yticks
     grid_ax = fig.add_subplot(label="grid for letter " +letter,zorder=-1)
     grid_ax.set_ylim(y_lim[0],y_lim[1])
     grid_ax.set_position([ax_first_coords.x0, ax_first_coords.y0,
@@ -2275,10 +2279,8 @@ def add_background_grid_lines(ax_first, ax_last, line_width, letter, color,
     grid_ax.set_xticks([])
     grid_ax.set_yticks([])
     # grid_ax.set_facecolor("white")
-    if excluded_ytick_id != None:
-        del yticks[excluded_ytick_id]
-    for y_tick in yticks:
-        line_x, line_y = [0, 1], [y_tick,y_tick]
+    for y_position in y_positions:
+        line_x, line_y = [0, 1], [y_position,y_position]
         line = lines.Line2D(line_x, line_y, c=color,  zorder=-1,
                             lw=line_width, solid_capstyle="butt")
         line.set_clip_on(False)
@@ -2348,6 +2350,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         row_label_text=None, row_label_orientation = "vert",
                         auto_scale_group_padding = True,
                         plot_title = None, show_y_minor_ticks=False,
+                                 y_ticks=None,
                         borderaxespad_ = 0.2,
                         add_background_lines = True, vertical_lines=False,
                         show_stats_to_control_without_lines=False,
@@ -2809,7 +2812,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             # make ranking of all boxes
             all_boxes_sorted = sorted(all_boxes, reverse=True,
                                       key=lambda x: box_counter[x])
-
             box_struct_pairs_grouped = get_box_dict_pairs_grouped_by_ranking(all_boxes_sorted,
                                                                              box_pairs_of_x,
                                                                              pval_texts,
@@ -2964,6 +2966,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         if show_y_minor_ticks:
             ax.grid(visible=True, b=False, color=line_color, linestyle='-',
                     which="minor", axis="y", linewidth=line_width_thin)
+
+    if y_ticks is not None:
+        for ax in all_axs.values():
+            ax.set_yticks(y_ticks)
 
     # move plot to within outer_border horizontally (axes labeling is outside of ax and thereby of outer_border)
     # center the plot then horizontally
