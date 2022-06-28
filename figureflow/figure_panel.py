@@ -231,6 +231,7 @@ class FigurePanel():
 
     def show_images(self, images=None, channels=None, slices=None, frames=None,
                     order_of_categories=None, focus=None,
+                    interpolate_images="None",
                     dimension_equal="heights", scale_images=True,
                     auto_image_sub_param=None, make_image_size_equal=None,
                     auto_enlarge=True,enlarged_image_site="left",
@@ -255,6 +256,8 @@ class FigurePanel():
         Display images of current panel.
         Always use function that annotate within the image
         after functions that annotate outside of the image.
+        Ranges seemingly can only be extracted from ImageJ images
+        if the LUT is set to gray.
         :param dimension_equal: Determines in which dimension
                                 ("height" or "width") images should be similar
                                 e.g. for "height", images in same row
@@ -337,6 +340,10 @@ class FigurePanel():
                                 and zoom_nb_frames is [0,1] then the zoom_nb
                                 will be shown in the first and second frame (5, 10)
         :param overlay_opacity: Opacity of each channel for overlay of channels
+                                Higher values mean less transparency.
+                                Can be float if applied similarly to all channels
+                                or a list/tuple with different values for each
+                                channel.
         :param repositioning_map: join specific images together with another
                                 dimension (by remapping the identity)
                                 e.g. join one image from a channel
@@ -377,6 +384,8 @@ class FigurePanel():
         print("DISPLAYING IMAGES FOR PANEL {}.............".format(self.letter))
 
         self.initiate_show_images_variables()
+
+        self.interpolate_images = interpolate_images
 
         self.sub_padding_factor = sub_padding_factor
 
@@ -4001,7 +4010,7 @@ class FigurePanel():
                                  "allowed.".format(make_image_size_equal[1]))
 
         elif parameters[0].lower() == "height":
-            max_height = max_heights_px[column]
+            max_height = max_heights_px[row]
             added_array_shape = np.array(image.shape)
             added_array_shape[-3] = int(max_height) - added_array_shape[-3]
             added_array = np.full(tuple(added_array_shape),
@@ -4180,10 +4189,21 @@ class FigurePanel():
                 opacity = 1
                 
             for overlay_img_nb, single_image in enumerate(image):
+                if type(opacity) in [list, tuple]:
+                    if len(opacity) <= overlay_img_nb:
+                        raise ValueError("Overlay opacity was supplied as list."
+                                         "But not enough elements for each overlay"
+                                         " channel were supplied. Only "
+                                         f"{len(opacity)} values were supplied "
+                                         f"for {len(image)} overlay channels.")
+                    opacity_channel = opacity[overlay_img_nb]
+                else:
+                    opacity_channel = opacity
                 img_range = all_img_ranges[overlay_img_nb]
                 cmap_for_img = cmaps_for_img[overlay_img_nb]
                 im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range,
-                               alpha=opacity)
+                               alpha=opacity_channel,
+                               interpolation=self.interpolate_images)
 
             #  ax.set_axis_off()
             # add plot to all_axs[row]
@@ -4192,7 +4212,6 @@ class FigurePanel():
             if column == None:
                 column = 0
             self.all_axs[(row,column)] = ax
-
         return widths, heights
 
 
@@ -4804,7 +4823,9 @@ class FigurePanel():
 
     def add_x_axis(self, axis_title="", site="bottom",
                         show_in_rows=None, show_in_columns=None,
+                   show_title_in_rows=None, show_title_in_columns=None,
                         axis_padding=0, show_tick_labels=True,
+                                      always_show_all_tick_values=False,
                         tick_values=None, tick_color="black", tick_width = 0.4,
                         tick_length=5, shift=True):
         """
@@ -4826,10 +4847,16 @@ class FigurePanel():
             if not show_axes_here:
                 continue
 
+            show_title_here = self.check_if_pos_is_in_row_col_list(row,
+                                                                  column,
+                                                                  show_title_in_rows,
+                                                                  show_title_in_columns)
+
             #  ax.set_axis_on()
             ax.axes.get_xaxis().set_visible(True)
             # add axis title if set
-            ax.set_xlabel(axis_title, labelpad=0)
+            if show_title_here:
+                ax.set_xlabel(axis_title, labelpad=0)
             #  ax.tick_params(axis="x",which="both",pad=0)
 
             self._set_default_xy_ticks("x", ax)
@@ -4837,11 +4864,22 @@ class FigurePanel():
             if type(tick_values) != type(None):
                 x_tick_values = [x_tick_value/self.tick_scales[0]
                                  for x_tick_value in tick_values]
-                ax.set_xticks(ticks=x_tick_values)
-                ax.set_xticklabels(tick_values)
+
+                if always_show_all_tick_values:
+                    x_tick_values_in_range = x_tick_values
+                    tick_values_in_range = tick_values
+                else:
+                    (x_tick_values_in_range,
+                     tick_values_in_range) = self.get_ticks_in_range(ax.get_xlim(),
+                                                                     x_tick_values,
+                                                                     tick_values)
+                ax.set_xticks(ticks=x_tick_values_in_range)
+                ax.set_xticklabels(tick_values_in_range)
+
             ax.tick_params(axis="x", which="both", pad=axis_padding,
                                length =tick_length, width=tick_width,
-                               direction="in", color=tick_color)
+                               direction="in", color=tick_color,
+                                bottom=True)
 
             if not show_tick_labels:
                 ax.set_xticklabels([])
@@ -4852,9 +4890,23 @@ class FigurePanel():
             if shift:
                 self.shift_and_transform_axs(site, None, x_axis_height_px)
 
+
+    def get_ticks_in_range(self, range, tick_values, tick_labels):
+        range = [min(range), max(range)]
+        tick_values_in_range = []
+        tick_labels_in_range = []
+        for tick_nb, tick_value in enumerate(tick_values):
+            if ((tick_value >= range[0]) &
+                             (tick_value <= range[1])):
+                tick_values_in_range.append(tick_value)
+                tick_labels_in_range.append(tick_labels[tick_nb])
+        return tick_values_in_range, tick_labels_in_range
+
     def add_y_axis(self, axis_title="", site="left",
                         show_in_rows=None, show_in_columns=None,
+                   show_title_in_rows=None, show_title_in_columns=None,
                         axis_padding=0, show_tick_labels=True,
+                                      always_show_all_tick_values=False,
                         tick_values=None, tick_color="black", tick_width = 0.4,
                         tick_length=5, shift=True):
         """
@@ -4863,6 +4915,8 @@ class FigurePanel():
                                 on the inside of the image
                                 values provided must be after scaling
                                 with set_image_scaling
+        :param always_show_all_tick_values: Show tick values also if out of 
+                                            axis dimensions
         :param x_tick_values: list, manually define x tick values to be shown
                                 on the inside of the image
                                 values provided must be after scaling
@@ -4881,18 +4935,34 @@ class FigurePanel():
             if not show_axes_here:
                 continue
 
+            show_title_here = self.check_if_pos_is_in_row_col_list(row,
+                                                                  column,
+                                                                  show_title_in_rows,
+                                                                  show_title_in_columns)
+
             ax.set_axis_on()
             ax.axes.get_yaxis().set_visible(True)
             # add axis title if set
-            ax.set_ylabel(axis_title, labelpad=axis_padding)
+            if show_title_here:
+                ax.set_ylabel(axis_title, labelpad=axis_padding)
             #  ax.tick_params(axis="x",which="both",pad=0)
 
             self._set_default_xy_ticks("y", ax)
             if type(tick_values) != type(None):
-                y_tick_values = [y_tick_value/self.tick_scales[1]
+                y_tick_values = [int(y_tick_value/self.tick_scales[1])
                                  for y_tick_value in tick_values]
-                ax.set_yticks(ticks=y_tick_values)
-                ax.set_yticklabels(tick_values)
+                if always_show_all_tick_values:
+                    y_tick_values_in_range = y_tick_values
+                    tick_values_in_range = tick_values
+                else:
+                    (y_tick_values_in_range,
+                     tick_values_in_range) = self.get_ticks_in_range(ax.get_ylim(),
+                                                                     y_tick_values,
+                                                                     tick_values)
+
+                ax.set_yticks(ticks=y_tick_values_in_range)
+                ax.set_yticklabels(tick_values_in_range)
+
             ax.tick_params(axis="y", which="both",
                            pad=axis_padding,
                                length =tick_length, width=tick_width,
@@ -8291,8 +8361,6 @@ class FigurePanel():
             nb_columns = 1
         max_col = nb_columns - 1
         return max_col
-
-
 
 
     def _remove_data(self, row, list_values_to_include):
