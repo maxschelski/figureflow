@@ -7135,6 +7135,7 @@ class FigurePanel():
         data_columns = data.columns
         for column in data_columns:
             unique_values = data[column].drop_duplicates().dropna()[:nb_vals]
+            print(column)
             type_str = "(" + str(type(unique_values.values[0])) +")"
             unique_values = [str(unique_value)
                              for unique_value in unique_values]
@@ -7215,8 +7216,20 @@ class FigurePanel():
 
 
 
-    def normalize_data(self, data, y, norm_cats, hue, col, row):
-        normalize_func = lambda x: (x / x.mean())
+    def normalize_data(self, data, y, norm_cats, hue, col, row,
+                       normalize_by="mean"):
+        if normalize_by.lower() == "mean":
+            normalize_func = lambda x: (x / x.mean())
+        if normalize_by.lower() == "median":
+            normalize_func = lambda x: (x / x.mean())
+        elif normalize_by.lower() == "first":
+            normalize_func = lambda x: (x / x.iloc[0])
+        elif normalize_by.lower() == "last":
+            normalize_func = lambda x: (x / x.iloc[-1])
+        else:
+            raise ValueError(f"The normalization method {normalize_by} "
+                             "is not implemented.")
+            
         data_normalized = self.transform_y_data(data, y, normalize_func,
                                                 norm_cats, hue, col, row)
         return data_normalized
@@ -7305,7 +7318,6 @@ class FigurePanel():
 
         data_transformed = data.groupby(cols_cats)[y].transform(transform_func)
         return data_transformed
-
 
     @staticmethod
     def default_in_statannot(arg_name):
@@ -7404,14 +7416,16 @@ class FigurePanel():
                   col=None, col_labels=[], row=None, row_labels=[],
                   inclusion_criteria= None, show_data_points=True,
                   remove_outliers=False, nb_stds_outliers=4,
-                    scale_columns=None, norm_cats=None, smoothing_rad = None,
+                    scale_columns=None, norm_cats=None, normalize_by="mean",
+                    smoothing_rad = None,
                   average_columns = None,
                   normalize=False, baseline=0, columns_same_in_groups=None,
                   renaming_dicts = None, increase_padding_above = True,
                   width_y_axis = 0, col_labels_every_row = False,
-                  sub_padding_y_factor = 0.25, show_y_label_in_all_rows = False,
+                  sub_padding_y_factor = 0.25, show_y_label_in_all_rows = None,
                   for_measuring = False, normalize_after_data_exclusion=True,
-                  video_frame=None, show_legend=True, pair_unit_columns=None,
+                  video_frame=None, show_legend=None, pair_unit_columns=None,
+                  use_same_y_ranges=True,
                   **kwargs):
         """
         Plot data of file for panel.
@@ -7432,14 +7446,17 @@ class FigurePanel():
                     column name in dataframe by which the data should be split
                     - just like x and hue, as an additional criterion that will
                     lead to more horizontally-split groups plotted 
-        :norm_cats: list of categories / data columns from which the groups
-        will be build (groupby object)
+        :param norm_cats: list of categories / data columns from which the groups
+                    will be build (groupby object)
                     within which it should be normalized 
                     (e.g. to normalize values within neurites)
                     can be "hue" or "col" or "x" and will then take the
                     column names that were used for these
                     variables as arguments to the "show_data" function
                     can also be any other column name directly
+        :param normalize_by: value form the group by which the group will be 
+                            normalized; any function name that can be performed
+                            on a series works
         :param average_columns: List of column names;
             create new data frame where data will be averages for
             data rows with same values in average_columns
@@ -7566,7 +7583,8 @@ class FigurePanel():
             self.sub_padding_y_factor = sub_padding_y_factor
             self.show_y_label_in_all_rows = show_y_label_in_all_rows
             self.pair_unit_columns = pair_unit_columns
-
+            self.use_same_y_ranges = use_same_y_ranges
+        
         self.validate_data_file()
 
         data = self.data
@@ -7587,7 +7605,8 @@ class FigurePanel():
         # normalize values to within cateogiry
         # norm_cats is a list of categories for which normalization
         if normalize:
-            data[y] = self.normalize_data(data, y, norm_cats, hue, col, row)
+            data[y] = self.normalize_data(data, y, norm_cats, hue, col, row,
+                                          normalize_by)
 
         if not normalize_after_data_exclusion:
             data = self.exclude_data(data, inclusion_criteria)
@@ -7709,7 +7728,7 @@ class FigurePanel():
 
         return axs_by_position, ax_annot
 
-    def plot_multi_rows(self, inner_border,  show_legend, **kwargs):
+    def plot_multi_rows(self, inner_border, show_legend, **kwargs):
         """
         Plot mulitple rows with different y values or different values
         in a defined row column (different y and different row values not 
@@ -7729,6 +7748,22 @@ class FigurePanel():
             row_values = [None]
         else:
             row_values = self.data[self.row].drop_duplicates().values
+
+        # if there is only one hue value
+        group_cols = []
+        for group_col in [self.row, self.col, self.x]:
+            if group_col is not None:
+                group_cols.append(group_col)
+
+        if self.hue is None:
+            nb_hue_values = 0
+        else:
+            nb_hue_values = self.data.groupby(group_cols).apply(lambda x: 
+                                                                len(x[self.hue].drop_duplicates())).max()
+        if nb_hue_values <= 1:
+            if "_leave_space_for_legend" not in kwargs:
+                kwargs["_leave_space_for_legend"] = False
+
 
         (axs_for_measuring,
          max_y_axis_width_px,
@@ -7787,7 +7822,7 @@ class FigurePanel():
         width_per_col = self.get_width_per_col_for_multi_row(max_width_y_axis,
                                                              group_padding_rel,
                                                              x_padding_rel)
-
+        # print(group_padding, group_padding_rel)
         self.initialize_padding_factor_matrices()
         
         nb_col_vals = 0
@@ -7805,8 +7840,19 @@ class FigurePanel():
         for y_nb, _ in enumerate(all_y):
             for row in row_values:
                 y_row_combinations.append((y_nb, row))
+                
+        if (len(all_y) > 1) & (self.show_y_label_in_all_rows is None):
+            self.show_y_label_in_all_rows = True
+
+        show_x_axis = self.from_kwargs_or_statannot_default(kwargs,
+                                                            "show_x_axis")
+
+        if show_x_axis:
+            kwargs["leave_space_for_x_tick_overhang"] = True
 
         for row_nb,( y_nb, row_value) in enumerate(y_row_combinations):
+            
+            print( "\n ROW NUMBER: ", row_nb)
             # set y to a different value for each iteration
             # original y values are stored in "all_y"
             self.y = all_y[y_nb]
@@ -7825,10 +7871,12 @@ class FigurePanel():
             # it was already mapped to the correct y
             if "y_range" in tmp_kwargs:
                 y_range = tmp_kwargs.pop("y_range")
-            else:
+            elif self.use_same_y_ranges:
                 y_min = self.data[self.y].min()
                 y_max = self.data[self.y].max()
                 y_range = [y_min, y_max]
+            else:
+                y_range = None
 
             (all_axs,
              height_this_sub_panel) = self.plot_one_row(row_nb, row_value,
@@ -7850,8 +7898,6 @@ class FigurePanel():
                                                         ax_for_measuring,
                                                         show_legend,
                                                         **tmp_kwargs)
-
-
 
 
             #  increase row pos by span of sub_panels
@@ -7894,7 +7940,8 @@ class FigurePanel():
         # set properties to measure maximum dimensions
         tmp_kwargs = copy.deepcopy(kwargs)
         tmp_kwargs["x_range"] = x_range
-        tmp_kwargs["show_x_axis"] = True
+        if "show_x_axis" not in tmp_kwargs:
+            tmp_kwargs["show_x_axis"] = True
         tmp_kwargs["add_background_lines"] = False
         # not sure why these values needed to be set to False
         # would think that this makes maximum dimensions wrong or
@@ -8011,7 +8058,6 @@ class FigurePanel():
 
             if multiple_y_considered:
                 tmp_kwargs[y_param] = y_param_value[y_nb]
-
         return tmp_kwargs
 
 
@@ -8042,7 +8088,7 @@ class FigurePanel():
             axis = getattr(ax, axis_str)
             starting_pos = getattr(ax.get_position(), starting_pos_str)
             dimension_px = statannot.get_axis_dimension(ax, axis,
-                                                           "width",
+                                                           dimension,
                                                            starting_pos)
             max_dimension_px = max(max_dimension_px, dimension_px)
         return max_dimension_px
@@ -8177,12 +8223,14 @@ class FigurePanel():
                      ax_for_measuring,
                      show_legend, **kwargs):
 
+        show_row_label = kwargs.get("show_row_label",
+                                    self.default_in_statannot("show_row_label"))
         #  add to each inclusion criteria the row criteria
         # so that in each sub panel only the data from
         # a specific row value is used
         new_inclusion_criteria = copy.deepcopy(self.inclusion_criteria)
 
-        if type(row_value) != type(None):
+        if (row_value is not None) & show_row_label:
             for inclusion_criterion in new_inclusion_criteria:
                 inclusion_criterion[self.row] = [row_value]
                 # [row_label_map.get(row_value, row_value)]
@@ -8214,7 +8262,7 @@ class FigurePanel():
                                                       group_padding_rel,
                                                       x_tick_overhang_rel)
 
-        if show_legend:
+        if (show_legend is not None) and show_legend:
             kwargs["_leave_space_for_legend"] = True
             if row_nb == 0:
                 show_legend = True
@@ -8227,7 +8275,7 @@ class FigurePanel():
 
         # set empty y axis label with correct amount of line breaks
         if (row_nb > 0) & ( not self.show_y_label_in_all_rows):
-            self.set_empty_y_axis_label_in_kwargs(**kwargs)
+            kwargs = self.set_empty_y_axis_label_in_kwargs(**kwargs)
 
         x_axis_label = kwargs.get("x_axis_label", "")
 
@@ -8255,6 +8303,11 @@ class FigurePanel():
         if (row_nb > 0) & (not self.col_labels_every_row):
             kwargs["show_col_labels_above"] = False
 
+        print(self.fig_width_available,
+                                self.fig_height_available, self.fig_padding,
+              width_this_panel, sub_padding, self.size_factor,
+              self.increase_size_fac)
+
         # padding for sub panels in y should be only half
         sub_panel = FigurePanel(self.figure, self.fig, self.fig_width_available,
                                 self.fig_height_available, self.fig_padding,
@@ -8274,6 +8327,7 @@ class FigurePanel():
         y_axis_width = y_axis_width_px / (fig.get_size_inches()[0] * fig.dpi)
 
         y_axis_diff = max_width_y_axis - y_axis_width
+        y_axis_diff = 0
         sub_panel.inner_border[0] += y_axis_diff
 
         # show data with same properties as current show_data
@@ -8281,7 +8335,6 @@ class FigurePanel():
         # and except processing, since that was done already
         # and will be accessible for new figure panel
         # since data is used for __init__
-
         # TODO:
         #  should "width_y_axis_ parameter for show_data be max_width_y_axis?
         all_axs, _ = sub_panel.show_data(self.x, self.y, x_labels=self.x_labels,
@@ -8319,7 +8372,8 @@ class FigurePanel():
         # every row except the first
         if "y_axis_label" in kwargs:
             kwargs["y_axis_label"] = empty_y_axis_label
-        return None
+
+        return kwargs
 
     def get_width_of_plot_row(self, row_value, width_per_col, max_width_y_axis,
                               x_padding_rel, label_width_diff, row_nb, nb_rows,
@@ -8348,8 +8402,8 @@ class FigurePanel():
         #since those labels are only present in the last row and will
         #add to the width of the plot
 
-        if row_nb != (nb_rows - 1):
-            width_this_panel -= x_tick_overhang_rel
+        # if row_nb != (nb_rows - 1):
+        #     width_this_panel -= x_tick_overhang_rel
 
         return width_this_panel
 
@@ -8733,7 +8787,6 @@ class FigurePanel():
     def plot_results(self, data, x, y, inner_border, for_measuring, **kwargs):
 
         size_factor = self.size_factor * self.increase_size_fac
-
         # get box dicts of one group and plot data of that group
         output = statannot.plot_and_add_stat_annotation(data = data,
                                                         x=x, y=y, fig=self.fig,
@@ -9346,8 +9399,11 @@ class FigurePanel():
                 text_width,_ = FigurePanel.get_dimension_of_text(text,
                                                                  font_size, ax)
                 max_text_width = max(max_text_width, text_width)
-            if max_text_width > (ax_width - ax_padding):
-                font_size -= 1
+
+            # Quick fix: include additional padding to prevent text
+            # being to close to right border of image
+            if max_text_width > (ax_width - ax_padding) * 0.95:
+                font_size -= 0.2
             else:
                 break
         return font_size
@@ -9486,6 +9542,7 @@ class FigurePanel():
             string_between_with_space = True
         else:
             string_between_with_space = False
+            width_space_px = 0
 
         if string_between_with_space:
             ax = list(self.all_axs.values())[0]
