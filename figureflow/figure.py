@@ -747,12 +747,18 @@ class Figure():
             if new_column.find(column_suffix) != -1:
                 columns_to_be_shown.append(new_column)
 
-        all_groups = all_representative_data[group_columns].drop_duplicates()
-        all_representative_data.set_index(group_columns, inplace=True)
-        pd.set_option('display.max_columns', 500)
-        pd.set_option('display.width', 5000)
-        for group in all_groups.values:
-            group_data = all_representative_data.loc[tuple(group)]
+        if len(group_columns) > 0:
+            all_groups = all_representative_data[group_columns].drop_duplicates()
+            print(all_groups)
+            all_representative_data.set_index(group_columns, inplace=True)
+            pd.set_option('display.max_columns', 500)
+            pd.set_option('display.width', 5000)
+            group_data_list = []
+            for group in all_groups.values:
+                group_data_list.append(all_representative_data.loc[tuple(group)])
+        else:
+            group_data_list = [all_representative_data]
+        for group_data in group_data_list:
             sorted_group_data = group_data.sort_values(by=["nb_measurements",
                                                            "d_mean"],
                                                        ascending=[False,
@@ -786,14 +792,16 @@ class Figure():
             show_functions = []
             show_functions.append("show_images")
             show_functions.append("show_data")
-
+            if ((function_name in show_functions) & self.video):
+                self.current_panel.show_function_called = True
             if ((function_name in show_functions)  &
                 (self.current_panel.animate_panel == True)):
-                self.current_panel.show_function_called = True
+                # self.current_panel.show_function_called = True
                 if "frames" in kwargs:
                     self.current_panel.video_frames = kwargs["frames"]
                     self.all_video_frames = kwargs["frames"]
-            if (function_name.find("vid_") == -1) & (self.current_panel.show_function_called):
+            if ((function_name.find("vid_") == -1) &
+                    (self.current_panel.show_function_called)):
                 #instead save the function with arguments in panel
                 #execute these functions later for each iteration of animate
                 self.current_panel.functions_for_video.append((function_name, module_function, args, kwargs))
@@ -808,11 +816,16 @@ class Figure():
                    duration_title_page=3,
                    repeats = 1,
                    frames_to_show_longer=None,
-                   seconds_to_show_frames=1):
+                   seconds_to_show_frames=1,
+                   min_final_fps=20):
         """
         :param frames_to_show_longer: List of numbers; Which frames to show longer
                                     than just one videoframe
         :param seconds_to_show_frames: how many seconds to show frames_to_show_longer
+        :param min_final_fps: Minimum final fps that the video will be saved in.
+                                is important to be >10 for the title frame
+                                to prevent a black frame at the beginning
+                                (for fps=2 of 2s!)
         """
 
         if self.name == "":
@@ -890,7 +903,8 @@ class Figure():
         else:
             bitrate = str(bitrate)
 
-        complete_video.write_videofile(video_path, fps=self.fps,
+        complete_video.write_videofile(video_path,
+                                       fps=max(self.fps,min_final_fps),
                                        remove_temp=True, bitrate=bitrate)
 
         shutil.rmtree(self.tmp_video_folder)
@@ -902,23 +916,26 @@ class Figure():
         #what is init_func doing actually?
         video = animation.FuncAnimation(self.fig, animate_function,
                                         # init_func=functools.partial(animate_function,
-                                        #                             nb_frames-1),
+                                        #                             0),
                                         frames=nb_frames, repeat=True)
         video_writer = animation.writers['ffmpeg']
         #let matplotlib determine the best bitrate automatically with bitrate=-1
-        video_writer = video_writer(fps=self.fps, metadata=dict(artist="Me"),  bitrate=bitrate) #codec="libx264",#
+        video_writer = video_writer(fps=self.fps, metadata=dict(artist="Me"),
+                                    bitrate=bitrate) #codec="libx264",#
 
         if name != "":
             name = "_" + name
-        video_path = os.path.join(self.tmp_video_folder, str(self.name) + "S" + str(self.number) + name + ".mp4")
+        video_path = os.path.join(self.tmp_video_folder,
+                                  str(self.name) + "S" +
+                                  str(self.number) + name + ".mp4")
 
-        video.save(video_path,
-                        writer=video_writer)
+        video.save(video_path, writer=video_writer)
 
         return video_path
 
 
     def animate_title_page(self, frame):
+        # print(frame)
         if frame == 0:
             #first remove old title page
             # before adding new one
@@ -931,6 +948,7 @@ class Figure():
                             verticalalignment='center',
                             transform=self.title_page.transAxes)
             self.title_page.set_axis_off()
+
 
 
     def animate_video(self,
@@ -952,7 +970,9 @@ class Figure():
             print("Rendering frame {}".format(frame))
             #go through each added figure_panel
             for figure_panel in self.all_panels.values():
-                if not figure_panel.animate_panel:
+                # even for not animated panels the first timeframe
+                # should be shown
+                if (not figure_panel.animate_panel) & (frame > 0):
                     continue
 
                 figure_panel.data = figure_panel.data_orig
