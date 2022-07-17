@@ -1,4 +1,4 @@
-name: fastfig
+name: figureflow
 channels:
   - conda-forge
   - defaults
