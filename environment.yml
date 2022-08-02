@@ -214,6 +214,5 @@ dependencies:
     - scikit-posthocs==0.6.7
     - statsmodels==0.12.2
     - tika==1.24
-    - tqdm==4.62.0
     - xlsxwriter==3.0.1
 prefix: C:\Users\Maxsc\anaconda\envs\figureflow
