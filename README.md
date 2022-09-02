@@ -6,12 +6,16 @@ A lot of the code to plot data and add significance information (in statannot.py
 FigureFlow was used to generate all figures and all movies from Schelski and Bradke 2021 (examples from paper at the bottom of this page):<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 <br/>
-Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/>
-Several examples to generate figures and movies can be found in the the folder "scripts" while the data used for the figures and movies is in the folder "data" in a subfolder with the same name as the script.
-<br/>
 Documentation and code base under development.<br/>
 
 For any questions or an introduction of how to use the package please contact me via E-Mail to max.schelski@googlemail.com. I am very happy to help people starting to use the package and I am very open to any feedback. 
+
+# Usage Examples
+Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
+Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (in the subfolder "figures") or movies (in the subfolder "movies").<br/>
+The data  used for the figures and movies is in the folder "data" in a subfolder with the same name as the name of the script <br/>
+(e.g. the data for scripts/figures/Fig1.py is in data/Fig1).<br/>
+The data for a figure can contain a __figure__*.csv file that describes the layout of the panels, .csv files for analyzed data, .tif files for microscopy images and .png/.pptx files for illustrations. The name of files for a specific panel starts with "panel" followed by the uppercase panel letter and then an underscore (e.g. a file for panel A starts with "panelA_"). Alternatively, files for a panel can be stored in a folder named "panel" followed by the uppercase panel letter ("e.g. "panelA").
 
 # Selected Features
 
