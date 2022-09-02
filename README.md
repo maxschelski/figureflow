@@ -6,8 +6,8 @@ A lot of the code to plot data and add significance information (in statannot.py
 FigureFlow was used to generate all figures and all movies from Schelski and Bradke 2021 (examples from paper at the bottom of this page):<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 <br/>
-Some documentation of how to generate movies can be found under scripts in create_movies.py. <br/>
-Several examples to generate figures and movies can be found under scripts while the data used for the figures and movies is under data in a folder with the same name as the script.
+Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/>
+Several examples to generate figures and movies can be found in the the folder "scripts" while the data used for the figures and movies is in the folder "data" in a subfolder with the same name as the script.
 <br/>
 Documentation and code base under development.<br/>
 
