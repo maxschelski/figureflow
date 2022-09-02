@@ -12,7 +12,7 @@ For any questions or an introduction of how to use the package please contact me
 
 # Usage Examples
 Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
-Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (in the subfolder "figures") or movies (in the subfolder "movies").<br/>
+Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (under "scripts/figures") or movies (under "scripts/movies").<br/>
 The data  used for the figures and movies is in the folder "data" in a subfolder with the same name as the name of the script <br/>
 (e.g. the data for scripts/figures/Fig1.py is in data/Fig1).<br/>
 The data for a figure can contain a __figure__*.csv file that describes the layout of the panels, .csv files for analyzed data, .tif files for microscopy images and .png/.pptx files for illustrations. The name of files for a specific panel starts with "panel" followed by the uppercase panel letter and then an underscore (e.g. a file for panel A starts with "panelA_"). Alternatively, files for a panel can be stored in a folder named "panel" followed by the uppercase panel letter ("e.g. "panelA").
