@@ -1,3 +1,51 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:5f55001b7d2083f4845a1d005dd170a7e4a7641ebb43a4a121b5e718a5691809
-size 6932
+,date,cell,type, ,Label,point,dX,dY,pixel_size,dZ,z_size,length,dFrames,total_length,total_frames,Ch,speed
+0,211104,3,axon,112,211104_slices_03_T3E_2DIV_c0001_03_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.66,2.86,0.22,0,1,2.935,9,2.935,9,1,0.1087037037037037
+1,211104,3,neurite,111,211104_slices_03_T3E_2DIV_c0001_03_#slices_T3E_2DIV#-Hyperstack_registered.tif,6,1.76,1.32,0.22,0,1,2.2,3,8.838,10,2,0.2946
+2,211223,4,axon,101,211223_slices_04_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,3.74,4.84,0.22,1,1,6.198,10,6.198,10,2,0.2066
+3,211223,4,neurite,104,211223_slices_04_#slices_T3E_2DIV#-Hyperstack_registered.tif,3,2.2,1.1,0.22,0,1,2.46,2,7.785,9,2,0.28833333333333333
+4,211223,6,axon,95,211223_slices_06_#slices_T3E_2DIV#-Hyperstack_registered.tif,2,1.1,1.54,0.22,0,1,1.893,6,2.333,8,2,0.09720833333333334
+5,211223,6,neurite,100,211223_slices_06_#slices_T3E_2DIV#-Hyperstack_registered.tif,5,1.32,1.76,0.22,0,1,2.2,1,6.813,8,2,0.283875
+6,211223,7,axon,91,211223_slices_07_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.88,0.44,0.22,0,1,0.984,2,0.984,2,2,0.164
+7,211223,7,neurite,93,211223_slices_07_#slices_T3E_2DIV#-Hyperstack_registered.tif,2,0.44,0.44,0.22,1,1,1.178,2,3.356,9,2,0.1242962962962963
+8,211223,8,axon,89,211223_slices_08_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.66,1.1,0.22,0,1,1.283,10,1.283,10,2,0.04276666666666666
+9,211223,8,neurite,90,211223_slices_08_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,2.42,3.96,0.22,0,1,4.641,1,4.641,1,2,1.547
+10,211223,9,axon,85,211223_slices_09_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.66,0.22,0.22,0,1,0.696,11,0.696,11,2,0.02109090909090909
+11,211223,9,neurite,88,211223_slices_09_#slices_T3E_2DIV#-Hyperstack_registered.tif,3,0.22,1.1,0.22,0,1,1.122,1,5.619,3,2,0.6243333333333333
+12,211223,10,axon,80,211223_slices_10_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,1.98,0.22,0.22,0,1,-1.992,3,-1.992,3,2,-0.22133333333333333
+13,211223,10,neurite,84,211223_slices_10_#slices_T3E_2DIV#-Hyperstack_registered.tif,4,1.76,0.22,0.22,0,1,1.774,1,6.301,4,2,0.5250833333333333
+14,220113,3,axon,78,220113_slices_03_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.44,0.88,0.22,0,1,-0.984,1,-0.984,1,2,-0.328
+15,220113,3,neurite,79,220113_slices_03_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,1.32,4.4,0.22,0,1,4.594,3,4.594,3,2,0.5104444444444445
+16,220113,4,axon,76,220113_slices_04_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,1.54,2.42,0.22,1,1,3.038,2,3.038,2,1,0.5063333333333333
+17,220113,4,neurite,77,220113_slices_04_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,1.32,2.2,0.22,0,1,2.566,2,2.566,2,2,0.42766666666666664
+18,220113,5,axon,72,220113_slices_05_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.88,2.42,0.22,0,1,2.575,2,2.575,2,2,0.4291666666666667
+19,220113,5,neurite,75,220113_slices_05_#slices_T3E_2DIV#-Hyperstack_registered.tif,3,0.66,0.44,0.22,2,1,2.152,1,5.837,3,2,0.6485555555555556
+20,220113,6,axon,69,220113_slices_06_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.44,0.66,0.22,0,1,0.793,1,0.793,1,1,0.26433333333333336
+21,220113,6,neurite,71,220113_slices_06_#slices_T3E_2DIV#-Hyperstack_registered.tif,2,0.44,0.22,0.22,1,1,1.114,1,2.888,2,2,0.48133333333333334
+22,220120,3,axon,67,220120_slices_03_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,1.32,2.42,0.22,0,1,2.757,3,2.757,3,2,0.30633333333333335
+23,220120,3,neurite,68,220120_slices_03_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.22,2.64,0.22,0,1,2.649,3,2.649,3,1,0.29433333333333334
+24,220120,4,axon,65,220120_slices_04_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,1.32,1.98,0.22,1,1,2.581,9,2.581,9,2,0.09559259259259259
+25,220120,4,neurite,66,220120_slices_04_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,2.64,2.42,0.22,0,1,3.581,10,3.581,10,2,0.11936666666666666
+26,220120,5,axon,61,220120_slices_05_#slices_T3E_2DIV#-Hyperstack_registered.tif,2,0.44,1.54,0.22,0,1,1.602,4,3.362,7,2,0.1600952380952381
+27,220120,5,neurite,64,220120_slices_05_#slices_T3E_2DIV#-Hyperstack_registered.tif,3,2.42,2.2,0.22,0,1,3.271,1,7.368,3,2,0.8186666666666667
+28,220127,2,axon,58,220127_slices_02_#slices_T3E_2DIV#-Hyperstack_registered.tif,2,0.22,0.0,0.22,0,1,0.22,5,0.44,8,2,0.018333333333333333
+29,220127,2,neurite,59,220127_slices_02_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.44,0.0,0.22,0,1,0.44,6,0.44,6,2,0.024444444444444446
+30,220127,5,axon,52,220127_slices_05_#slices_T3E_2DIV#-Hyperstack_registered.tif,3,0.22,3.08,0.22,0,1,3.088,1,7.985,3,2,0.8872222222222222
+31,220127,5,neurite,56,220127_slices_05_#slices_T3E_2DIV#-Hyperstack_registered.tif,4,1.54,0.88,0.22,0,1,1.774,1,7.404,4,2,0.617
+32,220127,7,axon,43,220127_slices_07_#slices_T3E_2DIV#-Hyperstack_registered.tif,2,0.44,0.66,0.22,0,1,0.793,4,1.817,5,2,0.12113333333333333
+33,220127,7,neurite,49,220127_slices_07_#slices_T3E_2DIV#-Hyperstack_registered.tif,6,1.1,0.44,0.22,0,1,1.185,1,6.92,6,2,0.3844444444444444
+34,220303,3,axon,40,220303_slices_03_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,2.64,0.22,0.22,0,1,2.649,8,2.649,8,2,0.110375
+35,220303,3,neurite,41,220303_slices_03_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.22,0.88,0.22,0,1,-0.907,8,-0.907,8,2,-0.03779166666666667
+36,220303,11,axon,35,220303_slices_11_#slices_T3E_2DIV#-Hyperstack_registered.tif,1,0.0,0.0,0.22,0,1,0.0,2,0.0,2,2,0.0
+37,220303,11,neurite,39,220303_slices_11_#slices_T3E_2DIV#-Hyperstack_registered.tif,4,0.22,0.22,0.22,0,1,0.311,2,2.414,7,2,0.11495238095238096
+38,220317,2,axon,30,220317_slices_02_slices-Hyperstack_registered.tif,1,0.0,0.0,0.22,0,1,0.0,11,0.0,11,2,0.0
+39,220317,2,neurite,34,220317_slices_02_slices-Hyperstack_registered.tif,4,0.88,0.22,0.22,0,1,0.907,4,2.741,11,2,0.08306060606060606
+40,220317,3,axon,28,220317_slices_03_slices-Hyperstack_registered.tif,2,0.22,0.0,0.22,0,1,0.22,7,0.531,8,2,0.022125000000000002
+41,220317,3,neurite,29,220317_slices_03_slices-Hyperstack_registered.tif,1,0.22,0.44,0.22,0,1,-0.492,2,-0.492,2,2,-0.082
+42,220317,4,axon,19,220317_slices_04_slices-Hyperstack_registered.tif,1,0.88,0.44,0.22,0,1,-0.984,2,-0.984,2,2,-0.164
+43,220317,4,neurite,26,220317_slices_04_slices-Hyperstack_registered.tif,7,0.44,0.66,0.22,0,1,0.793,1,9.814,7,2,0.4673333333333333
+44,220317,7,axon,17,220317_slices_07_slices-Hyperstack_registered.tif,6,0.22,0.44,0.22,0,1,0.492,2,4.176,7,2,0.19885714285714287
+45,220317,7,neurite,18,220317_slices_07_slices-Hyperstack_registered.tif,1,0.22,0.0,0.22,0,1,0.22,7,0.22,7,1,0.010476190476190476
+46,220324,1,axon,8,220324_slices_01_slices-Hyperstack_registered.tif,2,0.0,0.44,0.22,0,1,0.44,1,1.424,3,2,0.1582222222222222
+47,220324,1,neurite,11,220324_slices_01_slices-Hyperstack_registered.tif,3,1.32,0.44,0.22,0,1,1.391,1,6.474,3,1,0.7193333333333334
+48,220324,3,axon,2,220324_slices_03_slices-Hyperstack_registered.tif,2,0.22,0.22,0.22,0,1,0.311,1,0.803,2,2,0.13383333333333333
+49,220324,3,neurite,6,220324_slices_03_slices-Hyperstack_registered.tif,4,1.54,0.88,0.22,0,1,1.774,1,4.602,4,2,0.3835

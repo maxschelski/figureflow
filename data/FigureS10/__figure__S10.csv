@@ -1,3 +1,6 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:c6438d010ebd6c7c9942f62a0257f3c9eaaa99425fec09a8917f1cf2dddbc628
-size 45
+4,4,
+A,B,0.5
+4,4,
+C,D,0.5
+4,4,
+E,F,0.5

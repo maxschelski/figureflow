@@ -1,3 +1,4 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:a1ae38edba3a0059f8302a6f70d1038e8eba4a8338a0108a1ed0f40769f3c05a
-size 96
+type,group,fraction,group_hue
+1,both,0.1333333,both
+1,none,0.2,none
+1,axon,0.666666667,axon
