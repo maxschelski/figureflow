@@ -13,7 +13,11 @@ For any questions or an introduction of how to use the package please contact me
 # Usage Examples
 Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
 Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (under "scripts/figures") or movies (under "scripts/movies").<br/>
-To find out which examples might be interesting to you, start by looking in "data/example_figures" for generated figures (as .png file, e.g. data/example_figures/figure1.png) or in "data/example_movies" for generated movies (as .mp4 file, e.g. data/example_movies/MovieS1.mp4) and check which examples contain features you would like to use. Then you can use the corresponding script for the example of interest (e.g. scripts/figure1.py or scripts/MovieS1.py) to play around with the example and thereby understand the usage of the underlying features hands-on.<br/><br/>
+To find out which examples might be interesting to you, start by looking 
+- in "data/example_figures" for generated figures (as .png file, e.g. data/example_figures/figure1.png) or 
+- in "data/example_movies" for generated movies (as .mp4 file, e.g. data/example_movies/MovieS1.mp4) 
+
+Check which examples contain features you would like to use. Then you can use the corresponding script for the example of interest (e.g. scripts/figure1.py or scripts/MovieS1.py) to play around with the feature of interest and thereby understand the usage hands-on.<br/><br/>
 
 The data used for the figures and movies is in the folder "data" in a subfolder with the same name as the name of the script (e.g. the data for scripts/figures/Fig1.py is in data/Fig1).<br/><br/>
 The data for a figure can contain: 
