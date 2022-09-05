@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from . import statannot
 from matplotlib import pyplot as plt
+import matplotlib
 import inspect
 import os
 import itertools
@@ -106,6 +107,8 @@ class FigurePanel():
         self.size_factor = size_factor
         self.tick_scales = [1,1]
         self.video = video
+
+        self.dark_background = figure.dark_background
         # if animate_panel is not set, make it true if figure panel is
         # part of video, otherwise false
         if (type(animate_panel) == type(None)):
@@ -180,7 +183,6 @@ class FigurePanel():
         sb.set_context(context="paper",rc=rc_dict)
 
         self.all_axs = {}
-        self.all_colorbars = {}
         self.crop_params = []
         self.all_rows_to_delete = []
         self.zoom_params = {}
@@ -829,6 +831,7 @@ class FigurePanel():
         self.inv_remap_for_orientation = {}
         self.size_factors_for_identities = {}
         self.site_of_colorbars = {}
+        self.all_colorbars = {}
         # set one global value for padding of colorbars
         self.padding_of_colorbars = np.nan
         # initialize a dict that will keep track of
@@ -1873,6 +1876,8 @@ class FigurePanel():
             new_group_identity = self.get_group_identity(identity)
             if new_group_identity != group_identity:
                 return False
+        if criteria is None:
+            return True
         for criterion_cat, criterion_val in criteria.items():
             # if a range was supplied, change to list
             if type(criterion_val) == type(range(1)):
@@ -3513,7 +3518,7 @@ class FigurePanel():
                     categories_for_identity.sort()
 
                     # get the identity values of categories of current dimension
-                    idx = list(identity_array[[categories_for_identity]])
+                    idx = list(identity_array[categories_for_identity])# WAS list(identity_array[[categories_for_identity]])
 
                     # go through each category  (new_category numbers are needed
                     # since non-category positions in identity array were
@@ -3528,7 +3533,6 @@ class FigurePanel():
                             idx[new_category] = slice(None)
                         elif new_nb_category == nb_category:
                             idx[new_category] = slice(idx[new_category])
-
                     sub_widths = new_width_imgs[tuple(idx)]
 
                     nb_imgs_before += np.count_nonzero(sub_widths)
@@ -4827,7 +4831,8 @@ class FigurePanel():
                         axis_padding=0, show_tick_labels=True,
                                       always_show_all_tick_values=False,
                         tick_values=None, tick_color="black", tick_width = 0.4,
-                        tick_length=5, shift=True):
+                        tick_length=5, shift=True,
+                   direction="in"):
         """
         Add x axis to images in image grid
         :param tick_values: list, manually define x tick values to be shown on
@@ -4878,7 +4883,7 @@ class FigurePanel():
 
             ax.tick_params(axis="x", which="both", pad=axis_padding,
                                length =tick_length, width=tick_width,
-                               direction="in", color=tick_color,
+                               direction=direction, color=tick_color,
                                 bottom=True)
 
             if not show_tick_labels:
@@ -7135,7 +7140,6 @@ class FigurePanel():
         data_columns = data.columns
         for column in data_columns:
             unique_values = data[column].drop_duplicates().dropna()[:nb_vals]
-            print(column)
             type_str = "(" + str(type(unique_values.values[0])) +")"
             unique_values = [str(unique_value)
                              for unique_value in unique_values]
@@ -7220,7 +7224,7 @@ class FigurePanel():
                        normalize_by="mean"):
         if normalize_by.lower() == "mean":
             normalize_func = lambda x: (x / x.mean())
-        if normalize_by.lower() == "median":
+        elif normalize_by.lower() == "median":
             normalize_func = lambda x: (x / x.mean())
         elif normalize_by.lower() == "first":
             normalize_func = lambda x: (x / x.iloc[0])
@@ -7414,6 +7418,7 @@ class FigurePanel():
 
     def show_data(self, x=None, y=None, x_labels=[], hue=None, hue_labels=[],
                   col=None, col_labels=[], row=None, row_labels=[],
+                  x_order=None, col_order=None, hue_order=None,
                   inclusion_criteria= None, show_data_points=True,
                   remove_outliers=False, nb_stds_outliers=4,
                     scale_columns=None, norm_cats=None, normalize_by="mean",
@@ -7592,12 +7597,6 @@ class FigurePanel():
         if normalize_after_data_exclusion:
             data = self.exclude_data(data, inclusion_criteria)
 
-        # without paired data do not connect data points
-        if type(pair_unit_columns) == type(None):
-            kwargs["connect_paired_data_points"] = False
-        else:
-            data = self.remove_unpaired_data(data, pair_unit_columns,
-                                              col, x, hue)
 
         # normalization should usually be done before exclusion of data
         # otherwise excluded units would change normalization
@@ -7607,9 +7606,9 @@ class FigurePanel():
         if normalize:
             data[y] = self.normalize_data(data, y, norm_cats, hue, col, row,
                                           normalize_by)
-
         if not normalize_after_data_exclusion:
             data = self.exclude_data(data, inclusion_criteria)
+
 
         if len(data) == 0:
             raise ValueError("The inclusion criteria {} that were defined "
@@ -7660,6 +7659,7 @@ class FigurePanel():
                                                                     data, x,
                                                                     hue, col)
 
+
         # remove baseline from values before processing numbers further
         data[y] = data[y] - baseline
 
@@ -7674,6 +7674,7 @@ class FigurePanel():
         strs_to_replace = {}
         strs_to_replace[row] = row_labels
         data = self.replace_strs_in_data(data, strs_to_replace)
+
 
         #  apply data transformations
         for transformation in self.data_transformations:
@@ -7690,6 +7691,21 @@ class FigurePanel():
         multiple_y = False
         if (type(self.y) in self.itertypes):
             multiple_y = True
+
+        if hue is not None:
+            nb_hue_x = len(self.data[[x, hue]].drop_duplicates())
+            nb_x = len(self.data[x].drop_duplicates())
+            nb_hue = len(self.data[x].drop_duplicates())
+            # if x and hue are the same, hue categories are already
+            # annotated and don't need to be by using a legend
+            show_x_axis = self.from_kwargs_or_statannot_default(kwargs,
+                                                                "show_x_axis")
+            if show_legend is None:
+                if (nb_hue_x > nb_x) & show_x_axis:
+                    show_legend = True
+                elif (nb_hue > 1) & (not show_x_axis):
+                    show_legend = True
+
 
         #  create facet plot made out of several sub figure panels
         #  within the current figure panel
@@ -7719,6 +7735,26 @@ class FigurePanel():
         data = self.replace_strs_in_data(data, strs_to_replace)
 
         data = self.rename_column_values(data, renaming_dicts)
+
+        # first remove all data defined through the _order variables
+        property_names = ["col", "x", "hue"]
+        column_infos = zip([col, x, hue], [col_order,
+                                           x_order, hue_order])
+        for prop_nb, (column_name, column_order) in enumerate(column_infos):
+            if (column_name is not None) & (column_order is not None):
+                kwargs[property_names[prop_nb] + "_order"] = column_order
+                included_data_list = []
+                for column_val in column_order:
+                    included_data_list.append(data.loc[data[column_name] ==
+                                                       column_val])
+                data = pd.concat(included_data_list)
+
+        # without paired data do not connect data points
+        if type(pair_unit_columns) == type(None):
+            kwargs["connect_paired_data_points"] = False
+        else:
+            data = self.remove_unpaired_data(data, pair_unit_columns,
+                                             col, x, hue)
 
         (axs_by_position,
          ax_annot) = self.plot_simple_row(data, x, y, hue, col, for_measuring,
@@ -7851,8 +7887,7 @@ class FigurePanel():
             kwargs["leave_space_for_x_tick_overhang"] = True
 
         for row_nb,( y_nb, row_value) in enumerate(y_row_combinations):
-            
-            print( "\n ROW NUMBER: ", row_nb)
+
             # set y to a different value for each iteration
             # original y values are stored in "all_y"
             self.y = all_y[y_nb]
@@ -8246,6 +8281,7 @@ class FigurePanel():
         else:
             label_width_diff = 0
 
+
         # measure y axis width
         # and add difference to maximum to label_width_diff
         # which will equalize plot width using this value
@@ -8262,13 +8298,14 @@ class FigurePanel():
                                                       group_padding_rel,
                                                       x_tick_overhang_rel)
 
+
+
         if (show_legend is not None) and show_legend:
             kwargs["_leave_space_for_legend"] = True
             if row_nb == 0:
                 show_legend = True
             else:
                 show_legend = False
-
 
         #  create sub panel with same parameters than current panel
         #  except row position and row span
@@ -8303,11 +8340,6 @@ class FigurePanel():
         if (row_nb > 0) & (not self.col_labels_every_row):
             kwargs["show_col_labels_above"] = False
 
-        print(self.fig_width_available,
-                                self.fig_height_available, self.fig_padding,
-              width_this_panel, sub_padding, self.size_factor,
-              self.increase_size_fac)
-
         # padding for sub panels in y should be only half
         sub_panel = FigurePanel(self.figure, self.fig, self.fig_width_available,
                                 self.fig_height_available, self.fig_padding,
@@ -8328,6 +8360,7 @@ class FigurePanel():
 
         y_axis_diff = max_width_y_axis - y_axis_width
         y_axis_diff = 0
+
         sub_panel.inner_border[0] += y_axis_diff
 
         # show data with same properties as current show_data
@@ -8391,6 +8424,7 @@ class FigurePanel():
                 all_col_vals = self.data[self.col].drop_duplicates()
             nb_col_vals = len(all_col_vals)
 
+        # no idea why this shouldnt be considered...
         width_this_panel = (nb_col_vals * width_per_col +
                             max_width_y_axis + x_padding_rel -
                             label_width_diff)
@@ -8679,6 +8713,9 @@ class FigurePanel():
 
         cols_to_show += [y_diff_column]
 
+        cols_to_show = [column for column in cols_to_show
+                        if column not in group_columns]
+
         # remove nb_measurements from cols_evaluated to not sort by it
         if not nb_of_measurements_matter:
             cols_evaluated = cols_evaluated[1:]
@@ -8686,6 +8723,8 @@ class FigurePanel():
         if not print_results:
             return
 
+        pd.set_option('display.width', 4000)
+        pd.set_option('display.max_columns', 500)
         # also show y values and average
         for values in group_indices:
             # check if group index is in index of included data
@@ -9030,7 +9069,7 @@ class FigurePanel():
                     # this function sets the following two values as True
                     # however, when this happens, the plots
                     #  are automatically rescaled
-                    # this messes up the padding that figpy defined
+                    # this messes up the padding that figureflow defined
                     ax._stale_viewlim_x = False
                     ax._stale_viewlim_y = False
 
@@ -9679,11 +9718,12 @@ class FigurePanel():
                                         vert_align="bottom",
                                         images=None,
                                         only_show_in_rows=None,
-                                        only_show_in_columns=None):
+                                        only_show_in_columns=None,
+                                  correct_for_cropping=True):
 
         for position, ax in self.all_axs.items():
             row = position[0]
-            column = position[0]
+            column = position[1]
 
             pre_identity = self.pos_to_pre_identity_map[position]
             identity_matches = self.check_if_identity_matches_dict_criteria(pre_identity,
@@ -9703,11 +9743,19 @@ class FigurePanel():
             image_width = image_dim[-2]
             image_height = image_dim[-3]
 
-            x, y = self.correct_xy_for_cropping_and_zoom(x, y, position[0],
-                                                         position[1])
+            # actually the correction for cropping is not needed here!
+            # but positions are already optimized for cropping correction
+            if correct_for_cropping:
+                (x_corrected,
+                 y_corrected) = self.correct_xy_for_cropping_and_zoom(x, y,
+                                                                      position[0],
+                                                                      position[1])
+            else:
+                x_corrected = x
+                y_corrected = y
 
-            x_rel = x/image_width
-            y_rel = y/image_height
+            x_rel = x_corrected/image_width
+            y_rel = y_corrected/image_height
 
             self._add_text_within_image_at_coords(ax, text, x_rel, 1 - y_rel,
                                                   0, font_size, "white",
@@ -10279,6 +10327,64 @@ class FigurePanel():
 
             ax.add_line(line)
 
+    def add_text_on_image(self, texts, images =None,
+                          show_in_rows=None, show_in_columns=None):
+        """
+        Add text on image, also delete all text that was added by function
+        "rescale_font_size".
+        :param texts: list of dicts describing text.
+                      Each key of dict is one parameter to axis.text function
+                      and each value the corresponding parameter value
+                      (x, y and s have to be defined. Other parameters
+                      like font_size are optional. See matplotlib docs:
+                      https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.text.html)
+                      Changing the font size is not recommended, so that
+                      font size is uniform across the entire figure.
+        :param images: list of dict or dict
+                        dict  specifies on which images should be drawn
+                       the key is the category and the value
+                       is a list of allowed values
+        :param show_in_rows: list of ints, In which row to show all texts
+        :param show_in_columns: list of ints, In which row to show all texts
+        """
+        for ax_position, ax in self.all_axs.items():
+            position_allowed = self.check_if_pos_is_in_row_col_list(ax_position[0],
+                                                                    ax_position[1],
+                                                                    show_in_rows,
+                                                                    show_in_columns)
+
+            if not position_allowed:
+                continue
+
+            # delete text already added by function rescale_font_size
+            for child in ax.get_children():
+                if not isinstance(child, matplotlib.text.Text):
+                    continue
+                if child.get_label() == "__rescaled_text__":
+                    child.remove()
+
+            pre_identity = self.pos_to_pre_identity_map[ax_position]
+
+            for text_nb, text in enumerate(texts):
+
+                if type(images) in [list, tuple]:
+                    images_this_text = images[text_nb]
+                else:
+                    images_this_text = images
+
+                identity_matches = self.check_if_identity_matches_dict_criteria(pre_identity,
+                                                                                images_this_text)
+                if not identity_matches:
+                    continue
+
+                if "fontsize" not in text:
+                    text["fontsize"] = self.font_size
+                if "verticalalignment" not in text:
+                    text["verticalalignment"] = "center"
+                ax.text(**text, picker=True,
+                        transform=ax.transData)
+
+
     def rescale_font_size(self, font_size_factor = None,
                           font_size=None,
                           linespacing=0.92):
@@ -10408,7 +10514,6 @@ class FigurePanel():
 
         ax.images[0]._A = image
 
-
         image_width = image.shape[-2]
         image_height = image.shape[-3]
         for text in all_texts:
@@ -10448,13 +10553,25 @@ class FigurePanel():
                 if not FigurePanel.is_none(font_size_factor):
                     text_fontsize *= font_size_factor
 
-            ax.text(x0, 1-y0, text["text"], # bbox=bbox,
-                    horizontalalignment=hor_alignment,
-                    verticalalignment=vert_alignment,
-                    transform=ax.transAxes,
-                    fontsize=text_fontsize,
-                    linespacing=linespacing)
+            x0, y0 = self.transform_coords_from_axes_to_data(x0, y0, ax)
+            
+            new_text = ax.text(x0, y0, text["text"], # bbox=bbox,
+                                picker=True,
+                                horizontalalignment=hor_alignment,
+                                verticalalignment=vert_alignment,
+                               label="__rescaled_text__",
+                                transform=ax.transData,
+                                fontsize=text_fontsize,
+                                linespacing=linespacing)
 
+    def transform_coords_from_axes_to_data(self, x, y, ax):
+        x_lim = ax.get_xlim()
+        ax_width_px = max(x_lim) - min(x_lim)
+        y_lim = ax.get_ylim()
+        ax_height_px = max(y_lim) - min(y_lim)
+        x_trans = x * ax_width_px
+        y_trans = y * ax_height_px
+        return x_trans, y_trans
 
     def smallestbox(a):
         r = a.any(1)
