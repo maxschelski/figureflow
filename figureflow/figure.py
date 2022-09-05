@@ -22,13 +22,6 @@ import functools
 import seaborn as sb
 import shutil
 from . import figure_panel
-from . import figure_editor
-
-import sys
-from PyQt5 import QtGui
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets
-
 from moviepy import editor
 import pptx
 from skimage import io
@@ -38,7 +31,6 @@ from inspect import getmembers, isfunction
 #reloading is necessary to load changes made in the other script since the editor was started
 importlib.reload(figure_panel)
 FigurePanel = figure_panel.FigurePanel
-FigureEditor = figure_editor.FigureEditor
 
 class Figure():
 
@@ -101,7 +93,6 @@ class Figure():
         self.panel_dimensions = {}
         self.figure_csv = None
         self.padding_factor_video = 1/6
-        self.panel_letters_to_show = None
 
         #for videos make sure that the height is defined
         if video & (type(self.height) == type(None)):
@@ -123,7 +114,6 @@ class Figure():
             plt.style.use("seaborn")
             sb.set_style("whitegrid")
 
-        self.dark_background= dark_background
 
         self.all_video_frames = None
 
@@ -354,7 +344,6 @@ class Figure():
                 if file.split(".")[-1] == extension.replace(".",""):
                     return True
 
-
     def get_next_panel_letter(self):
         all_used_letters = list(self.all_panels.keys())
         all_used_letters.sort()
@@ -456,13 +445,6 @@ class Figure():
             data_to_show = data_to_show.sort_values(by="d_mean", ascending=True)
             print(data_to_show.head(nb_vals_to_show)[cols_to_show])
 
-    def show_panels(self, panel_letters):
-        """
-        Only show panels with the defined panel letters. Even if other
-        panels are defined in the script they won't be shown.
-        :param panel_letters: list of panel letters to show
-        """
-        self.panel_letters_to_show = panel_letters
 
     def create_panel(self, letter=None, x=0, y=0,  width=1,
                      height=None, padding = None, **kwargs):
@@ -521,13 +503,8 @@ class Figure():
         #highest = letter latest in the alphabet
         #last letter that can be used is Z - don't think you will ever need more panels than that.
         #if so could use multi-letter panel names. Not implemented yet though.
-        if letter is None:
+        if type(letter) == type(None):
             letter = self.get_next_panel_letter()
-
-        if self.panel_letters_to_show is not None:
-            if letter not in self.panel_letters_to_show:
-                self.current_panel = None
-                return None
 
         panel_file_paths = self.get_all_panel_files(letter)
 
@@ -575,12 +552,6 @@ class Figure():
             if len(data.columns) > 1:
                 break
         return data
-
-    def edit_panel(self):
-        app = QtWidgets.QApplication(sys.argv)
-        main = FigureEditor(self.current_panel, font_size=self.font_size)
-        main.show()
-        sys.exit(app.exec_())
 
 
     def relabel_panels(self, relabel_dict):
@@ -813,11 +784,6 @@ class Figure():
 
     def execute_function_on_current_panel(self, function_name, *args, **kwargs):
         def wrapper(*args, **kwargs):
-            # if the current panel should not be shown
-            # (e.g. not included in panel letter list in function "show_panels")
-            # do not execute functions for it
-            if self.current_panel is None:
-                return
             module_function = getattr(self.current_panel,function_name)
             #if figure is for videos
             #dont execute function if it does not contain "vid_" in the function_name???
@@ -851,7 +817,7 @@ class Figure():
                    repeats = 1,
                    frames_to_show_longer=None,
                    seconds_to_show_frames=1,
-                   min_final_fps=10):
+                   min_final_fps=20):
         """
         :param frames_to_show_longer: List of numbers; Which frames to show longer
                                     than just one videoframe
@@ -884,7 +850,7 @@ class Figure():
         #increase the number of frames
         #by the duration multiplied by fps
         if self.title_page_text != "":
-            nb_frames_title_page = int(self.duration_title_page * self.fps)
+            nb_frames_title_page = self.duration_title_page * self.fps
             title_video_path = self.create_video(self.animate_title_page,
                                                  nb_frames_title_page,
                                                  bitrate = bitrate,
@@ -903,7 +869,7 @@ class Figure():
             #sort to have ascending frames
             frames_to_show_longer.sort()
             for frame_to_show_longer in frames_to_show_longer:
-                additional_videoframes = int(seconds_to_show_frames * fps)
+                additional_videoframes = seconds_to_show_frames * fps
                 #round additional videoframes to ints
                 additional_videoframes = int(additional_videoframes)
                 #add one frame less since there is already one videoframe
@@ -1000,7 +966,6 @@ class Figure():
                         frame = frame_to_show_longer
                     elif frame >= (frame_to_show_longer + additional_videoframes):
                         frame -= (additional_videoframes - 1)
-
             #start animation of video
             print("Rendering frame {}".format(frame))
             #go through each added figure_panel
