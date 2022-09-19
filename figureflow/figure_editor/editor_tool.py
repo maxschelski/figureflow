@@ -5,12 +5,14 @@ import numpy as np
 
 class EditorTool(object):
 
-    def __init__(self, canvas, editor_gui):
+    def __init__(self, canvas, editor_gui, ax):
         self.canvas = canvas
+        self.ax = ax
         self.active = False
         # self.child = child
         # figure gui tracks the current object
         self.editor_gui = editor_gui
+        self.color = editor_gui.color
 
         self.element_type = None
         self.element_label = None
@@ -63,7 +65,16 @@ class EditorTool(object):
                 if label != self.element_label:
                     correct_label = False
 
-            if correct_object_type & correct_label:
+            # only execute function if the selected ax is the ax used
+            # for the tool (otherwise tools from multiple ax are executed)
+            selected_ax_label = self.editor_gui.selected_ax.get_label()
+            correct_ax_label = self.ax.get_label()
+            if selected_ax_label == selected_ax_label:
+                correct_ax = True
+            else:
+                correct_ax = False
+
+            if correct_object_type & correct_label & correct_ax:
                 return function(self, *args, **kwargs)
 
         return wrapper
@@ -144,9 +155,9 @@ class EditorTool(object):
         # don't allow picking up elements while a tool is activated
         # if self.active_tool is not None:
         #     return False
-        # switch color of current selected element back to black
+        # switch color of current selected element back to self.color
         if self.editor_gui.selected_element is not None:
-            self.editor_gui.selected_element.set_color("black")
+            self.editor_gui.selected_element.set_color(self.color)
         if self.editor_gui.element_is_picked:
             return False
         event.artist.set_color("red")

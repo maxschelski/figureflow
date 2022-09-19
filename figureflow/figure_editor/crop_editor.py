@@ -9,22 +9,22 @@ class CropEditor(rectangle_editor.RectangleEditor):
         self.pick = False
         self.element_label = "Crop"
         self.crop_element = None
-        # self.canvas.mpl_connect("pick_event", self.on_pick_event)
 
-    # def start_tool(self, event):
-    #     execute = super().start_tool(event)
-    #     if not execute:
-    #         return False
+    def switch_active_rectangle(self, new_rectangle):
+        super().switch_active_rectangle(new_rectangle)
+        self.crop_element = new_rectangle
 
-    def switch_active_zoom_rectangle(self, new_zoom_rectangle):
-        super().switch_active_zoom_rectangle(new_zoom_rectangle)
-        self.crop_element = new_zoom_rectangle
+    @EditorTool.only_do_for_correct_object
+    def remove_element(self, event):
+        execute = super().remove_element(event)
+        if not execute:
+            return False
+        self.crop_element = None
 
     def use_tool(self, event):
         execute = super().use_tool(event)
         if not execute:
             return False
-        print(self.crop_element)
         # remove the last crop element
         if self.crop_element is not None:
             print("remove!")
@@ -40,10 +40,9 @@ class CropEditor(rectangle_editor.RectangleEditor):
 
     def activate(self, ax):
         super().activate(ax)
-        print("activate")
         print(self.crop_element)
         if self.crop_element is not None:
-            self.replace_zoom_rectangle_with_selector(self.crop_element)
+            self.replace_rectangle_with_selector(self.crop_element)
             self.crop_element.set_edgecolor("red")
             self.reset_edge_color_of_selected_element()
             self.canvas.draw()

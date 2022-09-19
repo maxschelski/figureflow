@@ -3029,7 +3029,6 @@ class FigurePanel():
                 # for this remap image_nb to pre_identity image_nb
                 zoom_params_this_image = self.get_zoom_params_for_identity(pre_identity)
 
-
                 for zoom_nb, zoom_param in enumerate(zoom_params_this_image):
                     channel_correct = True
                     image_correct = True
@@ -3760,36 +3759,51 @@ class FigurePanel():
         :param xy: x,y point as list for bottom-left origin of zoom rectangle
         :param width: width of zoom rectangle
         :param height: height of zoom rectangle
-        :param images: which images the zoom should be applied on.
-        If None, it will be applied to all images
-        :param channels: which channels the zoom should be applied to.
-        If None, it will be applied to all channels
+        :param images: dict with each key corresponding to one category
+                        ("images", "channels" and "frames" allowed) and
+                        the value being a list with all allowed values
+                    Alternative use, will be deprecated:
+                    list, which images the zoom should be applied on.
+                    If None, it will be applied to all images
+        :param channels: Will be deprecated
+                    list, which channels the zoom should be applied to.
+                    If None, it will be applied to all channels
+        :param frames: Will be deprecated
+                    list, which frames the zoom should be applied to.
+                    If None, it will be applied to all channels
         :param label_position_overview: at which position should the number
-        label be added to the overview image
-        :param image_sub: can only be performed on ONE image_sub
-        so far and not on multiple!
+                                        label be added to the overview image
         """
+
         new_zoom_param = {}
         new_zoom_param["xy"] = xy
         # flip width and height
         new_zoom_param["width"] = height
         new_zoom_param["height"] = width
-        new_zoom_param["images"] = images
-        new_zoom_param["channels"] = channels
-        new_zoom_param["frames"] = frames
+
+        if type(images) == dict:
+            image_numbers = images.get("images",None)
+            channel_numbers = images.get("channels", None)
+            frame_numbers = images.get("frames", None)
+        else:
+            image_numbers = images
+            channel_numbers = channels
+            frame_numbers = frames
+        new_zoom_param["images"] = image_numbers
+        new_zoom_param["channels"] = channel_numbers
+        new_zoom_param["frames"] = frame_numbers
         new_zoom_param["label_position_overview"] = label_position_overview
         # add zoom param to sub dicts in zoom_params, one sub dict for each image
         # since all parameters are list or tuples, this check asks whether images
-        if (type(images) == type(None)):
+        if (image_numbers is None):
             if None not in self.zoom_params:
                 self.zoom_params[None] = []
             self.zoom_params[None].append(new_zoom_param)
         else:
-            for image in images:
+            for image in image_numbers:
                 if image not in self.zoom_params:
                     self.zoom_params[image] = []
                 self.zoom_params[image].append(new_zoom_param)
-
 
     def check_if_positions_match(self, row_pos, column_pos, 
                                  row_ref, column_ref):
@@ -4359,7 +4373,8 @@ class FigurePanel():
         else:
             zoom_nb = 0
         if zoom_nb > 0:
-            zoom_params_this_image = self.get_zoom_params_for_identity(identity, is_pre_identity = True)
+            zoom_params_this_image = self.get_zoom_params_for_identity(identity,
+                                                                       is_pre_identity = True)
             zoom_param = zoom_params_this_image[zoom_nb - 1]
             zoom_origin_x = zoom_param["xy"][0] - zoom_param["height"] / 2
             zoom_origin_y = zoom_param["xy"][1] - zoom_param["width"] / 2
@@ -5292,6 +5307,7 @@ class FigurePanel():
                 ax_coords = ax.get_position()
                 # get which zooms were applied to the current image
                 for zoom_nb in zoom_nbs:
+
                     zoom_params_this_image = self.get_zoom_params_for_identity(identity)
                     zoom_param = zoom_params_this_image[zoom_nb]
                     x0, x1, y0, y1 = self.get_rectangle_position_from_zoom_param(zoom_param)
@@ -5302,10 +5318,13 @@ class FigurePanel():
                                                                    position[0],
                                                                    position[1])
 
+                    label_position = zoom_param["label_position_overview"]
+                    rect_label = "___label_position"
                     # draw rectangle on image
                     rectangle = patches.Rectangle((x0,y0), x1-x0, y1-y0,
                                                   linewidth=line_width_zoom_rectangle,
                                                   edgecolor="white",
+                                                  label = rect_label,
                                                   facecolor="none")
                     ax.add_patch(rectangle)
 
@@ -5393,6 +5412,7 @@ class FigurePanel():
                     # fixed by now?! (accounted for descending letters)
                     ax.annotate(xy=(x0_label,1-y0_label),text=nb_str,
                                 fontsize=zoom_nb_font_size_overview,
+                                label ="label_zoom_overview",
                                 color=zoom_nb_color,  xycoords="axes fraction",
                                 va="bottom", ha="left")
 
@@ -5463,7 +5483,8 @@ class FigurePanel():
                                                 zoom_nb_font_size,
                                                 zoom_nb_color,
                                                 "left", "top", zoom_nb_padding,
-                                                ax_position=position)
+                                                ax_position=position,
+                                                label="label_zoom")
 
 
     def add_letter_subplot(self,letter):
@@ -6652,7 +6673,7 @@ class FigurePanel():
             for child in ax.get_children():
                 if not isinstance(child, matplotlib.text.Annotation):
                     continue
-                if child.get_label() != "inside_image":
+                if child.get_label().find("inside_image") != -1:
                     continue
 
                 child_bbox = child.get_tightbbox(fig.canvas.get_renderer())
@@ -7324,9 +7345,15 @@ class FigurePanel():
         return data_transformed
 
     @staticmethod
-    def default_in_statannot(arg_name):
-        signature = inspect.signature(statannot.plot_and_add_stat_annotation)
+    def default_in_function(function_object, arg_name):
+        signature = inspect.signature(function_object)
         default_value = signature.parameters[arg_name].default
+        return default_value
+
+    @staticmethod
+    def default_in_statannot(arg_name):
+        target_function = statannot.plot_and_add_stat_annotation
+        default_value = default_in_function(target_function,arg_name)
         return default_value
 
     @staticmethod
@@ -8949,7 +8976,11 @@ class FigurePanel():
 
 
     def draw_on_image(self, targets, direction, images = None,
-                      style="arrow",color="white", size = 40, **kwargs):
+                      style="arrow",color="white", size = 40,
+                      direction_from_head_to_tail=True,
+                      arrow_width_factor=0.125,
+                      arrow_head_width_factor=0.625,
+                      arrow_head_length_factor=0.625, **kwargs):
         """
         draw on each of the images specified.
         :param style: can be "arrow"
@@ -8961,6 +8992,13 @@ class FigurePanel():
                             starting from target
                             degrees as int, while 12o'clock is 0 degree
                             string like "top" or "top-left" or "bottom-right"
+                            by default direction starts at head and goes
+                            towards tail (see param direction_from_head_to_tail)
+        :param direction_from_head_to_tail: Bool; Whether direction supplied
+                                            string should be considered
+                                            starting from the head going
+                                            towards the tail (True) or the
+                                            other way around (False)
         :param images: dict that specifies on which images should be drawn
                        the key is the category and the value
                        is the allowed value
@@ -8980,7 +9018,8 @@ class FigurePanel():
 
         # if direction was supplied as string, convert to degree first
         if type(direction) == str:
-            direction = self.direction_string_to_degree(direction)
+            direction = self.direction_string_to_degree(direction,
+                                                        direction_from_head_to_tail)
 
         # if only one target was provided, convert to array
         if type(targets[0]) == int:
@@ -9044,25 +9083,30 @@ class FigurePanel():
                 if style == "arrow":
                     x0_inch = new_target_inch[0] + dX_inch
                     y0_inch = new_target_inch[1] + dY_inch
-                    dX_rel = dX_inch / ax_width_inch * width
-                    x0_rel = x0_inch / ax_width_inch * width
-                    dY_rel = dY_inch / ax_height_inch * height
-                    y0_rel = y0_inch / ax_height_inch * height
-                    rel_size = sqrt(dY_rel*dY_rel + dX_rel*dX_rel)
-                    arrow_props = {}
-                    arrow_props["width"] = rel_size / 8
-                    arrow_props["head_width"] = rel_size / 1.6
-                    arrow_props["head_length"] = rel_size / 1.6
+                    dX_data = dX_inch / ax_width_inch * width
+                    x0_data = x0_inch / ax_width_inch * width
+                    dY_data = dY_inch / ax_height_inch * height
+                    y0_data = y0_inch / ax_height_inch * height
+                    data_size = sqrt(dY_data**2 + dX_data**2)
+
+                    width = data_size * arrow_width_factor
+                    head_width = data_size * arrow_head_width_factor
+                    head_length = data_size * arrow_head_length_factor
 
                     for key, value in kwargs:
                         arrow_props[key] = value
 
-                    ax.arrow(x0_rel, y0_rel, - dX_rel,- dY_rel,
-                             width=arrow_props["width"],
-                            head_width=arrow_props["head_width"],
-                             head_length=arrow_props["head_length"],
+                    label = "___"
+                    label += str(arrow_width_factor) + "_"
+                    label += str(arrow_head_width_factor)+ "_"
+                    label += str(arrow_head_length_factor)
+
+                    ax.arrow(x0_data, y0_data, - dX_data,- dY_data,
+                             width=width, head_width=head_width,
+                             head_length=head_length,
                             transform=ax.transData, color=color,
                              length_includes_head=True,lw=0,
+                             label = label
                              )
                     # arrow automatically calls the
                     #  self._request_autoscale_view() function
@@ -9088,24 +9132,34 @@ class FigurePanel():
                             markersize=size, mew=size/100, c=color)
 
 
-    def get_possible_direction_strings(self):
+    def get_possible_direction_strings(self, direction_from_head_to_tail):
         possible_direction_strings = {}
-        possible_direction_strings["top"] = 180
-        possible_direction_strings["top-right"] = 45
-        possible_direction_strings["right"] = 90
-        possible_direction_strings["bottom-right"] = 135
-        possible_direction_strings["bottom"] = 0
-        possible_direction_strings["bottom-left"] = 225
-        possible_direction_strings["left"] = 270
-        possible_direction_strings["top-left"] = 315
+        if direction_from_head_to_tail:
+            possible_direction_strings["top"] = 180
+            possible_direction_strings["top-right"] = 45
+            possible_direction_strings["right"] = 90
+            possible_direction_strings["bottom-right"] = 135
+            possible_direction_strings["bottom"] = 0
+            possible_direction_strings["bottom-left"] = 225
+            possible_direction_strings["left"] = 270
+            possible_direction_strings["top-left"] = 315
+        else:
+            possible_direction_strings["bottom"] = 180
+            possible_direction_strings["bottom-left"] = 45
+            possible_direction_strings["left"] = 90
+            possible_direction_strings["top-left"] = 135
+            possible_direction_strings["top"] = 0
+            possible_direction_strings["top-right"] = 225
+            possible_direction_strings["right"] = 270
+            possible_direction_strings["bottom-right"] = 315
         return possible_direction_strings
 
 
-    def direction_string_to_degree(self, direction):
+    def direction_string_to_degree(self, direction, direction_from_head_to_tail):
         """
         # if direction was supplied as string, convert to degree first
         """
-        possible_direction_strings = self.get_possible_direction_strings()
+        possible_direction_strings = self.get_possible_direction_strings(direction_from_head_to_tail)
         if direction not in possible_direction_strings:
             raise ValueError("The supplied string for the label direction '{}' "
                              "is not valid. Only the following strings "
@@ -9657,12 +9711,15 @@ class FigurePanel():
                 if x > x0:
                     ax.annotate(xy=(x,y0),text=string_between,
                                 fontsize=font_size_pt, color=color,
+                                label="label_channel",
                                 xycoords="axes fraction", va="bottom")
                     x += string_between_lengt_rel
 
                 self._add_text_within_image_at_coords(ax, channel_name, x,
                                                       y0, total_txt_width_px,
-                                                      font_size_pt, channel_color)
+                                                      font_size_pt, channel_color,
+                                                      label="label_channel"
+                                                      )
                 channel_name_length_rel = FigurePanel.get_dimension_of_text(channel_name,
                                                                             font_size_pt,
                                                                             ax)[0] / (ax_width_px)
@@ -9678,7 +9735,7 @@ class FigurePanel():
     def _add_text_within_image(self, ax, text, position, font_size_pt,
                                color, standard_x_position,
                                standard_y_position, padding,
-                               ax_position):
+                               ax_position, label=""):
         txt_width_px, _ = FigurePanel.get_dimension_of_text(text, font_size_pt, 
                                                             ax)
 
@@ -9691,7 +9748,8 @@ class FigurePanel():
 
 
         self._add_text_within_image_at_coords(ax, text, x0, y0,
-                                              txt_width_px, font_size_pt, color)
+                                              txt_width_px, font_size_pt, color,
+                                              label=label)
 
     def rel_ax_coords_to_px_coords(self, xy, ax):
         xy = list(xy)
@@ -9767,11 +9825,11 @@ class FigurePanel():
     def _add_text_within_image_at_coords(self, ax, text, x, y,
                                          total_txt_width_px, font_size_pt, color,
                                          rotation = 0, ha="left", va="bottom",
-                                         line_spacing=1):
+                                         line_spacing=1, label=""):
 
         ax.annotate(xy=(x,y),text=text,fontsize=font_size_pt, color=color,
                     xycoords="axes fraction", va=va, ha=ha,
-                    rotation = rotation, label="inside_image",
+                    rotation = rotation, label=label+"_inside_image",
                     linespacing=line_spacing)
 
     @staticmethod
@@ -10093,6 +10151,7 @@ class FigurePanel():
 
             ax.annotate(xy=(x0,y0), text=final_format_string,
                         fontsize=font_size_pt, color=color,
+                        label="label_timestamp",
                         xycoords="axes fraction", va="bottom", ha="left")
 
             if show_unit_only_once:
@@ -10590,7 +10649,20 @@ class FigurePanel():
                     only_show_in_columns=None,
                     only_show_in_rows = None):
         """
-        Add marker to specific images
+        Add marker to specific images.
+
+        :param images: dict with each key corresponding to one category
+                        ("images", "channels" and "frames" allowed) and
+                        the value being a list with all allowed values
+                    Alternative use, will be deprecated:
+                    list, which images the zoom should be applied on.
+                    If None, it will be applied to all images
+        :param channels: Will be deprecated
+                    list, which channels the zoom should be applied to.
+                    If None, it will be applied to all channels
+        :param frames: Will be deprecated
+                    list, which frames the zoom should be applied to.
+                    If None, it will be applied to all channels
         :param radius: radius in inches
         """
         fig = plt.gcf()
@@ -10607,19 +10679,25 @@ class FigurePanel():
 
             # extract frame from file name
             identity = self.pos_to_pre_identity_map[ax_position]
-            identity_correct = True
-            if "zooms" in self.map:
-                if show_only_in_zoom & (identity[self.map["zooms"]] == 0):
-                    identity_correct = False
-            if frames != None:
-                if identity[self.map["frames"]] not in frames:
-                    identity_correct = False
-            if channels != None:
-                if identity[self.map["channels"]] not in channels:
-                    identity_correct = False
-            if images != None:
-                if identity[self.map["images"]] not in images:
-                    identity_correct = False
+
+            if type(images) == dict:
+                identity_correct = self.check_if_identity_matches_dict_criteria(
+                                                                        identity,
+                                                                        images)
+            else:
+                identity_correct = True
+                if "zooms" in self.map:
+                    if show_only_in_zoom & (identity[self.map["zooms"]] == 0):
+                        identity_correct = False
+                if frames != None:
+                    if identity[self.map["frames"]] not in frames:
+                        identity_correct = False
+                if channels != None:
+                    if identity[self.map["channels"]] not in channels:
+                        identity_correct = False
+                if images != None:
+                    if identity[self.map["images"]] not in images:
+                        identity_correct = False
             if identity_correct:
                 # calculate radius in inches
                 image = self.get_img_from_axis(ax)

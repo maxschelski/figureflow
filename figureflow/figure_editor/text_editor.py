@@ -5,10 +5,11 @@ import functools
 
 class TextEditor(EditorTool):
 
-    def __init__(self, controls_layout, **kwargs):
+    def __init__(self, controls_layout, include_all_labels=False, **kwargs):
         super().__init__( **kwargs)
         self.element_type = matplotlib.text.Text
         self.controls_layout = controls_layout
+        self.include_all_labels = include_all_labels
 
         self.change_text_inputs = {}
         self.delete_text_buttons = {}
@@ -20,9 +21,22 @@ class TextEditor(EditorTool):
         self.canvas.mpl_connect("motion_notify_event", self.move_picked_element)
         self.canvas.mpl_connect("key_press_event", self.remove_element)
 
+    def add_text_buttons_for_text_on_ax(self):
         # get text in current ax and add boxes for it
-        for child in self.editor_gui.selected_ax.get_children():
+        for child in self.ax.get_children():
             if not isinstance(child, matplotlib.text.Text):
+                continue
+            # if not all labels should be made changeable
+            # do not include any text corresponding to labels
+            if self.include_all_labels:
+                include_label = True
+            else:
+                label = child.get_label()
+                if label.startswith("label"):
+                    include_label = False
+                else:
+                    include_label = True
+            if not include_label:
                 continue
             text = child.get_text()
             if text == "":
@@ -31,7 +45,6 @@ class TextEditor(EditorTool):
             child.set_label("textfield_" + str(text_field_number))
             self.all_text_fields[text_field_number] = child
             self.add_editor_for_text(text, text_field_number)
-
 
 
     def add_editor_for_text(self, text, text_field_number):
@@ -72,8 +85,8 @@ class TextEditor(EditorTool):
         text_field_number = self.get_next_text_field_number()
 
         text = self.text_input.text()
-        new_text_field = self.selected_ax.text(self.selected_ax.get_xlim()[0],
-                                             self.selected_ax.get_ylim()[0],
+        new_text_field = self.ax.text(self.ax.get_xlim()[0],
+                                             self.ax.get_ylim()[0],
                                              text, picker=True,
                                              fontsize=self.font_size,
                                                horizontalalignment="left",
@@ -101,6 +114,9 @@ class TextEditor(EditorTool):
         self.all_text_fields[text_field_number].remove()
         self.change_text_inputs[text_field_number].deleteLater()
         self.delete_text_buttons[text_field_number].deleteLater()
+        del self.all_text_fields[text_field_number]
+        del self.change_text_inputs[text_field_number]
+        del self.delete_text_buttons[text_field_number]
         self.canvas.draw()
 
     @EditorTool.only_do_for_correct_object
@@ -204,3 +220,19 @@ class TextEditor(EditorTool):
         self.dragged_element = None
         self.moved_out_of_ax = False
         return True
+
+    def select_ax(self):
+        # add previously removed text fields again
+        self.add_text_buttons_for_text_on_ax()
+
+    def deselect_ax(self):
+        # delete text field editors
+        # save them and add them again upon activation
+        all_text_field_numbers = list(self.change_text_inputs.keys())
+        for text_field_number in all_text_field_numbers:
+            self.change_text_inputs[text_field_number].deleteLater()
+            del self.change_text_inputs[text_field_number]
+            self.delete_text_buttons[text_field_number].deleteLater()
+            del self.delete_text_buttons[text_field_number]
+
+

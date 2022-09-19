@@ -22,7 +22,7 @@ import functools
 import seaborn as sb
 import shutil
 from . import figure_panel
-from . import figure_editor
+from .figure_editor import figure_editor_gui
 
 import sys
 from PyQt5 import QtGui
@@ -38,7 +38,7 @@ from inspect import getmembers, isfunction
 #reloading is necessary to load changes made in the other script since the editor was started
 importlib.reload(figure_panel)
 FigurePanel = figure_panel.FigurePanel
-FigureEditor = figure_editor.FigureEditor
+FigureEditorGUI = figure_editor_gui.FigureEditorGUI
 
 class Figure():
 
@@ -467,6 +467,11 @@ class Figure():
     def create_panel(self, letter=None, x=0, y=0,  width=1,
                      height=None, padding = None, **kwargs):
 
+        if hasattr(self.current_panel, "pos_to_pre_identity_map"):
+            # panel with data plots do not have the attribute
+            # and does not have placeholder images
+            self.current_panel.remove_placeholder_images()
+
         print("CREATING PANEL {}...................".format(letter))
         if (type(padding) == tuple) | (type(padding) == list):
             expanded_padding = []
@@ -576,9 +581,33 @@ class Figure():
                 break
         return data
 
-    def edit_panel(self):
+    def edit_panel(self, panel_letter=None, coord_decimals=2, color="white",
+                   include_all_labels=False):
+        """
+        Open editor window to allow adding text, arrows, zoom rectangles
+        and cropping to panel images. This will stop plotting further panels.
+        :param coord_decimals: For printing code for generating objects
+                                number of decimals plotted
+                                for each number (e.g. coordinates, width etc)
+        """
+        if panel_letter is None:
+            panel_to_edit = self.current_panel
+        else:
+            if panel_letter not in self.all_panels:
+                raise ValueError(f"The panel letter to edit {panel_letter}"
+                                 f" does not exist.\n"
+                                 f"Only the following panel letters are "
+                                 f"available: {self.all_panels.keys()}")
+            panel_to_edit = self.all_panels[panel_letter]
+
+        if hasattr(panel_to_edit, "pos_to_pre_identity_map"):
+            # panel with data plots do not have the attribute
+            # and does not have placeholder images
+            panel_to_edit.remove_placeholder_images()
         app = QtWidgets.QApplication(sys.argv)
-        main = FigureEditor(self.current_panel, font_size=self.font_size)
+        main = FigureEditorGUI(panel_to_edit, font_size=self.font_size,
+                               coord_decimals=coord_decimals, color=color,
+                               include_all_labels=include_all_labels)
         main.show()
         sys.exit(app.exec_())
 
@@ -838,7 +867,9 @@ class Figure():
                     (self.current_panel.show_function_called)):
                 #instead save the function with arguments in panel
                 #execute these functions later for each iteration of animate
-                self.current_panel.functions_for_video.append((function_name, module_function, args, kwargs))
+                self.current_panel.functions_for_video.append((function_name,
+                                                               module_function,
+                                                               args, kwargs))
             else:
                 module_function(*args, **kwargs)
 
