@@ -23,7 +23,7 @@ import shutil
 from . import figure_panel
 from .figure_editor import figure_editor_gui
 
-import sysgit
+import sys
 from PyQt5 import QtGui
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
