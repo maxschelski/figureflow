@@ -2,6 +2,7 @@
 
 from fastfig import figure
 import seaborn as sb
+import os
 
 import importlib
 importlib.reload(figure)

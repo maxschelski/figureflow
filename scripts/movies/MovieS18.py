@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import importlib
 import numpy as np
 importlib.reload(figure)
+import os
 
 Figure = figure.Figure
 

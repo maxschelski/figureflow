@@ -2,6 +2,7 @@
 
 from figureflow.figure import Figure
 import seaborn as sb
+import os
 
 # get the path to the data of the respective figure or movie
 # the data is in the data folder in a folder with the same
