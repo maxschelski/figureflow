@@ -75,7 +75,7 @@ class EditorTool(object):
             else:
                 correct_ax = False
 
-            if correct_object_type & correct_label & correct_ax:
+            if correct_object_type & correct_label & correct_ax & self.active:
                 return function(self, *args, **kwargs)
 
         return wrapper
@@ -170,6 +170,11 @@ class EditorTool(object):
             target_object.set_edgecolor(color)
         elif hasattr(target_object, "set_color"):
             target_object.set_color(color)
+        # arrows have the property set_edgecolor, but to change their color
+        # the facecolor has to be changed
+        if (isinstance(target_object, matplotlib.patches.FancyArrow)):
+            if hasattr(target_object, "set_facecolor"):
+                target_object.set_facecolor(color)
         self.canvas.draw()
 
     def change_color_of_selected_element_to_default(self):

@@ -6,7 +6,7 @@ import functools
 
 class RectangleEditor(shape_editor.ShapeEditor):
 
-    def __init__(self, max_dist_resize_rect=20, **kwargs):
+    def __init__(self, max_dist_resize_rect=10, **kwargs):
         super().__init__(**kwargs)
         self.element_type = matplotlib.patches.Rectangle
         self.max_dist_resize_rect = max_dist_resize_rect
@@ -150,17 +150,8 @@ class RectangleEditor(shape_editor.ShapeEditor):
         self.rectangle_selector.set_active(True)
         self.rectangle_selector.set_visible(True)
 
-    def reset_edge_color_of_selected_element(self):
-        if self.editor_gui.selected_element is not None:
-            if ((isinstance(self.editor_gui.selected_element, matplotlib.text.Text)) |
-                    (isinstance(self.editor_gui.selected_element,
-                                matplotlib.patches.FancyArrow))):
-                self.editor_gui.selected_element.set_color(self.color)
-            else:
-                self.editor_gui.selected_element.set_edgecolor(self.color)
-
     def switch_active_rectangle(self, new_rectangle):
-        self.reset_edge_color_of_selected_element()
+        self.change_color_of_selected_element_to_default()
         if new_rectangle is not None:
             new_rectangle.set_edgecolor("red")
             self.editor_gui.selected_element = new_rectangle

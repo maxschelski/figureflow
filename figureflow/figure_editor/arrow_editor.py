@@ -199,6 +199,8 @@ class ArrowEditor(shape_editor.ShapeEditor):
         """
         if self.editor_gui.selected_element is None:
             return False
+        if not self.active:
+            return False
 
         (movement_keys,
          modifier_keys) = self.get_movement_and_modifier_keys(event)

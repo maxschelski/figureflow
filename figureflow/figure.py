@@ -470,7 +470,8 @@ class Figure():
                    coord_decimals=2, color="white",
                    include_all_labels=False, arrow_props=None,
                    plot_row_col_pos_of_cropping=False,
-                   get_text_pos_as_abs_data_coords=True
+                   get_text_pos_as_abs_data_coords=True,
+                   **kwargs
                    ):
         """
         Edit one panel with designated letter. Will enter editing mode
@@ -511,6 +512,7 @@ class Figure():
                                   "get_text_pos_as_abs_data_coords":
                                       get_text_pos_as_abs_data_coords
                                   }
+        self.panel_edit_kwargs.update(kwargs)
         self.change_cropping=change_cropping
 
     def create_panel(self, letter=None, x=0, y=0,  width=1,
@@ -647,7 +649,7 @@ class Figure():
     def edit_this_panel(self, coord_decimals=2, color="white",
                    include_all_labels=False, arrow_props=None,
                         plot_row_col_pos_of_cropping=False,
-                        get_text_pos_as_abs_data_coords=True
+                        get_text_pos_as_abs_data_coords=True, **kwargs
                         ):
         """
         Open editor window to allow adding text, arrows, zoom rectangles
@@ -689,7 +691,8 @@ class Figure():
                                plot_row_col_pos_of_cropping=
                                plot_row_col_pos_of_cropping,
                                get_text_pos_as_abs_data_coords=
-                               get_text_pos_as_abs_data_coords)
+                               get_text_pos_as_abs_data_coords,
+                               **kwargs)
         main.show()
         sys.exit(app.exec_())
 

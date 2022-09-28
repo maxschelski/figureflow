@@ -29,7 +29,7 @@ from . import zoom_editor
 class FigureEditorGUI(QtWidgets.QDialog):
     def __init__(self, figure_panel=None, font_size=7,
                  include_all_labels=False,
-                 arrow_props=None, max_dist_resize_rect=20,
+                 arrow_props=None, max_dist_resize_rect=10,
                  coord_decimals=2, color="white",
                  plot_row_col_pos_of_cropping = False,
                  get_text_pos_as_abs_data_coords=True,
