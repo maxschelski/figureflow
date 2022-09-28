@@ -93,6 +93,7 @@ class Figure():
         self.panel_dimensions = {}
         self.figure_csv = None
         self.padding_factor_video = 1/6
+        self.change_cropping = False
 
         #for videos make sure that the height is defined
         if video & (type(self.height) == type(None)):
