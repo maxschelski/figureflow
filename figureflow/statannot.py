@@ -498,6 +498,8 @@ def plot_data(ax, x, y, hue, data,
               fliersize, show_formula, position_regression_text,
                 show_regression_stats,
               figure_panel, swarmplot_point_size,
+              use_hue_colors_for_swarm_plot,
+              show_mean_line,
               bar_plot_dodge, x_range,
               connect_paired_data_points):
 
@@ -527,10 +529,16 @@ def plot_data(ax, x, y, hue, data,
             alpha = 0
         else:
             alpha=0.55
-
-        plot = sns.swarmplot(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order,
-                                    dodge=dodge, edgecolor="black", linewidth=swarmplot_line_width, size = size,
-                                    alpha=alpha, fc="white")# # fc="none" for empty markers
+        if plot_type == "points":
+            alpha=1
+        if use_hue_colors_for_swarm_plot:
+            plot = sns.swarmplot(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order,
+                                        dodge=dodge, edgecolor="black", linewidth=swarmplot_line_width, size = size,
+                                        alpha=alpha, palette=plot_colors)# # fc="none" for empty markers
+        else:
+            plot = sns.swarmplot(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order,
+                                        dodge=dodge, edgecolor="black", linewidth=swarmplot_line_width, size = size,
+                                        alpha=alpha, fc="white")
 
     else:
         show_outliers= True
@@ -541,7 +549,7 @@ def plot_data(ax, x, y, hue, data,
     else:
         box_width = 0.63
 
-    if plot_type == "box":
+    if (plot_type == "box") | (plot_type == "points"):
         # Create the same BoxPlotter object as seaborn's boxplot
         plot = sns.categorical._BoxPlotter(
             x, y, hue, data, x_order, hue_order, orient=None, width=box_width, color=None,
@@ -552,9 +560,14 @@ def plot_data(ax, x, y, hue, data,
         gray = mpl.colors.rgb2hex((0, 0, 0))
         plot.gray = gray
 
-        kwargs = dict(meanprops=meanlineprops,showfliers=show_outliers,showmeans=True,meanline=True)
+        kwargs = dict(meanprops=meanlineprops,showfliers=show_outliers,
+                      showmeans=show_mean_line,meanline=show_mean_line)
         kwargs.update(dict(whis=1.5, notch=False))
-        plot.plot(ax,kwargs)
+        # make boxplots invisible by changing color to white
+        if (plot_type == "box"):
+            plot.plot(ax, kwargs)
+            # kwargs = dict(color="white")
+            # kwargs.update(dict(whis=1.5, notch=False))
 
     elif plot_type == "bar":
         plot = sns.categorical._BarPlotter(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order, palette=plot_colors,
@@ -791,6 +804,7 @@ def add_lines_to_connect_paired_data_points(col_data, ax, nb_x_vals, x, y, hue,
 
     current_group_start_number = 0
     for data_group in all_data_groups:
+        data_group = list(data_group)
         sub_group_numbers = list(range(len(data_group)))
         # go through all group numbers in pairs of two
         # by taking the group number and one further
@@ -985,7 +999,11 @@ def exclude_data(data,col,col_order,x,x_order,hue,hue_order):
 
 def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs,
                                          max_level_of_pairs,test_short_name,
-                                         test_result_list,annotate_nonsignificant,
+                                         test,
+                                         test_result_list,
+                                         add_bonferroni_correction,
+                                         pair_unit_columns,
+                                         annotate_nonsignificant,
                                          verbose):
     
     test_short_name = test_short_name if test_short_name is not None else ''
@@ -1020,6 +1038,38 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
     else:
         all_data[0] = included_data
 
+    max_group_length = 0
+    for data_key in all_data:
+        group_check_vals = []
+        if type(data_key) == str:
+            group_check_vals.append(data_key)
+        elif type(data_key) == tuple:
+            group_check_vals.append(data_key[0])
+            group_check_vals.append("")
+            group_check_vals.append(data_key[1])
+        one_group_data = all_data[data_key]
+
+        # create new column to separate groups for statistic analysis
+        col_strings = one_group_data[col].astype(str) + "___"
+        hue_strings = "___" + one_group_data[hue].astype(str)
+        # hue_strings = "___"+one_group_data[hue].astype(str)
+
+        one_group_data.loc[:, 'constructed_group'] = col_strings + \
+                                                     one_group_data[x].astype(
+                                                         str) + hue_strings
+        # construct list with one list with all data points from each box
+        # for statistical multi-comparison of all groups
+        group_data_list = []
+        all_data_groups = one_group_data['constructed_group'].drop_duplicates()
+        for group in all_data_groups:
+            one_box_data = one_group_data.loc[
+                one_group_data['constructed_group']
+                == group, y]
+            group_data_list.append(list(one_box_data))
+
+        max_group_length = max(len(group_data_list), max_group_length)
+
+
     for data_key in all_data:
         group_check_vals = []
         if type(data_key) == str:
@@ -1039,15 +1089,47 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
         # construct list with one list with all data points from each box
         # for statistical multi-comparison of all groups
         group_data_list = []
-        for group in one_group_data['constructed_group'].drop_duplicates():
-            one_box_data = one_group_data.loc[one_group_data['constructed_group'] == group, y]
+        # sort paired data by pair unit columns
+        if pair_unit_columns is not None:
+            one_group_data.sort_values(pair_unit_columns, inplace=True)
+
+        all_data_groups = one_group_data['constructed_group'].drop_duplicates()
+        for group in all_data_groups:
+            one_box_data = one_group_data.loc[one_group_data['constructed_group']
+                                              == group, y]
             group_data_list.append( list(one_box_data) )
         # check if group comparison using non parametric kruskal wallis is significant
         group_stat_results = stats.kruskal(*group_data_list)
 
-        a = 1
-        group_test_below_thresh = (group_stat_results.pvalue < 0.05)
-        if group_test_below_thresh | annotate_nonsignificant:
+        if ((max_group_length == 2) & (pair_unit_columns is not None) &
+                (test != "Dunn")):
+            group_name1 = all_data_groups.values[0]
+            group_name2 = all_data_groups.values[1]
+            p_value_paired = stats.wilcoxon(group_data_list[0],  group_data_list[1]).pvalue
+
+            test_below_thresh = (p_value_paired < 0.05)
+
+            group_test_below_thresh = test_below_thresh
+
+            if (not test_below_thresh) & (not annotate_nonsignificant):
+                continue
+
+            stat_results = pd.DataFrame(columns=all_data_groups.values)
+
+            if add_bonferroni_correction:
+                p_value_paired /= len(all_data)
+            stat_results.loc[group_name1] = [1, p_value_paired]
+            stat_results.loc[group_name2] = [p_value_paired, 1]
+
+        else:
+
+            # print(len(one_group_data['constructed_group'].drop_duplicates()))
+
+            a = 1
+            group_test_below_thresh = (group_stat_results.pvalue < 0.05)
+
+            if (not group_test_below_thresh) & (not annotate_nonsignificant):
+                continue
 
             # group_col = "constructed_group"
             # group_vals = one_group_data[group_col].drop_duplicates()
@@ -1072,64 +1154,87 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
             stat_results = posthocs.posthoc_dunn(one_group_data,val_col=y,
                                                  group_col="constructed_group",
                                                  p_adjust="bonferroni")
+            if add_bonferroni_correction:
+                stat_results *= len(all_data)
 
-            # one_group_data["block"] = one_group_data["date"].astype(str) + one_group_data["neuron"].astype(str)
+            # one_group_data["block"] = one_group_data["date"].astype(str) + one_group_data["cell"].astype(str)
             # stat_results = posthocs.posthoc_nemenyi_friedman(one_group_data,
             #                                                  y_col=y,
             #                                                  group_col="constructed_group",
             #                                                  block_col="block",
             #                                                  melted=True)
+            #
+            # pd.set_option('display.width', 10000)
+            # pd.set_option('display.max_columns', 500)
+            # print(stat_results)
+            #
+            #
+            # stat_results = posthocs.posthoc_siegel_friedman(one_group_data,
+            #                                                  y_col=y,
+            #                                                  group_col="constructed_group",
+            #                                                  block_col="block",
+            #                                                  melted=True)
+            # print(stat_results)
+            #
+            # stat_results = posthocs.posthoc_conover_friedman(one_group_data,
+            #                                                  y_col=y,
+            #                                                  group_col="constructed_group",
+            #                                                  block_col="block",
+            #                                                  melted=True)
+            # print(stat_results)
+
 
             # one_group_data.to_csv("C:\\Users\\Maxsc\\Desktop\\data_"+str(a)+".csv")
             # a += 1
             # print(stat_results)
             # stat_results.to_csv("C:\\Users\\Maxsc\\Desktop\\tests.csv")
             # print(type(stat_results))
-            
-            for box_pair in all_box_pairs:
-                box_pair = tuple(box_pair)
-                box1 = box_pair[0]
-                box2 = box_pair[1]
+        for box_pair in all_box_pairs:
+            box_pair = tuple(box_pair)
+            box1 = box_pair[0]
+            box2 = box_pair[1]
 
-                # check if box pair comes from same group values (col and/or x) tha
-                # not sure what this should do... commented out for now.
-                use_box_pair = True
+            # check if box pair comes from same group values (col and/or x) tha
+            # not sure what this should do... commented out for now.
+            use_box_pair = True
 
-                # print(group_check_vals)
-                # for i,group_check_val in enumerate(group_check_vals):
-                #     print("BOX:", box1[i])
-                #     print("GROUO CHECK:", group_check_val)
-                #     if (box1[i] != group_check_val) & (group_check_val != ""):
-                #         use_box_pair = False
-                #         break
+            # print(group_check_vals)
+            # for i,group_check_val in enumerate(group_check_vals):
+            #     print("BOX:", box1[i])
+            #     print("GROUO CHECK:", group_check_val)
+            #     if (box1[i] != group_check_val) & (group_check_val != ""):
+            #         use_box_pair = False
+            #         break
 
-                stat_column = str(box1[0]) + "___" + str(box1[1]) + "___" + str(box1[2])
-                stat_row = str(box2[0]) + "___" + str(box2[1]) + "___" + str(box2[2])
-                
-                if stat_column not in stat_results.index:
-                    use_box_pair = False
+            stat_column = str(box1[0]) + "___" + str(box1[1]) + "___" + str(box1[2])
+            stat_row = str(box2[0]) + "___" + str(box2[1]) + "___" + str(box2[2])
 
-                if stat_row not in stat_results.columns:
-                    use_box_pair = False
-                
-                if use_box_pair:
+            if stat_column not in stat_results.index:
+                use_box_pair = False
 
-                    pval = stat_results.loc[stat_column,stat_row]
-                    formatted_output = ("Custom statistical test, {}, P_val={:.3e}"
-                                        .format(test_short_name, pval))
+            if stat_row not in stat_results.columns:
+                use_box_pair = False
+            # print(stat_column)
+            # print(stat_row)
+            # print(box_pair)
+            if use_box_pair:
 
-                    # set pval as above 0.05 if group test was not below threshold!
-                    if (not group_test_below_thresh) & (pval < 0.05):
-                        pval = 0.051
+                pval = stat_results.loc[stat_column,stat_row]
+                formatted_output = ("Custom statistical test, {}, P_val={:.3e}"
+                                    .format(test_short_name, pval))
 
-                    test_result_list.append({'pvalue': pval, 'test_short_name': test_short_name,
-                                             'formatted_output': formatted_output, 'box1': box1,
-                                             'box2': box2})
-                    if verbose:
-                        print("{} v.s. {}: {}".format(box1, box2, formatted_output))
-                    if (pval < 0.05) | (annotate_nonsignificant == True):
-                        included_pairs.append(box_pair)
-                        p_values[box_pair] = (pval)
+                # set pval as above 0.05 if group test was not below threshold!
+                if (not group_test_below_thresh) & (pval < 0.05):
+                    pval = 0.051
+
+                test_result_list.append({'pvalue': pval, 'test_short_name': test_short_name,
+                                         'formatted_output': formatted_output, 'box1': box1,
+                                         'box2': box2})
+                if verbose:
+                    print("{} v.s. {}: {}".format(box1, box2, formatted_output))
+                if (pval < 0.05) | (annotate_nonsignificant == True):
+                    included_pairs.append(box_pair)
+                    p_values[box_pair] = (pval)
     return included_pairs, p_values, test_result_list
 
 
@@ -2345,10 +2450,12 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         perform_stat_test=True,
                         pvalues=None, test_short_name=None,
                         test="Dunn", text_format='star', pvalue_format_string=DEFAULT,
+                                 add_bonferroni_correction=False,
                         text_annot_custom=None, outer_border=None,# padding=0.5,
                         loc='inside', show_test_name=True,
                         figure_panel=None, always_show_col_label=False,
                         meanline_props=None, plot_type="box", bar_plot_dodge=True,
+                                 show_mean_line=True,
                         pvalue_thresholds=DEFAULT, stats_params=dict(),
                         y_axis_label=None, fig=None, show_x_axis=True,
                         leave_space_for_x_tick_overhang=False,
@@ -2370,7 +2477,9 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                         show_formula=True, position_formula="top-right",
                                  show_regression_stats = True, legend_title=None,
                         show_legend=True, col_label_padding=4,
-                        swarmplot_point_size = 2, show_row_label = False,
+                        swarmplot_point_size = 2,
+                                 use_hue_colors_for_swarm_plot=False,
+                                 show_row_label = False,
                         row_label_text=None, row_label_orientation = "vert",
                         auto_scale_group_padding = True,
                         plot_title = None, show_y_minor_ticks=False,
@@ -2543,7 +2652,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                   show_data_points, line_width, size_factor, plot_type,
                   fliersize, show_formula, position_formula,
                   show_regression_stats, figure_panel,
-                  swarmplot_point_size, bar_plot_dodge, x_range,
+                  swarmplot_point_size, use_hue_colors_for_swarm_plot,
+                  show_mean_line,bar_plot_dodge, x_range,
                   connect_paired_data_points)
         y_range = ax.get_ylim()
         ax.remove()
@@ -2652,7 +2762,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                 show_data_points, line_width, size_factor, plot_type,
                                                 fliersize, show_formula, position_formula,
                                                show_regression_stats, figure_panel,
-                                                swarmplot_point_size, bar_plot_dodge, x_range,
+                                                swarmplot_point_size,
+                                               use_hue_colors_for_swarm_plot,
+                                               show_mean_line,
+                                               bar_plot_dodge, x_range,
                                                connect_paired_data_points)
         if (connect_paired_data_points):
             add_lines_to_connect_paired_data_points(col_data, ax, nb_x_vals, x, y, hue,
@@ -2711,6 +2824,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                                        data_is_continuous,
                                                        show_data_points,
                                                        connect_paired_data_points)
+
         # if y axis should not be shown
         # until now only used if x axis without anythoing else should be plotted
         if not show_y_axis:
@@ -2816,8 +2930,11 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
          p_values,
          test_result_list) = get_stats_and_exclude_nonsignificant(included_data,col, x, y, hue,
                                                                     all_box_pairs, max_level_of_pairs,
-                                                                    test_short_name, test_result_list,
-                                                                    annotate_nonsignificant,verbose)
+                                                                    test_short_name, test,test_result_list,
+                                                                  add_bonferroni_correction,
+                                                                  pair_unit_columns,
+                                                                    annotate_nonsignificant,verbose,
+                                                                  )
 
         # Build array that contains the x and y_max position of the highest annotation or box data at
         # a given x position, and also keeps track of the number of stacked annotations.
@@ -3020,7 +3137,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     # then reduce width of all plots together by the width of the y axes label that needs to move into the outer_border
     # needs to be last step since x shift and width reduction depend on y tick label
     # which are adjusted while ylim is changed and when annotations are added
-    legend_width=0
     move_plot_into_hor_borders_and_center_it(all_axs, ax_annot,
                                              ax_labels, data, hue,
                                              hue_order, col, col_order, x,

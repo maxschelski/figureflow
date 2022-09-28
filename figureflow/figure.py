@@ -22,6 +22,13 @@ import functools
 import seaborn as sb
 import shutil
 from . import figure_panel
+from .figure_editor import figure_editor_gui
+
+import sys
+from PyQt5 import QtGui
+from PyQt5 import QtCore
+from PyQt5 import QtWidgets
+
 from moviepy import editor
 import pptx
 from skimage import io
@@ -31,6 +38,7 @@ from inspect import getmembers, isfunction
 #reloading is necessary to load changes made in the other script since the editor was started
 importlib.reload(figure_panel)
 FigurePanel = figure_panel.FigurePanel
+FigureEditorGUI = figure_editor_gui.FigureEditorGUI
 
 class Figure():
 
@@ -93,6 +101,9 @@ class Figure():
         self.panel_dimensions = {}
         self.figure_csv = None
         self.padding_factor_video = 1/6
+        self.panel_letters_to_show = None
+        self.panel_to_edit = None
+        self.panel_edit_kwargs = None
 
         #for videos make sure that the height is defined
         if video & (type(self.height) == type(None)):
@@ -114,6 +125,7 @@ class Figure():
             plt.style.use("seaborn")
             sb.set_style("whitegrid")
 
+        self.dark_background= dark_background
 
         self.all_video_frames = None
 
@@ -344,6 +356,7 @@ class Figure():
                 if file.split(".")[-1] == extension.replace(".",""):
                     return True
 
+
     def get_next_panel_letter(self):
         all_used_letters = list(self.all_panels.keys())
         all_used_letters.sort()
@@ -445,9 +458,84 @@ class Figure():
             data_to_show = data_to_show.sort_values(by="d_mean", ascending=True)
             print(data_to_show.head(nb_vals_to_show)[cols_to_show])
 
+    def show_panels(self, panel_letters):
+        """
+        Only show panels with the defined panel letters. Even if other
+        panels are defined in the script they won't be shown.
+        :param panel_letters: list of panel letters to show
+        """
+        self.panel_letters_to_show = panel_letters
+
+    def edit_panel(self, panel_letter, change_cropping=True,
+                   coord_decimals=2, color="white",
+                   include_all_labels=False, arrow_props=None,
+                   plot_row_col_pos_of_cropping=False,
+                   get_text_pos_as_abs_data_coords=True,
+                   **kwargs
+                   ):
+        """
+        Edit one panel with designated letter. Will enter editing mode
+        after panel has been fully plotted: right before the next panel
+        is created or alternatively before the figure is saved (for the last
+        panel)
+        :param panel_letter: panel letter that should be edited
+        :param plot_row_col_pos_of_cropping: Whether to plot row and column
+                                            position for code to add cropping
+                                            images= information will always be
+                                            plotted regardless
+        :param get_text_pos_as_abs_data_coords: Whether the text position
+                                                    when the code for adding is
+                                                    is plotted should be as
+                                                    absolute data coordinates
+                                                    which means that they will
+                                                    be on the same position in
+                                                    the data, regardless of
+                                                    zoom etc. - this means
+                                                    that it might not show up in
+                                                    a zoom image. Otherwise, the
+                                                    position is in relative
+                                                    position in the axis
+                                                    (e.g. top left of axis)
+        """
+        if type(panel_letter) is not str:
+            raise ValueError("For defining a panel to edit the panel_letter "
+                             "has to be defined as string and not as "
+                             f"{type(panel_letter)}.")
+
+        self.panel_to_edit = panel_letter
+        self.panel_edit_kwargs = {"coord_decimals": coord_decimals,
+                                  "color": color,
+                                  "include_all_labels": include_all_labels,
+                                  "arrow_props": arrow_props,
+                                  "plot_row_col_pos_of_cropping":
+                                      plot_row_col_pos_of_cropping,
+                                  "get_text_pos_as_abs_data_coords":
+                                      get_text_pos_as_abs_data_coords
+                                  }
+        self.panel_edit_kwargs.update(kwargs)
+        self.change_cropping=change_cropping
 
     def create_panel(self, letter=None, x=0, y=0,  width=1,
                      height=None, padding = None, **kwargs):
+        """
+        Create panel with defined letter.
+        :param letter: panel letter as string, if None get the letter following
+                        the highest panel letter used so far
+        :param x: relative x position
+        :param y: relative y position
+        :param width: width in inches
+        :param height: height as multiples of  width (or in inches if
+                        parameter "relative_height" == False when creating
+                        figure object)
+        """
+        if hasattr(self.current_panel, "pos_to_pre_identity_map"):
+            # panel with data plots do not have the attribute
+            # and does not have placeholder images
+            self.current_panel.remove_placeholder_images()
+
+        if self.panel_to_edit is not None:
+            if self.panel_to_edit in self.all_panels.keys():
+                self.edit_this_panel(**self.panel_edit_kwargs)
 
         print("CREATING PANEL {}...................".format(letter))
         if (type(padding) == tuple) | (type(padding) == list):
@@ -503,8 +591,13 @@ class Figure():
         #highest = letter latest in the alphabet
         #last letter that can be used is Z - don't think you will ever need more panels than that.
         #if so could use multi-letter panel names. Not implemented yet though.
-        if type(letter) == type(None):
+        if letter is None:
             letter = self.get_next_panel_letter()
+
+        if self.panel_letters_to_show is not None:
+            if letter not in self.panel_letters_to_show:
+                self.current_panel = None
+                return None
 
         panel_file_paths = self.get_all_panel_files(letter)
 
@@ -552,6 +645,56 @@ class Figure():
             if len(data.columns) > 1:
                 break
         return data
+
+    def edit_this_panel(self, coord_decimals=2, color="white",
+                   include_all_labels=False, arrow_props=None,
+                        plot_row_col_pos_of_cropping=False,
+                        get_text_pos_as_abs_data_coords=True, **kwargs
+                        ):
+        """
+        Open editor window to allow adding text, arrows, zoom rectangles
+        and cropping to panel images. This will stop plotting further panels.
+        :param coord_decimals: For printing code for generating objects
+                                number of decimals plotted
+                                for each number (e.g. coordinates, width etc)
+        :param plot_row_col_pos_of_cropping: Whether to plot row and column
+                                            position for code to add cropping
+                                            images= information will always be
+                                            plotted regardless
+        :param get_text_pos_as_abs_data_coords: Whether the text position
+                                                    when the code for adding is
+                                                    is plotted should be as
+                                                    absolute data coordinates
+                                                    which means that they will
+                                                    be on the same position in
+                                                    the data, regardless of
+                                                    zoom etc. - this means
+                                                    that it might not show up in
+                                                    a zoom image. Otherwise, the
+                                                    position is in relative
+                                                    position in the axis
+                                                    (e.g. top left of axis)
+        """
+        panel_to_edit = self.current_panel
+
+        if hasattr(panel_to_edit, "pos_to_pre_identity_map"):
+            # panel with data plots do not have the attribute
+            # and does not have placeholder images
+            panel_to_edit.remove_placeholder_images()
+
+        app = QtWidgets.QApplication(sys.argv)
+        main = FigureEditorGUI(panel_to_edit, font_size=self.font_size,
+                               coord_decimals=coord_decimals, color=color,
+                               include_all_labels=include_all_labels,
+                               arrow_props=arrow_props,
+                               change_cropping=self.change_cropping,
+                               plot_row_col_pos_of_cropping=
+                               plot_row_col_pos_of_cropping,
+                               get_text_pos_as_abs_data_coords=
+                               get_text_pos_as_abs_data_coords,
+                               **kwargs)
+        main.show()
+        sys.exit(app.exec_())
 
 
     def relabel_panels(self, relabel_dict):
@@ -784,6 +927,11 @@ class Figure():
 
     def execute_function_on_current_panel(self, function_name, *args, **kwargs):
         def wrapper(*args, **kwargs):
+            # if the current panel should not be shown
+            # (e.g. not included in panel letter list in function "show_panels")
+            # do not execute functions for it
+            if self.current_panel is None:
+                return
             module_function = getattr(self.current_panel,function_name)
             #if figure is for videos
             #dont execute function if it does not contain "vid_" in the function_name???
@@ -804,7 +952,9 @@ class Figure():
                     (self.current_panel.show_function_called)):
                 #instead save the function with arguments in panel
                 #execute these functions later for each iteration of animate
-                self.current_panel.functions_for_video.append((function_name, module_function, args, kwargs))
+                self.current_panel.functions_for_video.append((function_name,
+                                                               module_function,
+                                                               args, kwargs))
             else:
                 module_function(*args, **kwargs)
 
@@ -817,7 +967,7 @@ class Figure():
                    repeats = 1,
                    frames_to_show_longer=None,
                    seconds_to_show_frames=1,
-                   min_final_fps=20):
+                   min_final_fps=10):
         """
         :param frames_to_show_longer: List of numbers; Which frames to show longer
                                     than just one videoframe
@@ -850,7 +1000,7 @@ class Figure():
         #increase the number of frames
         #by the duration multiplied by fps
         if self.title_page_text != "":
-            nb_frames_title_page = self.duration_title_page * self.fps
+            nb_frames_title_page = int(self.duration_title_page * self.fps)
             title_video_path = self.create_video(self.animate_title_page,
                                                  nb_frames_title_page,
                                                  bitrate = bitrate,
@@ -869,7 +1019,7 @@ class Figure():
             #sort to have ascending frames
             frames_to_show_longer.sort()
             for frame_to_show_longer in frames_to_show_longer:
-                additional_videoframes = seconds_to_show_frames * fps
+                additional_videoframes = int(seconds_to_show_frames * fps)
                 #round additional videoframes to ints
                 additional_videoframes = int(additional_videoframes)
                 #add one frame less since there is already one videoframe
@@ -966,6 +1116,7 @@ class Figure():
                         frame = frame_to_show_longer
                     elif frame >= (frame_to_show_longer + additional_videoframes):
                         frame -= (additional_videoframes - 1)
+
             #start animation of video
             print("Rendering frame {}".format(frame))
             #go through each added figure_panel

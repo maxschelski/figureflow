@@ -4,6 +4,7 @@
 from figureflow import figure
 import seaborn as sb
 import numpy as np
+import os
 
 import importlib
 importlib.reload(figure)
