@@ -79,7 +79,7 @@ class CropEditor(rectangle_editor.RectangleEditor):
         super().activate()
         if self.crop_element is not None:
             self.replace_rectangle_with_selector(self.crop_element)
-            self.reset_edge_color_of_selected_element()
+            self.change_color_of_selected_element_to_default()
             # self.editor_gui.selected_element = self.crop_element
             self.crop_element.set_edgecolor("red")
             self.canvas.draw()
