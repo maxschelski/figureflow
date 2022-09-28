@@ -1,4 +1,4 @@
-name: figureflow3
+name: figureflow
 channels:
   - conda-forge
   - defaults
