@@ -5,11 +5,14 @@ import functools
 
 class TextEditor(EditorTool):
 
-    def __init__(self, controls_layout, include_all_labels=False, **kwargs):
+    def __init__(self, controls_layout, text_input, include_all_labels=False,
+                 font_size=7,**kwargs):
         super().__init__( **kwargs)
         self.element_type = matplotlib.text.Text
         self.controls_layout = controls_layout
         self.include_all_labels = include_all_labels
+        self.font_size = font_size
+        self.text_input = text_input
 
         self.change_text_inputs = {}
         self.delete_text_buttons = {}
@@ -41,6 +44,7 @@ class TextEditor(EditorTool):
             text = child.get_text()
             if text == "":
                 continue
+            child.set_picker(True)
             text_field_number = self.get_next_text_field_number()
             child.set_label("textfield_" + str(text_field_number))
             self.all_text_fields[text_field_number] = child
@@ -85,14 +89,14 @@ class TextEditor(EditorTool):
         text_field_number = self.get_next_text_field_number()
 
         text = self.text_input.text()
-        new_text_field = self.ax.text(self.ax.get_xlim()[0],
-                                             self.ax.get_ylim()[0],
-                                             text, picker=True,
-                                             fontsize=self.font_size,
-                                               horizontalalignment="left",
-                                               verticalalignment="center",
-                                             label=("textfield_" +
-                                                    str(text_field_number)))
+        new_text_field = self.ax.text(0,0, text, picker=True,
+                                      transform=self.ax.transAxes,
+                                      fontsize=self.font_size,
+                                      color=self.color,
+                                      horizontalalignment="left",
+                                      verticalalignment="center",
+                                      label=("textfield_" +
+                                             str(text_field_number)))
         self.all_text_fields[text_field_number] = new_text_field
         self.text_input.clear()
         self.canvas.draw()
@@ -133,8 +137,16 @@ class TextEditor(EditorTool):
         if self.editor_gui.moved_out_of_ax:
             return False
         old_pos = self.dragged_element.get_position()
-        new_pos = (old_pos[0] + event.xdata - self.pick_pos[0],
-                   old_pos[1] + event.ydata - self.pick_pos[1])
+        x_pos_data = event.xdata
+        y_pos_data = event.ydata
+        (x_pos_ax,
+         y_pos_ax) = self.transform_coords_from_data_to_axes(x_pos_data,
+                                                                  y_pos_data,
+                                                                  self.ax)
+
+        new_pos = (old_pos[0] + x_pos_ax - self.pick_pos[0],
+                   old_pos[1] + y_pos_ax - self.pick_pos[1])
+
         new_pos_in_limits = self.get_position_in_limits(new_pos,
                                                         self.dragged_element.axes)
 
@@ -143,7 +155,7 @@ class TextEditor(EditorTool):
             self.pick_pos[0] = event.xdata
         if new_pos_in_limits[1] == new_pos[1]:
             self.pick_pos[1] = event.ydata
-        self.pick_pos = [event.xdata, event.ydata]
+        self.pick_pos = [x_pos_ax, y_pos_ax]
         self.dragged_element.set_position(new_pos_in_limits)
         self.canvas.draw()
         return True
@@ -161,6 +173,27 @@ class TextEditor(EditorTool):
         text_field_number = int(
             self.editor_gui.selected_element.get_label().split("_")[1])
         self.delete_text("", text_field_number)
+
+    #
+    # def get_position_in_limits(self, position, ax):
+    #     x_lim = ax.get_xlim()
+    #     y_lim = ax.get_ylim()
+    #     width = max(x_lim) - min(x_lim)
+    #     height = max(y_lim) - min(y_lim)
+    #     buffer_px = min(width, height) * self.rel_buffer_for_moving_out_of_axes
+    #     x_lim = [min(x_lim), max(x_lim) - buffer_px]
+    #     y_lim = [min(y_lim), max(y_lim) - buffer_px]
+    #     new_pos_in_limits = [min(x_lim[1], max(x_lim[0], position[0])),
+    #                          min(y_lim[1], max(y_lim[0], position[1]))]
+    #     return new_pos_in_limits
+
+
+    def get_position_in_limits(self, position, ax):
+        x_lim = [0, 1 - self.rel_buffer_for_moving_out_of_axes]
+        y_lim = [0, 1 - self.rel_buffer_for_moving_out_of_axes]
+        new_pos_in_limits = [min(x_lim[1], max(x_lim[0], position[0])),
+                             min(y_lim[1], max(y_lim[0], position[1]))]
+        return new_pos_in_limits
 
     @EditorTool.only_do_for_correct_object
     def move_text(self, event):

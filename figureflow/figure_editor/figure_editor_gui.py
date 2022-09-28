@@ -29,8 +29,15 @@ from . import zoom_editor
 class FigureEditorGUI(QtWidgets.QDialog):
     def __init__(self, figure_panel=None, font_size=7,
                  include_all_labels=False,
-                 arrow_props=None, coord_decimals=2, color="white"):
+                 arrow_props=None, max_dist_resize_rect=20,
+                 coord_decimals=2, color="white",
+                 plot_row_col_pos_of_cropping = False,
+                 get_text_pos_as_abs_data_coords=True,
+                 change_cropping=True):
         """
+        :param max_dist_resize_rect: Float, maximum distance in pixels
+                                    from rectangle resize handles at which
+                                    the handles will be active
         :param include_all_labels: Boolean, whether all text labels will be made
                                     changeable, this also includes
                                     channels, timesteps and zoom numbers.
@@ -54,6 +61,23 @@ class FigureEditorGUI(QtWidgets.QDialog):
         :param coord_decimals: For printing code for generating objects
                                 number of decimals plotted
                                 for each number (e.g. coordinates, width etc)
+        :param plot_row_col_pos_of_cropping: Whether to plot row and column
+                                            position for code to add cropping
+                                            images= information will always be
+                                            plotted regardless
+        :param get_text_pos_as_abs_data_coords: Whether the text position
+                                                    when the code for adding is
+                                                    is plotted should be as
+                                                    absolute data coordinates
+                                                    which means that they will
+                                                    be on the same position in
+                                                    the data, regardless of
+                                                    zoom etc. - this means
+                                                    that it might not show up in
+                                                    a zoom image. Otherwise, the
+                                                    position is in relative
+                                                    position in the axis
+                                                    (e.g. top left of axis)
         """
         super().__init__()
 
@@ -63,11 +87,15 @@ class FigureEditorGUI(QtWidgets.QDialog):
         self.moved_out_of_ax = False
         self.active_tool = "Text"
         self.element_is_picked = False
+        self.plot_row_col_pos_of_cropping = plot_row_col_pos_of_cropping
+        self.get_text_pos_as_abs_data_coords = get_text_pos_as_abs_data_coords
+        self.change_cropping = change_cropping
         self.tools_for_all_axs = {}
         self.tools = {}
         self.color = color
         self.round = functools.partial(np.round, decimals=coord_decimals)
         self.include_all_labels = include_all_labels
+        self.max_dist_resize_rect = max_dist_resize_rect
 
         if arrow_props is None:
             self.arrow_props = {}
@@ -104,7 +132,6 @@ class FigureEditorGUI(QtWidgets.QDialog):
         # figure_size = self.canvas.figure.get_size_inches() * self.canvas.figure.dpi
         self.canvas.setMinimumSize(self.canvas.size())
         self.resize(2000, 1000)
-
 
         self.canvas.mpl_connect("axes_leave_event", self.pause_dragging)
         self.canvas.mpl_connect("axes_enter_event", self.continue_dragging)
@@ -170,20 +197,21 @@ class FigureEditorGUI(QtWidgets.QDialog):
         self.zoom_tool_switch.clicked.connect(self.activate_zoom_tool)
         self.all_tool_buttons.append(self.zoom_tool_switch)
 
-
-        self.crop_tool_switch = QtWidgets.QToolButton(self)
-        self.crop_tool_switch.setText("Crop")
-        self.crop_tool_switch.setToolTip("Change the crop area to an image")
-        self.crop_tool_switch.setCheckable(True)
-        self.crop_tool_switch.clicked.connect(self.activate_crop_tool)
-        self.all_tool_buttons.append(self.crop_tool_switch)
+        if self.change_cropping:
+            self.crop_tool_switch = QtWidgets.QToolButton(self)
+            self.crop_tool_switch.setText("Crop")
+            self.crop_tool_switch.setToolTip("Change the crop area to an image")
+            self.crop_tool_switch.setCheckable(True)
+            self.crop_tool_switch.clicked.connect(self.activate_crop_tool)
+            self.all_tool_buttons.append(self.crop_tool_switch)
 
         tools = QtWidgets.QFrame()
         tools.setLayout(QtWidgets.QHBoxLayout())
         self.tools_layout = tools.layout()
         self.tools_layout.addWidget(self.arrow_tool_switch)
         self.tools_layout.addWidget(self.zoom_tool_switch)
-        self.tools_layout.addWidget(self.crop_tool_switch)
+        if self.change_cropping:
+            self.tools_layout.addWidget(self.crop_tool_switch)
 
         self.controls_layout.addWidget(tools )
         self.controls_layout.addWidget(self.print_code_button)
@@ -202,15 +230,11 @@ class FigureEditorGUI(QtWidgets.QDialog):
         self.moved_out_of_ax = True
 
     def continue_tool(self, event):
-        if self.tool_start_position is None:
-            return False
         if self.moved_out_of_ax == False:
             return False
-        if self.selected_element is not None:
-            tool_axis_label =  self.selected_element.axes.get_label()
-            entered_axis_label = event.inaxes.get_label()
-            if tool_axis_label == entered_axis_label:
-                self.moved_out_of_ax = False
+        entered_axis_label = event.inaxes.get_label()
+        if self.selected_ax.get_label() == entered_axis_label:
+            self.moved_out_of_ax = False
 
     def activate_zoom_tool(self):
         self._activate_tool(self.zoom_tool_switch, ax=self.selected_ax)
@@ -220,7 +244,7 @@ class FigureEditorGUI(QtWidgets.QDialog):
 
     def activate_arrow_tool(self):
         if (isinstance(self.selected_element, matplotlib.patches.Rectangle)):
-            self.selected_element.set_edgecolor("black")
+            self.selected_element.set_edgecolor(self.color)
         self._activate_tool(self.arrow_tool_switch)
 
     def _activate_tool(self, clicked_button, ax=None):
@@ -232,7 +256,7 @@ class FigureEditorGUI(QtWidgets.QDialog):
                     tool_button.setChecked(False)
                     self.tools[label].deactivate()
             self.active_tool = current_label
-            self.tools[current_label].activate(ax)
+            self.tools[current_label].activate()
             self.tools["Text"].deactivate()
         else:
             self.active_tool = "Text"
@@ -257,6 +281,15 @@ class FigureEditorGUI(QtWidgets.QDialog):
         # do not select subplots only made for the letter
         if axis_label.find("letter subplot") != -1:
             return False
+        # do not include axes used for labels around images
+        if axis_label.find("_top_") != -1:
+            return False
+        if axis_label.find("_bottom_") != -1:
+            return False
+        if axis_label.find("_left_") != -1:
+            return False
+        if axis_label.find("_right_") != -1:
+            return False
         # subplots for images have the structure panel_letter-row-column
         # therefore split by "-" should lead to three elements
         if len(axis_label.split("-")) != 3:
@@ -276,6 +309,7 @@ class FigureEditorGUI(QtWidgets.QDialog):
         self.selected_ax.patch.set_edgecolor('red')
         self.selected_ax.patch.set_linewidth('0.8')
         self.canvas.draw()
+        self.moved_out_of_ax = False
 
         # when the editor is initialized, there are no tools yet
         # therefore also no text tool
@@ -293,19 +327,33 @@ class FigureEditorGUI(QtWidgets.QDialog):
                                                         canvas=self.canvas,
                                                        editor_gui=self,
                                                         ax = self.selected_ax,
+                                                        figure_panel=
+                                                        self.figure_panel,
+                                                        text_input=
+                                                        self.text_input,
                                                         include_all_labels=
-                                                        self.include_all_labels)
+                                                        self.include_all_labels,
+                                                        font_size=self.font_size)
             self.tools["Arrow"] = arrow_editor.ArrowEditor(canvas=self.canvas,
                                                        editor_gui=self,
                                                            arrow_props=
                                                            self.arrow_props,
-                                                        ax = self.selected_ax)
+                                                        ax = self.selected_ax,
+                                                        figure_panel=
+                                                           self.figure_panel)
             self.tools["Zoom"] = zoom_editor.ZoomEditor(canvas=self.canvas,
                                                        editor_gui=self,
-                                                        ax = self.selected_ax)
-            self.tools["Crop"] = crop_editor.CropEditor(canvas=self.canvas,
-                                                       editor_gui=self,
-                                                        ax = self.selected_ax)
+                                                        max_dist_resize_rect=
+                                                        self.max_dist_resize_rect,
+                                                        ax = self.selected_ax,
+                                                        figure_panel=
+                                                        self.figure_panel)
+            if self.change_cropping:
+                self.tools["Crop"] = crop_editor.CropEditor(canvas=self.canvas,
+                                                           editor_gui=self,
+                                                            ax=self.selected_ax,
+                                                            figure_panel=
+                                                            self.figure_panel)
 
             self.tools_for_all_axs[ax_label] = self.tools
 
@@ -339,6 +387,81 @@ class FigureEditorGUI(QtWidgets.QDialog):
         self.moved_out_of_ax = False
         return True
 
+    def correct_for_cropping(self, position, axes_position):
+        # if cropping could have been changed, use the active cropping
+        # parameters
+        # else use the already defined cropping parameters
+        axes_position = tuple(axes_position)
+        if not self.change_cropping:
+            if axes_position in self.figure_panel.cropped_positions:
+                px_cropped = self.figure_panel.cropped_positions[axes_position]
+                position[0] += px_cropped[0]
+                position[1] += px_cropped[2]
+        return position
+
+    def correct_position_for_zoom_and_cropping(self, position, ax):
+        get_zoom_params = self.figure_panel.get_zoom_params_for_identity
+        position = list(position)
+        # position needs to be corrected for zoom, if image is a zoom image
+        axes_position = self.get_position_of_axes(ax)
+        identity = self.figure_panel.pos_to_pre_identity_map[axes_position]
+        # if zoom is not 0, correct for zoom params
+        # since the arrow position is based on the whole image
+        # and not on the zoom image
+        # (thereby even when changing cropping or zoom the arrow stays
+        #  in the same place)
+        if "zooms" in self.figure_panel.map:
+            zoom_nb = identity[self.figure_panel.map["zooms"]]
+        else:
+            zoom_nb = 0
+
+        position = list(position)
+        if zoom_nb > 0:
+            all_zoom_params = get_zoom_params(identity)
+            current_zoom_params = all_zoom_params[zoom_nb-1]
+            zoom_xy_mid = current_zoom_params["xy"]
+            zoom_width = current_zoom_params["width"]
+            zoom_height = current_zoom_params["height"]
+            # not sure why to change values by 1...
+            position[0] += zoom_xy_mid[0] - zoom_width/2 - 1
+            position[1] += zoom_xy_mid[1] - zoom_height/2 + 1
+        else:
+            position = self.correct_for_cropping(position, axes_position)
+
+        return position
+
+
+    def get_color_string(self, color, indent_string, as_type="params"):
+        color_string = ""
+        if type(color) == tuple:
+            rgb_vals = np.unique(color)
+            if len(rgb_vals) == 1:
+                if rgb_vals[0] == 1.0:
+                    color = "white"
+                elif rgb_vals[0] == 0.0:
+                    color = "black"
+
+        # if the color is a tuple, it would be an RGB color code
+        # otherwise just a string
+        if type(color) == tuple:
+            long_color_name = True
+            color = str(color)
+        else:
+            long_color_name = False
+            color = "'"+color+"'"
+
+        if long_color_name:
+            color_string += "\n" + indent_string
+        else:
+            color_string += " "
+
+        if as_type == "dict":
+            color_string += "'color':" + color + ",\n"
+        else:
+            color_string += "color=" + color + ",\n"
+
+        return color_string
+
     def get_size_of_arrow(self, arrow, ax):
         # set size for each arrow
         arrow_path_array = arrow.get_path().vertices
@@ -351,13 +474,14 @@ class FigureEditorGUI(QtWidgets.QDialog):
         # calculate size from d_x and d_y of arrow
         # first convert d_x and d_y from data to inches
         ax_width_data = max(ax.get_xlim()) - min(ax.get_xlim())
-        d_x_rel = d_x / ax_width_data
+
+        d_x_rel = d_x #/ ax_width_data
         ax_width_inches = (ax.get_position().width *
                            ax.figure.get_size_inches()[0])
         d_x_inches = d_x_rel * ax_width_inches
 
         ax_height_data = max(ax.get_ylim()) - min(ax.get_ylim())
-        d_y_rel = d_y / ax_height_data
+        d_y_rel = d_y #/ ax_height_data
         ax_height_inches = (ax.get_position().height *
                             ax.figure.get_size_inches()[1])
         d_y_inches = d_y_rel * ax_height_inches
@@ -369,6 +493,74 @@ class FigureEditorGUI(QtWidgets.QDialog):
         size_pt = size_inches * 72
         return size_pt, d_x, d_y
 
+    def get_xy_and_width_height_in_data(self, rect, ax, correct_position=True):
+        rect_dimensions = rect.get_bbox()
+        x_rect_position = [rect_dimensions.x1, rect_dimensions.x0]
+        y_rect_position = [rect_dimensions.y1, rect_dimensions.y0]
+        width = (max(x_rect_position) - min(x_rect_position))
+        height = (max(y_rect_position) - min(y_rect_position))
+        x_mid = rect_dimensions.x0 + width/2
+        y_mid = rect_dimensions.y0 - height/2
+
+        y_mid = 1- y_mid
+        if correct_position:
+            # positions are in axes fraction but need to be in data coords
+            x_mid, y_mid = self.transform_coords_from_axes_to_data(x_mid, y_mid,
+                                                                   ax)
+
+            x_mid, y_mid  = self.correct_position_for_zoom_and_cropping([x_mid,
+                                                                         y_mid],
+                                                                        ax)
+
+        width, height = self.transform_coords_from_axes_to_data(width,
+                                                                height,
+                                                                ax)
+        return x_mid, y_mid, width, height
+
+    def get_code_for_cropping(self, crop_tool, ax):
+        indent_string = "\t\t\t\t"
+
+        crop_rect = crop_tool.crop_element
+        if crop_rect is None:
+            return ""
+        # get mid point and width and height
+        crop_dimensions = crop_rect.get_bbox()
+
+        left = crop_dimensions.x0
+        right = 1 - (crop_dimensions.x1)
+        bottom = 1 - (crop_dimensions.y1)
+        top = crop_dimensions.y0
+
+        # add "row=, column=, images=" information
+        add_crop_string = "figure.add_cropping(\n"
+
+        self.active_cropping = {"left":left,
+                                "right:":right,
+                               "bottom":bottom,
+                                "top":top}
+
+        add_crop_string += (indent_string +
+                            "left="+str(self.round(left))+", ")
+        add_crop_string += ("right="+str(self.round(right))+", ")
+        add_crop_string += ("bottom="+str(self.round(bottom))+", ")
+        add_crop_string += ("top="+str(self.round(top))+", ")
+        if self.plot_row_col_pos_of_cropping:
+            axes_position = self.get_position_of_axes(ax)
+            add_crop_string += ("row="+str(axes_position[0])+
+                                ", column="+str(axes_position[1])+",")
+        add_crop_string += "\n"
+
+        target_images_string = indent_string + "images=[\n"
+        # get target images for arrow
+        target_images_string += self.get_image_identity_string(ax,indent_string)
+        target_images_string += indent_string+"]"
+
+        add_crop_string += target_images_string
+        add_crop_string += ")"
+        add_crop_string += "\n\n"
+
+        return add_crop_string
+
     def get_code_for_adding_zooms(self, zoom_tool, ax):
         indent_string = "\t\t\t\t"
         add_all_zooms_string = ""
@@ -378,16 +570,17 @@ class FigureEditorGUI(QtWidgets.QDialog):
         for zoom_rect in zoom_tool.all_zoom_rectangles:
             add_zoom_string = function_call_string
             # get mid point and width and height
-            zoom_dimensions = zoom_rect.get_bbox()
-            width = (zoom_dimensions.x1 - zoom_dimensions.x0)
-            height = (zoom_dimensions.y1 - zoom_dimensions.y0)
-            x_mid = zoom_dimensions.x0 + width/2
-            y_mid = zoom_dimensions.y0 + height/2
+
+            (x_mid,
+             y_mid,
+             width,
+             height) = self.get_xy_and_width_height_in_data(zoom_rect, ax)
+
+
             add_zoom_string += (indent_string +
                                 "xy=("+str(self.round(x_mid))+","
-                                +str(self.round(y_mid))+"),\n")
-            add_zoom_string += (indent_string +
-                                "width="+str(self.round(width))+
+                                +str(self.round(y_mid))+"),")
+            add_zoom_string += (" width="+str(self.round(width))+
                                 ", height="+str(self.round(height))+",\n")
 
             rect_label = zoom_rect.get_label()
@@ -416,37 +609,74 @@ class FigureEditorGUI(QtWidgets.QDialog):
         add_all_zooms_string += "\n\n"
         return add_all_zooms_string
 
+    def transform_coords_from_axes_to_data(self, x, y, ax):
+        x_lim = ax.get_xlim()
+        ax_width_px = max(x_lim) - min(x_lim)
+        y_lim = ax.get_ylim()
+        ax_height_px = max(y_lim) - min(y_lim)
+        x_trans = x * ax_width_px
+        y_trans = y * ax_height_px
+        return x_trans, y_trans
+
+    def transform_coords_from_data_to_axes(self, x, y, ax):
+        x_lim = ax.get_xlim()
+        ax_width_px = max(x_lim) - min(x_lim)
+        y_lim = ax.get_ylim()
+        ax_height_px = max(y_lim) - min(y_lim)
+        x_trans = x / ax_width_px
+        y_trans = y / ax_height_px
+        return x_trans, 1-y_trans
+
+    def get_position_of_axes(self, ax):
+        axes_label = ax.get_label()
+        axes_position = axes_label.split("-")[1:]
+        axes_position = tuple([int(position) for position in axes_position])
+        return axes_position
+
     def get_code_for_adding_arrows(self, arrow_tool, ax):
+        """
+        Create a string with the code to create the arrows present in
+        the images.
+        :param arrow_tool: ArrowEditor object for ax
+        :param ax: ax of the image for which arrows are extracted
+        """
         indent_string = "\t\t\t\t\t"
         add_all_arrows_string = ""
         function_call_string = "figure.draw_on_image(\n"
-        target_images_string_start = indent_string + "images=[\n"
+        target_images_string_start = indent_string + "images=\n"
+
 
         for arrow in arrow_tool.all_arrows:
             add_arrow_string = function_call_string
             # get and set target for each arrow
             target = arrow.get_path().vertices[0,:]
+
+            target[1] = 1 - target[1]
+            # coordinates of arrow are in axes fraction and not in data
+            target = self.transform_coords_from_axes_to_data(target[0],
+                                                             target[1],
+                                                             ax)
+
+            target = self.correct_position_for_zoom_and_cropping(target, ax)
+
             target = [str(self.round(coord)) for coord in target]
             add_arrow_string += (indent_string +
-                                 "target=["+",".join(target)+"],\n")
+                                 "targets=[("+",".join(target)+")],")
 
             # get size of arrow and d_x and d_y
             size_pt, d_x, d_y = self.get_size_of_arrow(arrow, ax)
-            add_arrow_string += (indent_string +
-                                 "size="+str(self.round(size_pt))+",")
+            size_pt /= self.figure_panel.size_factor
+            add_arrow_string += ("size="+str(self.round(size_pt))+",")
 
             # get and set direction for each arrow
             # get direction in degrees from d_x and d_y of arrow
             direction = np.rad2deg(np.arctan2(d_x, d_y) % (2*np.pi))
-            add_arrow_string += "direction="+str(self.round(direction))+",\n"
-            color = arrow.get_edgecolor()
-            # if the color is a tuple, it would be an RGB color code
-            # otherwise just a string
-            if type(color) == tuple:
-                color = str(color)
-            else:
-                color = "'"+color+"'"
-            add_arrow_string += "color=" + color + ",\n"
+            add_arrow_string += " direction="+str(self.round(direction))+","
+
+            color_string = self.get_color_string(arrow.get_edgecolor(),
+                                                 indent_string)
+            add_arrow_string += color_string
+
 
             # get and set several parameters from label of arrow:
             # width_factor (first)
@@ -486,7 +716,7 @@ class FigureEditorGUI(QtWidgets.QDialog):
             target_images_string = (target_images_string_start +
                                     self.get_image_identity_string(arrow.axes,
                                                                    indent_string))
-            target_images_string += indent_string+"]"
+            # target_images_string += indent_string+"]"
 
             add_arrow_string += target_images_string
             add_arrow_string += ")"
@@ -497,7 +727,7 @@ class FigureEditorGUI(QtWidgets.QDialog):
         add_all_arrows_string += "\n\n"
         return add_all_arrows_string
 
-    def get_code_for_adding_texts(self, text_tool):
+    def get_code_for_adding_texts(self, text_tool, ax):
         indent_string = "\t\t\t\t\t\t"
         add_text_string = "figure.add_text_on_image(\n"
         texts_string = indent_string + "texts=[\n"
@@ -505,40 +735,50 @@ class FigureEditorGUI(QtWidgets.QDialog):
         for text_field in text_tool.all_text_fields.values():
             text = text_field.get_text()
             position = np.round(text_field.get_position(),4)
+
+            position[1] = 1-position[1]
+
+            if self.get_text_pos_as_abs_data_coords:
+                # transform from axes coords into data coords
+                position = self.transform_coords_from_axes_to_data(position[0],
+                                                                   position[1],ax)
+                # correct position in data coords
+                position = self.correct_position_for_zoom_and_cropping(position,
+                                                                       ax)
+
             texts_string += indent_string + "{"
             texts_string += "'s': '" + text + "',"
             texts_string += "'x': " + str(self.round(position[0])) + ","
             texts_string += "'y': " + str(self.round(position[1])) + ","
-            color = text_field.get_color()
-            if type(color) == tuple:
-                color = str(color)
-            else:
-                color = "'"+color+"'"
-            texts_string += indent_string + "color=" + color + ",\n"
+
+            color_string = self.get_color_string(text_field.get_color(),
+                                                 indent_string, as_type="dict")
+            texts_string += color_string
+
             hor_alignment = text_field.get_horizontalalignment()
             if hor_alignment != "left":
                 texts_string += (indent_string+
-                                 "'horizontalalignment': " + hor_alignment+ ",")
+                                 "'horizontalalignment':'" + hor_alignment+ "',")
             vert_alignment = text_field.get_verticalalignment()
             if vert_alignment != "center":
                 texts_string += (indent_string+
-                                 "'verticalalignment': " + vert_alignment + ",")
+                                 "'verticalalignment':'" + vert_alignment + "',")
             texts_string += "},\n"
 
         target_images_string += self.get_image_identity_string(text_field.axes,
                                                               indent_string)
-
         texts_string += indent_string + "],"
         target_images_string += indent_string + "],"
-        add_text_string += texts_string + "\n" + target_images_string
+        add_text_string += texts_string + "\n" + target_images_string +"\n"
+        add_text_string += (indent_string + "position_in_abs_data_coords=" +
+                            str(self.get_text_pos_as_abs_data_coords))
         add_text_string += ")"
         add_text_string += "\n\n"
         return add_text_string
 
     def get_image_identity_string(self, ax, indent_string):
         axes_label = ax.get_label()
-        axes_position = axes_label.split("-")[1:3]
-        axes_position = (int(axes_position[0]), int(axes_position[1]))
+        axes_position = self.get_position_of_axes(ax)
 
         axes_identity = self.figure_panel.pos_to_pre_identity_map[axes_position]
         identity_string = indent_string + "{"
@@ -548,6 +788,7 @@ class FigureEditorGUI(QtWidgets.QDialog):
             identity_string += "'"+cat_name+"': ["+str(self.round(cat_val))+"],"
         identity_string +="},\n"
         return identity_string
+
 
     def print_code(self):
         """
@@ -560,18 +801,25 @@ class FigureEditorGUI(QtWidgets.QDialog):
         add_texts_string = ""
         add_arrows_string = ""
         add_zooms_string = ""
+        crop_string = ""
         for ax in self.figure_panel.all_axs.values():
+            self.active_cropping = {}
             axis_label = ax.get_label()
             if axis_label not in self.tools_for_all_axs:
                 continue
             axis_tools = self.tools_for_all_axs[axis_label]
-            add_texts_string += self.get_code_for_adding_texts(axis_tools["Text"])
+
+            if self.change_cropping:
+                crop_string += self.get_code_for_cropping(axis_tools["Crop"],ax)
+            add_texts_string += self.get_code_for_adding_texts(axis_tools["Text"],
+                                                               ax)
             add_arrows_string += self.get_code_for_adding_arrows(axis_tools["Arrow"],
                                                                  ax)
             add_zooms_string += self.get_code_for_adding_zooms(axis_tools["Zoom"],
                                                                ax)
 
-        code_string += (add_zooms_string +
+        code_string += (crop_string +
+                        add_zooms_string +
                         add_arrows_string +
                         add_texts_string)
 

@@ -28,7 +28,7 @@ class ArrowEditor(shape_editor.ShapeEditor):
         # first get axes width in data coords
         axis_width_inches = (self.ax.get_position().width *
                              self.ax.figure.get_size_inches()[0])
-        axis_width_data = max(self.ax.get_xlim()) - min(self.ax.get_xlim())
+        # axis_width_data = max(self.ax.get_xlim()) - min(self.ax.get_xlim())
 
         # get parameter values from arrow_props dict or
         # from default values when drawing the arrow
@@ -43,10 +43,9 @@ class ArrowEditor(shape_editor.ShapeEditor):
             # set factor that was used
             setattr(self, param_name,
                     param_value_pt/self.arrow_length)
-            #scale to data values
+            #scale to axes values
             param_value_inch = param_value_pt / 72
-            param_value_data = (param_value_inch / axis_width_inches *
-                                axis_width_data)
+            param_value_data = (param_value_inch / axis_width_inches)
             # set parameter on self
             setattr(self, param_name.replace("_factor", ""), param_value_data)
 
@@ -74,6 +73,10 @@ class ArrowEditor(shape_editor.ShapeEditor):
 
     def add_arrow(self, end_position):
 
+        end_position = self.transform_coords_from_data_to_axes(end_position[0],
+                                                               end_position[1],
+                                                               self.ax)
+
         (arrow_end_position,
         d_x, d_y) = self.get_arrow_coords_at_standard_length(self.tool_start_position,
                                                             end_position,
@@ -94,7 +97,7 @@ class ArrowEditor(shape_editor.ShapeEditor):
                                         head_width=self.head_width,
                                          head_length=self.head_length,
                                        picker=True,
-                                        transform=self.ax.transData,
+                                        transform=self.ax.transAxes,
                                        color="red",
                                        label=self.arrow_label,
                                  length_includes_head=True,lw=0)
@@ -111,14 +114,12 @@ class ArrowEditor(shape_editor.ShapeEditor):
         d_y = orig_tail_position[1] - head_position[1]
         x_y_ratio = d_x / d_y
         figure_size_inch = self.editor_gui.figure.get_size_inches()
-        ax_x_lim = ax.get_xlim()
-        ax_width_px = max(ax_x_lim) - min(ax_x_lim)
+
         ax_width_inch = (figure_size_inch[0] *
                          ax.get_position().width)
-        arrow_length_px = (arrow_length/72 / ax_width_inch *
-                           ax_width_px)
-        d_x_arrow = ((arrow_length_px**2 * x_y_ratio**2)/(x_y_ratio**2 + 1)) ** 0.5
-        d_y_arrow = (arrow_length_px**2 - d_x_arrow**2) ** 0.5
+        arrow_length_ax = (arrow_length/72 / ax_width_inch)
+        d_x_arrow = ((arrow_length_ax**2 * x_y_ratio**2)/(x_y_ratio**2 + 1)) ** 0.5
+        d_y_arrow = (arrow_length_ax**2 - d_x_arrow**2) ** 0.5
 
         if d_x < 0:
             d_x_arrow = -d_x_arrow
@@ -127,6 +128,7 @@ class ArrowEditor(shape_editor.ShapeEditor):
 
         arrow_end_position = [head_position[0] + d_x_arrow,
                               head_position[1] + d_y_arrow]
+
         return arrow_end_position, d_x_arrow, d_y_arrow
 
     def end_tool(self, event):
@@ -160,10 +162,19 @@ class ArrowEditor(shape_editor.ShapeEditor):
         if self.editor_gui.moved_out_of_ax:
             return False
         # self.dragged_element.remove()
-        d_x = event.xdata - self.pick_pos[0]
-        d_y = event.ydata - self.pick_pos[1]
-        self.pick_pos = [event.xdata, event.ydata]
+        x_pos_data = event.xdata
+        y_pos_data = event.ydata
+        (x_pos_ax,
+        y_pos_ax) = self.transform_coords_from_data_to_axes(x_pos_data,
+                                                             y_pos_data,
+                                                             self.ax)
+
+        d_x = x_pos_ax- self.pick_pos[0]
+        d_y = y_pos_ax - self.pick_pos[1]
+        self.pick_pos = [x_pos_ax, y_pos_ax]
+
         position = self.dragged_element.xy
+
         position[:,0] += d_x
         position[:,1] += d_y
         self.dragged_element.set_xy(position)

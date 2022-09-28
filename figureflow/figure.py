@@ -102,6 +102,8 @@ class Figure():
         self.figure_csv = None
         self.padding_factor_video = 1/6
         self.panel_letters_to_show = None
+        self.panel_to_edit = None
+        self.panel_edit_kwargs = None
 
         #for videos make sure that the height is defined
         if video & (type(self.height) == type(None)):
@@ -464,13 +466,74 @@ class Figure():
         """
         self.panel_letters_to_show = panel_letters
 
+    def edit_panel(self, panel_letter, change_cropping=True,
+                   coord_decimals=2, color="white",
+                   include_all_labels=False, arrow_props=None,
+                   plot_row_col_pos_of_cropping=False,
+                   get_text_pos_as_abs_data_coords=True
+                   ):
+        """
+        Edit one panel with designated letter. Will enter editing mode
+        after panel has been fully plotted: right before the next panel
+        is created or alternatively before the figure is saved (for the last
+        panel)
+        :param panel_letter: panel letter that should be edited
+        :param plot_row_col_pos_of_cropping: Whether to plot row and column
+                                            position for code to add cropping
+                                            images= information will always be
+                                            plotted regardless
+        :param get_text_pos_as_abs_data_coords: Whether the text position
+                                                    when the code for adding is
+                                                    is plotted should be as
+                                                    absolute data coordinates
+                                                    which means that they will
+                                                    be on the same position in
+                                                    the data, regardless of
+                                                    zoom etc. - this means
+                                                    that it might not show up in
+                                                    a zoom image. Otherwise, the
+                                                    position is in relative
+                                                    position in the axis
+                                                    (e.g. top left of axis)
+        """
+        if type(panel_letter) is not str:
+            raise ValueError("For defining a panel to edit the panel_letter "
+                             "has to be defined as string and not as "
+                             f"{type(panel_letter)}.")
+
+        self.panel_to_edit = panel_letter
+        self.panel_edit_kwargs = {"coord_decimals": coord_decimals,
+                                  "color": color,
+                                  "include_all_labels": include_all_labels,
+                                  "arrow_props": arrow_props,
+                                  "plot_row_col_pos_of_cropping":
+                                      plot_row_col_pos_of_cropping,
+                                  "get_text_pos_as_abs_data_coords":
+                                      get_text_pos_as_abs_data_coords
+                                  }
+        self.change_cropping=change_cropping
+
     def create_panel(self, letter=None, x=0, y=0,  width=1,
                      height=None, padding = None, **kwargs):
-
+        """
+        Create panel with defined letter.
+        :param letter: panel letter as string, if None get the letter following
+                        the highest panel letter used so far
+        :param x: relative x position
+        :param y: relative y position
+        :param width: width in inches
+        :param height: height as multiples of  width (or in inches if
+                        parameter "relative_height" == False when creating
+                        figure object)
+        """
         if hasattr(self.current_panel, "pos_to_pre_identity_map"):
             # panel with data plots do not have the attribute
             # and does not have placeholder images
             self.current_panel.remove_placeholder_images()
+
+        if self.panel_to_edit is not None:
+            if self.panel_to_edit in self.all_panels.keys():
+                self.edit_this_panel(**self.panel_edit_kwargs)
 
         print("CREATING PANEL {}...................".format(letter))
         if (type(padding) == tuple) | (type(padding) == list):
@@ -581,33 +644,52 @@ class Figure():
                 break
         return data
 
-    def edit_panel(self, panel_letter=None, coord_decimals=2, color="white",
-                   include_all_labels=False):
+    def edit_this_panel(self, coord_decimals=2, color="white",
+                   include_all_labels=False, arrow_props=None,
+                        plot_row_col_pos_of_cropping=False,
+                        get_text_pos_as_abs_data_coords=True
+                        ):
         """
         Open editor window to allow adding text, arrows, zoom rectangles
         and cropping to panel images. This will stop plotting further panels.
         :param coord_decimals: For printing code for generating objects
                                 number of decimals plotted
                                 for each number (e.g. coordinates, width etc)
+        :param plot_row_col_pos_of_cropping: Whether to plot row and column
+                                            position for code to add cropping
+                                            images= information will always be
+                                            plotted regardless
+        :param get_text_pos_as_abs_data_coords: Whether the text position
+                                                    when the code for adding is
+                                                    is plotted should be as
+                                                    absolute data coordinates
+                                                    which means that they will
+                                                    be on the same position in
+                                                    the data, regardless of
+                                                    zoom etc. - this means
+                                                    that it might not show up in
+                                                    a zoom image. Otherwise, the
+                                                    position is in relative
+                                                    position in the axis
+                                                    (e.g. top left of axis)
         """
-        if panel_letter is None:
-            panel_to_edit = self.current_panel
-        else:
-            if panel_letter not in self.all_panels:
-                raise ValueError(f"The panel letter to edit {panel_letter}"
-                                 f" does not exist.\n"
-                                 f"Only the following panel letters are "
-                                 f"available: {self.all_panels.keys()}")
-            panel_to_edit = self.all_panels[panel_letter]
+        panel_to_edit = self.current_panel
 
         if hasattr(panel_to_edit, "pos_to_pre_identity_map"):
             # panel with data plots do not have the attribute
             # and does not have placeholder images
             panel_to_edit.remove_placeholder_images()
+
         app = QtWidgets.QApplication(sys.argv)
         main = FigureEditorGUI(panel_to_edit, font_size=self.font_size,
                                coord_decimals=coord_decimals, color=color,
-                               include_all_labels=include_all_labels)
+                               include_all_labels=include_all_labels,
+                               arrow_props=arrow_props,
+                               change_cropping=self.change_cropping,
+                               plot_row_col_pos_of_cropping=
+                               plot_row_col_pos_of_cropping,
+                               get_text_pos_as_abs_data_coords=
+                               get_text_pos_as_abs_data_coords)
         main.show()
         sys.exit(app.exec_())
 

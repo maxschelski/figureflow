@@ -108,6 +108,7 @@ class FigurePanel():
         self.tick_scales = [1,1]
         self.video = video
 
+
         self.dark_background = figure.dark_background
         # if animate_panel is not set, make it true if figure panel is
         # part of video, otherwise false
@@ -133,7 +134,6 @@ class FigurePanel():
         self.hue = None
         self.col = None
         self.row = None
-
 
         # save functions to be executed in list
         self.functions_for_video = []
@@ -3017,98 +3017,102 @@ class FigurePanel():
         #  all_images_by_identity_new = all_images_by_identity
         images_to_add = {}
         images_to_delete = set([])
-        if len(self.zoom_params) > 0:
+        if len(self.zoom_params) == 0:
+            return all_images_by_identity, identity_to_add_zoom_mark_to
 
-            for identity, image in all_images_by_identity.items():
-                pre_identity = self.get_pre_identity(identity)
+        for identity, image in all_images_by_identity.items():
+            pre_identity = self.get_pre_identity(identity)
 
-                image_nb = pre_identity[self.map["images"]]
-                channel = pre_identity[self.map["channels"]]
-                frame = pre_identity[self.map["frames"]]
-                # get list of zooms in dict zoom_params with key of image_nb
-                # for this remap image_nb to pre_identity image_nb
-                zoom_params_this_image = self.get_zoom_params_for_identity(pre_identity)
+            image_nb = pre_identity[self.map["images"]]
+            channel = pre_identity[self.map["channels"]]
+            frame = pre_identity[self.map["frames"]]
+            # get list of zooms in dict zoom_params with key of image_nb
+            # for this remap image_nb to pre_identity image_nb
+            zoom_params_this_image = self.get_zoom_params_for_identity(pre_identity)
 
-                for zoom_nb, zoom_param in enumerate(zoom_params_this_image):
-                    channel_correct = True
-                    image_correct = True
-                    if zoom_param["channels"] != None:
-                        if channel not in zoom_param["channels"]:
-                            channel_correct = False
-                    if zoom_param["images"] != None:
-                        if image_nb not in zoom_param["images"]:
-                            image_correct = False
+            for zoom_nb, zoom_param in enumerate(zoom_params_this_image):
+                channel_correct = True
+                image_correct = True
+                if zoom_param["channels"] != None:
+                    if channel not in zoom_param["channels"]:
+                        channel_correct = False
+                if zoom_param["images"] != None:
+                    if image_nb not in zoom_param["images"]:
+                        image_correct = False
 
-                    # if non zoom channels should be shown
-                    # then dont remove images if the channel is not correct
-                    # also if the image is correct but not the channel
-                    # AND show_non_zoom_channels is true
-                    # then the zoom markers should be added to that image
-                    if (show_non_zoom_channels &
-                         image_correct &
-                         (not channel_correct)):
-                            if pre_identity not in identity_to_add_zoom_mark_to:
-                                identity_to_add_zoom_mark_to[pre_identity] = []
-                            identity_to_add_zoom_mark_to[pre_identity].append(zoom_nb)
-                    elif (image_correct & show_only_zoom):
-                        # if the image is correct (and therefore there will
-                        # be a channel on which zoom will be
-                        #  applied for that image)
-                        # and if only zoom images should be shown,
-                        #  delete non zoom image
-                        delete_image = True
-                        # if check if first timeframe of current channel
-                        #  should be shown
-                        if channels_to_show_first_nonzoomed_timeframe != None:
-                            # print(channel, channels_to_show_first_nonzoomed_timeframe)
-                            if (channel in channels_to_show_first_nonzoomed_timeframe) & (identity[self.map["frames"]] == 0):
-                                delete_image = False
-                        if (not channel_correct) & force_show_non_zoom_channels:
-                            # if non zoom channels should always be shown,
-                            #  dont delete those
+                # if non zoom channels should be shown
+                # then dont remove images if the channel is not correct
+                # also if the image is correct but not the channel
+                # AND show_non_zoom_channels is true
+                # then the zoom markers should be added to that image
+                if (show_non_zoom_channels &
+                     image_correct &
+                     (not channel_correct)):
+                        if pre_identity not in identity_to_add_zoom_mark_to:
+                            identity_to_add_zoom_mark_to[pre_identity] = []
+                        identity_to_add_zoom_mark_to[pre_identity].append(zoom_nb)
+                elif (image_correct & show_only_zoom):
+                    # if the image is correct (and therefore there will
+                    # be a channel on which zoom will be
+                    #  applied for that image)
+                    # and if only zoom images should be shown,
+                    #  delete non zoom image
+                    delete_image = True
+                    # if check if first timeframe of current channel
+                    #  should be shown
+                    if channels_to_show_first_nonzoomed_timeframe != None:
+                        # print(channel, channels_to_show_first_nonzoomed_timeframe)
+                        if (channel in channels_to_show_first_nonzoomed_timeframe) & (identity[self.map["frames"]] == 0):
                             delete_image = False
-                        # for first timeframe add zoom number
-                        #  to pre_identity key of zoom mark dict
-                        if identity[self.map["frames"]] == 0:
+                    if (not channel_correct) & force_show_non_zoom_channels:
+                        # if non zoom channels should always be shown,
+                        #  dont delete those
+                        delete_image = False
+                    # for first timeframe add zoom number
+                    #  to pre_identity key of zoom mark dict
+                    if identity[self.map["frames"]] == 0:
 
-                            if pre_identity not in identity_to_add_zoom_mark_to:
-                                identity_to_add_zoom_mark_to[pre_identity] = []
-                            identity_to_add_zoom_mark_to[pre_identity].append(zoom_nb)
-                        if delete_image:
-                            if identity in all_images_by_identity:
-                                images_to_delete.add(identity)
-                                #  del all_images_by_identity_new[identity]
+                        if pre_identity not in identity_to_add_zoom_mark_to:
+                            identity_to_add_zoom_mark_to[pre_identity] = []
+                        identity_to_add_zoom_mark_to[pre_identity].append(zoom_nb)
+                    if delete_image:
+                        if identity in all_images_by_identity:
+                            images_to_delete.add(identity)
+                            #  del all_images_by_identity_new[identity]
 
-                    # only check if frame is correct for adding zoomed images
-                    # do not check frame for deleting images
-                    frame_correct = True
-                    if zoom_param["frames"] != None:
-                        if frame not in zoom_param["frames"]:
-                            frame_correct = False
-                    # if channel ad image are correct add zoom
-                    #  to identity image dict
-                    if channel_correct & image_correct & frame_correct:
-                        # create identity tuple of zoom identity
-                        zoom_identity = list(copy.copy(identity))
-                        zoom_identity[self.map["zooms"]] = zoom_nb + 1
-                        (x1, x2,
-                         y1, y2) = self.get_rectangle_position_from_zoom_param(zoom_param)
-                        zoom_image = image[:, y1:y2,x1:x2]
-                        images_to_add[tuple(zoom_identity)] = zoom_image
-                        if not show_only_zoom:
-                            if pre_identity not in identity_to_add_zoom_mark_to:
-                                identity_to_add_zoom_mark_to[pre_identity] = []
-                            identity_to_add_zoom_mark_to[pre_identity].append(zoom_nb)
+                # only check if frame is correct for adding zoomed images
+                # do not check frame for deleting images
+                frame_correct = True
+                if zoom_param["frames"] != None:
+                    if frame not in zoom_param["frames"]:
+                        frame_correct = False
+                # if channel ad image are correct add zoom
+                #  to identity image dict
+                if not (channel_correct & image_correct & frame_correct):
+                    continue
+                # create identity tuple of zoom identity
+                zoom_identity = list(copy.copy(identity))
+                zoom_identity[self.map["zooms"]] = zoom_nb + 1
+                (x1,
+                 x2,
+                 y1,
+                 y2) = self.get_rectangle_position_from_zoom_param(zoom_param)
+                zoom_image = image[:, y1:y2,x1:x2]
+                images_to_add[tuple(zoom_identity)] = zoom_image
+                if not show_only_zoom:
+                    if pre_identity not in identity_to_add_zoom_mark_to:
+                        identity_to_add_zoom_mark_to[pre_identity] = []
+                    identity_to_add_zoom_mark_to[pre_identity].append(zoom_nb)
 
-                        #  all_images_by_identity_new[tuple(zoom_identity)] = zoom_image
+                # all_images_by_identity_new[tuple(zoom_identity)] = zoom_image
 
-            #  delete images
-            for identity in images_to_delete:
-                del all_images_by_identity[identity]
-                
-            # add images
-            for identity, image in images_to_add.items():
-                all_images_by_identity[tuple(identity)] = image
+        #  delete images
+        for identity in images_to_delete:
+            del all_images_by_identity[identity]
+
+        # add images
+        for identity, image in images_to_add.items():
+            all_images_by_identity[tuple(identity)] = image
 
 
         return all_images_by_identity, identity_to_add_zoom_mark_to
@@ -4298,7 +4302,6 @@ class FigurePanel():
 
     def crop_image(self, image, row, col):
 
-        #  image_cropped = copy.copy(image)
         image_cropped = image
 
         for crop_param in self.crop_params:
@@ -4357,7 +4360,12 @@ class FigurePanel():
                 y0 = max(self.cropped_positions[position][2], y0)
                 y1 = min(self.cropped_positions[position][1], y1)
 
-            image_cropped = image_cropped[:, y0:y1, x0:x1, :]
+            # do not apply cropping if the current panel is edited
+            # cropping rectangle will instead be added on top of image
+            # if cropping should not be changed in the editor, do the cropping
+            if ((self.figure.panel_to_edit != self.letter) |
+                    (not self.figure.change_cropping)):
+                image_cropped = image_cropped[:, y0:y1, x0:x1, :]
 
             self.cropped_positions[position] = [x0, x1, y0, y1]
 
@@ -4382,11 +4390,17 @@ class FigurePanel():
             y -= zoom_origin_y
 
         else:
-            # if it is zoomed
-            if position in self.cropped_positions.keys():
-                px_cropped = self.cropped_positions[position]
-                x -= px_cropped[0]
-                y -= px_cropped[2]
+            # if it is cropped and and not edited, correct for cropping
+            # if it is edited, cropping is not executed
+            # except if cropping is not changed, then cropping is still executed
+            # (cropping is always applied is cropping is not changed in
+            #  the editor)
+            if ((self.figure.panel_to_edit != self.letter) |
+                    (not self.figure.change_cropping)):
+                if position in self.cropped_positions.keys():
+                    px_cropped = self.cropped_positions[position]
+                    x -= px_cropped[0]
+                    y -= px_cropped[2]
 
         return x, y
 
@@ -5321,12 +5335,24 @@ class FigurePanel():
                     label_position = zoom_param["label_position_overview"]
                     rect_label = "___label_position"
                     # draw rectangle on image
-                    rectangle = patches.Rectangle((x0,y0), x1-x0, y1-y0,
-                                                  linewidth=line_width_zoom_rectangle,
-                                                  edgecolor="white",
-                                                  label = rect_label,
-                                                  facecolor="none")
-                    ax.add_patch(rectangle)
+                    x0_ax, y0_ax = self.transform_coords_from_data_to_axes(x0,
+                                                                           y0,
+                                                                           ax)
+                    x1_ax, y1_ax = self.transform_coords_from_data_to_axes(x1,
+                                                                           y1,
+                                                                           ax)
+
+                    width = x1_ax - x0_ax
+                    height = y1_ax - y0_ax
+
+                    rect = patches.Rectangle((x0_ax, y0_ax), width,
+                                                                      height,
+                                                                      linewidth=line_width_zoom_rectangle,
+                                                                      edgecolor="white",
+                                                                      label = rect_label,
+                                                                      transform=ax.transAxes,
+                                                                      facecolor="none")
+                    ax.add_patch(rect)
 
                     # Option: dont show zoom numbers if there is only one
                     if (not show_single_zoom_numbers) & (nb_zooms <= 1):
@@ -7353,7 +7379,8 @@ class FigurePanel():
     @staticmethod
     def default_in_statannot(arg_name):
         target_function = statannot.plot_and_add_stat_annotation
-        default_value = default_in_function(target_function,arg_name)
+        signature = inspect.signature(target_function)
+        default_value = signature.parameters[arg_name].default
         return default_value
 
     @staticmethod
@@ -7383,7 +7410,6 @@ class FigurePanel():
         self.hue = hue
         self.col = col
         self.row = row
-
 
     def count_by_criteria(self, data, criteria):
         for column, query in criteria.items():
@@ -8994,7 +9020,7 @@ class FigurePanel():
                             string like "top" or "top-left" or "bottom-right"
                             by default direction starts at head and goes
                             towards tail (see param direction_from_head_to_tail)
-        :param direction_from_head_to_tail: Bool; Whether direction supplied
+        :param direction_from_head_to_tail: Bool; Whether direction supplied as
                                             string should be considered
                                             starting from the head going
                                             towards the tail (True) or the
@@ -9028,7 +9054,7 @@ class FigurePanel():
             # if direction was supplied as degrees, convert to position,
             #  starting at target
             # 0 degrees is the 12 o'clock direction
-            if type(direction) == int:
+            if (type(direction) == int) | (type(direction) == float):
                 direction_pos = self.direction_degree_to_position(direction, 
                                                                   target)
             else:
@@ -9052,8 +9078,7 @@ class FigurePanel():
                     continue
 
                 image = self.get_img_from_axis(ax)
-                #  size_px_x = size_inch / ()
-                #  size_px_y =
+
                 # correct direction and target position for cropping of this image
                 new_direction = self.correct_xy_for_cropping_and_zoom(direction_pos[0],
                                                                       direction_pos[1],
@@ -9101,10 +9126,32 @@ class FigurePanel():
                     label += str(arrow_head_width_factor)+ "_"
                     label += str(arrow_head_length_factor)
 
-                    ax.arrow(x0_data, y0_data, - dX_data,- dY_data,
+                    x0_ax, y0_ax = self.transform_coords_from_data_to_axes(x0_data,
+                                                                           y0_data,
+                                                                           ax)
+
+                    dx_ax, dy_ax = self.transform_coords_from_data_to_axes(dX_data,
+                                                                           dY_data,
+                                                                           ax)
+                    
+                    # transform coords subtracts transformed y value from 1
+                    # since orientation of axes and data coords are opposite
+                    # since dy is not based on orientation (its a relative diff)
+                    # reverse this step
+                    dy_ax -= 1
+
+                    width,_ =self.transform_coords_from_data_to_axes(width,0,ax)
+
+                    head_width,_ =self.transform_coords_from_data_to_axes(head_width,
+                                                                          0,ax)
+
+                    head_length,_ =self.transform_coords_from_data_to_axes(head_length,
+                                                                           0,ax)
+
+                    ax.arrow(x0_ax, y0_ax, - dx_ax, - dy_ax,
                              width=width, head_width=head_width,
                              head_length=head_length,
-                            transform=ax.transData, color=color,
+                            transform=ax.transAxes, color=color,
                              length_includes_head=True,lw=0,
                              label = label
                              )
@@ -9185,28 +9232,28 @@ class FigurePanel():
 
 
     def get_dX_dY_inch(self, new_target, new_direction, size_inch):
-            # define cases for no x and no y movement
-            if (new_direction[0] - new_target[0]) == 0:
-                dX_inch = 0
-                if new_direction[1] > new_target[1]:
-                    dY_inch = - size_inch
-                else:
-                    dY_inch = size_inch
-            elif (new_direction[1] - new_target[1]) == 0:
-                dX_inch = size_inch
-                dY_inch = 0
+        # define cases for no x and no y movement
+        if (new_direction[0] - new_target[0]) == 0:
+            dX_inch = 0
+            if new_direction[1] > new_target[1]:
+                dY_inch = - size_inch
             else:
-                xy_ratio = ((new_direction[1] - new_target[1]) /
-                            (new_direction[0] - new_target[0]))
-                dX_inch = size_inch / sqrt(1 + xy_ratio * xy_ratio)
-                dY_inch = dX_inch * xy_ratio
-            # since dX_inch formula will always result in positive value
-            # evaluate whether dX_inch value actually should have been negative
-            # then adjust dY_inch accordingly
-            if new_direction[0] < new_target[0]:
-                dX_inch = - dX_inch
-                dY_inch = - dY_inch
-            return dX_inch, dY_inch
+                dY_inch = size_inch
+        elif (new_direction[1] - new_target[1]) == 0:
+            dX_inch = size_inch
+            dY_inch = 0
+        else:
+            xy_ratio = ((new_direction[1] - new_target[1]) /
+                        (new_direction[0] - new_target[0]))
+            dX_inch = size_inch / sqrt(1 + xy_ratio * xy_ratio)
+            dY_inch = dX_inch * xy_ratio
+        # since dX_inch formula will always result in positive value
+        # evaluate whether dX_inch value actually should have been negative
+        # then adjust dY_inch accordingly
+        if new_direction[0] < new_target[0]:
+            dX_inch = - dX_inch
+            dY_inch = - dY_inch
+        return dX_inch, dY_inch
 
 
 
@@ -9623,11 +9670,14 @@ class FigurePanel():
                                                   string_separating_channels=
                                                   string_separating_channels)
 
-        font_size = self.get_maximum_font_size(extract_text_from_identity=func_get_channel_name,
+        font_size = self.get_maximum_font_size(extract_text_from_identity=
+                                               func_get_channel_name,
                                                starting_font_size=font_size,
                                                padding=padding,
-                                               only_show_in_rows = only_show_in_rows,
-                                               only_show_in_columns = only_show_in_columns)
+                                               only_show_in_rows =
+                                               only_show_in_rows,
+                                               only_show_in_columns =
+                                               only_show_in_columns)
 
         font_size_pt = FontProperties(size=font_size).get_size_in_points()
 
@@ -10291,9 +10341,12 @@ class FigurePanel():
 
     def remove_placeholder_images(self):
         for ax_position, ax in self.all_axs.items():
-                identity = self.pos_to_pre_identity_map[ax_position]
-                if identity[0] == -1:
-                    ax.remove()
+            # do not try to remove a panel that was already removed
+            if ax.figure is None:
+                continue
+            identity = self.pos_to_pre_identity_map[ax_position]
+            if identity[0] == -1:
+                ax.remove()
 
 
     def draw_line_on_plots(self, positions, axis,
@@ -10387,16 +10440,20 @@ class FigurePanel():
             ax.add_line(line)
 
     def add_text_on_image(self, texts, images =None,
-                          show_in_rows=None, show_in_columns=None):
+                          show_in_rows=None, show_in_columns=None,
+                          position_in_abs_data_coords=True):
         """
         Add text on image, also delete all text that was added by function
-        "rescale_font_size".
+        "rescale_font_size". Therefore should be specifically used for 
+        adding text on illustrations. Figure editor GUI will output code
+        that uses this function.
         :param texts: list of dicts describing text.
                       Each key of dict is one parameter to axis.text function
                       and each value the corresponding parameter value
                       (x, y and s have to be defined. Other parameters
                       like font_size are optional. See matplotlib docs:
-                      https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.text.html)
+                      "https://matplotlib.org/stable/api/_as_gen/
+                      matplotlib.axes.Axes.text.html")
                       Changing the font size is not recommended, so that
                       font size is uniform across the entire figure.
         :param images: list of dict or dict
@@ -10405,12 +10462,28 @@ class FigurePanel():
                        is a list of allowed values
         :param show_in_rows: list of ints, In which row to show all texts
         :param show_in_columns: list of ints, In which row to show all texts
+        :param position_in_abs_data_coords: Whether the position of the text
+                                        is in data coordinates, which means
+                                        that they will be at the same x,y
+                                        coordinate position, for each zoom
+                                        and the overview image -
+                                        this can be at completely different
+                                        positions in the axes and may
+                                        not be in the axes at all (and
+                                        will therefore not be shown); if False
+                                        position is as axes fraction and will
+                                        not be corrected for zoom
         """
+        # define functions to prevent line length going over limit
+        # but still keeping clear function names
+        is_pos_in_list = self.check_if_pos_is_in_row_col_list
+        correct_position = self.correct_xy_for_cropping_and_zoom
+        coords_from_data_to_axes = self.transform_coords_from_data_to_axes
+        identity_matches_criteria = self.check_if_identity_matches_dict_criteria
+
         for ax_position, ax in self.all_axs.items():
-            position_allowed = self.check_if_pos_is_in_row_col_list(ax_position[0],
-                                                                    ax_position[1],
-                                                                    show_in_rows,
-                                                                    show_in_columns)
+            position_allowed = is_pos_in_list(ax_position[0], ax_position[1],
+                                           show_in_rows, show_in_columns)
 
             if not position_allowed:
                 continue
@@ -10424,16 +10497,37 @@ class FigurePanel():
 
             pre_identity = self.pos_to_pre_identity_map[ax_position]
 
-            for text_nb, text in enumerate(texts):
+            # copy text objects so that they stay the same across axes
+            texts_this_ax = copy.deepcopy(texts)
+
+            for text_nb, text in enumerate(texts_this_ax):
 
                 if type(images) in [list, tuple]:
-                    images_this_text = images[text_nb]
+                    if len(images) > 1:
+                        images_this_text = images[text_nb]
+                    else:
+                        images_this_text = images[0]
                 else:
                     images_this_text = images
 
-                identity_matches = self.check_if_identity_matches_dict_criteria(pre_identity,
-                                                                                images_this_text)
+                identity_matches = identity_matches_criteria(pre_identity,
+                                                             images_this_text)
+
                 if not identity_matches:
+                    continue
+
+                if position_in_abs_data_coords:
+                    text_position = correct_position(text["x"],text["y"],
+                                                     ax_position[0],
+                                                     ax_position[1])
+
+                    text_position = coords_from_data_to_axes(text_position[0],
+                                                             text_position[1], ax)
+                    text["x"] = text_position[0]
+                    text["y"] = text_position[1]
+
+                # do not plot text that is outside of the axes
+                if (text["x"] < 0) | (text["y"] < 0):
                     continue
 
                 if "fontsize" not in text:
@@ -10441,7 +10535,7 @@ class FigurePanel():
                 if "verticalalignment" not in text:
                     text["verticalalignment"] = "center"
                 ax.text(**text, picker=True,
-                        transform=ax.transData)
+                        transform=ax.transAxes)
 
 
     def rescale_font_size(self, font_size_factor = None,
@@ -10611,15 +10705,13 @@ class FigurePanel():
             else:
                 if not FigurePanel.is_none(font_size_factor):
                     text_fontsize *= font_size_factor
-
-            x0, y0 = self.transform_coords_from_axes_to_data(x0, y0, ax)
-            
-            new_text = ax.text(x0, y0, text["text"], # bbox=bbox,
+                    
+            new_text = ax.text(x0, 1-y0, text["text"],
                                 picker=True,
                                 horizontalalignment=hor_alignment,
                                 verticalalignment=vert_alignment,
                                label="__rescaled_text__",
-                                transform=ax.transData,
+                                transform=ax.transAxes,
                                 fontsize=text_fontsize,
                                 linespacing=linespacing)
 
@@ -10631,6 +10723,16 @@ class FigurePanel():
         x_trans = x * ax_width_px
         y_trans = y * ax_height_px
         return x_trans, y_trans
+
+
+    def transform_coords_from_data_to_axes(self, x, y, ax):
+        x_lim = ax.get_xlim()
+        ax_width_px = max(x_lim) - min(x_lim)
+        y_lim = ax.get_ylim()
+        ax_height_px = max(y_lim) - min(y_lim)
+        x_trans = x / ax_width_px
+        y_trans = y / ax_height_px
+        return x_trans, 1-y_trans
 
     def smallestbox(a):
         r = a.any(1)

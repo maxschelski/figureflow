@@ -21,7 +21,11 @@ class ShapeEditor(EditorTool):
             if ((isinstance(self.editor_gui.selected_element, matplotlib.text.Text)) |
                     (isinstance(self.editor_gui.selected_element, matplotlib.patches.FancyArrow))):
                 self.editor_gui.selected_element.set_color(self.color)
-        self.tool_start_position = [event.xdata, event.ydata]
+        (x_tool_ax,
+        y_tool_ax) = self.transform_coords_from_data_to_axes(event.xdata,
+                                                             event.ydata,
+                                                             self.ax)
+        self.tool_start_position = [x_tool_ax, y_tool_ax]
         self.editor_gui.tool_start_position = self.tool_start_position
         return True
 
@@ -31,6 +35,7 @@ class ShapeEditor(EditorTool):
             return False
         if event.key not in ["delete", "backspace"]:
             return False
+
         self.editor_gui.selected_element.remove()
         self.editor_gui.selected_element = None
         self.canvas.draw()

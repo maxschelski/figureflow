@@ -5,9 +5,10 @@ import numpy as np
 
 class EditorTool(object):
 
-    def __init__(self, canvas, editor_gui, ax):
+    def __init__(self, canvas, editor_gui, ax, figure_panel):
         self.canvas = canvas
         self.ax = ax
+        self.figure_panel = figure_panel
         self.active = False
         # self.child = child
         # figure gui tracks the current object
@@ -69,7 +70,7 @@ class EditorTool(object):
             # for the tool (otherwise tools from multiple ax are executed)
             selected_ax_label = self.editor_gui.selected_ax.get_label()
             correct_ax_label = self.ax.get_label()
-            if selected_ax_label == selected_ax_label:
+            if selected_ax_label == correct_ax_label:
                 correct_ax = True
             else:
                 correct_ax = False
@@ -79,6 +80,11 @@ class EditorTool(object):
 
         return wrapper
 
+    def get_position_of_axes(self, ax):
+        axes_label = ax.get_label()
+        axes_position = axes_label.split("-")[1:]
+        axes_position = tuple([int(position) for position in axes_position])
+        return axes_position
 
     def get_movement_and_modifier_keys(self, event):
         all_keys = event.key.split("+")
@@ -113,8 +119,31 @@ class EditorTool(object):
             step_size_to_use *= 10
         step_size_x = step_size_to_use / axes_width_inch * axes_width_px
         step_size_y = step_size_to_use / axes_height_inch * axes_height_px
+
+        (step_size_x,
+        step_size_y) = self.transform_coords_from_data_to_axes(step_size_x,
+                                                               step_size_y, ax)
+        step_size_y = step_size_y - 1
+
         return step_size_x, step_size_y
 
+    def transform_coords_from_data_to_axes(self, x, y, ax):
+        x_lim = ax.get_xlim()
+        ax_width_px = max(x_lim) - min(x_lim)
+        y_lim = ax.get_ylim()
+        ax_height_px = max(y_lim) - min(y_lim)
+        x_trans = x / ax_width_px
+        y_trans = y / ax_height_px
+        return x_trans, 1-y_trans
+
+    def transform_coords_from_axes_to_data(self, x, y, ax):
+        x_lim = ax.get_xlim()
+        ax_width_px = max(x_lim) - min(x_lim)
+        y_lim = ax.get_ylim()
+        ax_height_px = max(y_lim) - min(y_lim)
+        x_trans = x * ax_width_px
+        y_trans = y * ax_height_px
+        return x_trans, y_trans
 
     def get_position_after_step(self, position, movement_keys,
                                 step_size_x, step_size_y):
@@ -136,18 +165,18 @@ class EditorTool(object):
             position_after_step = position_after_step[0,:]
         return position_after_step
 
+    def change_color_of_object(self, target_object, color):
+        if hasattr(target_object, "set_edgecolor"):
+            target_object.set_edgecolor(color)
+        elif hasattr(target_object, "set_color"):
+            target_object.set_color(color)
+        self.canvas.draw()
 
-    def get_position_in_limits(self, position, ax):
-        x_lim = ax.get_xlim()
-        y_lim = ax.get_ylim()
-        width = max(x_lim) - min(x_lim)
-        height = max(y_lim) - min(y_lim)
-        buffer_px = min(width, height) * self.rel_buffer_for_moving_out_of_axes
-        x_lim = [min(x_lim), max(x_lim) - buffer_px]
-        y_lim = [min(y_lim), max(y_lim) - buffer_px]
-        new_pos_in_limits = [min(x_lim[1], max(x_lim[0], position[0])),
-                             min(y_lim[1], max(y_lim[0], position[1]))]
-        return new_pos_in_limits
+    def change_color_of_selected_element_to_default(self):
+        if self.editor_gui.selected_element is not None:
+            self.change_color_of_object(self.editor_gui.selected_element,
+                                        self.color)
+
 
     @only_do_for_correct_object
     def on_pick_event(self, event):
@@ -156,8 +185,7 @@ class EditorTool(object):
         # if self.active_tool is not None:
         #     return False
         # switch color of current selected element back to self.color
-        if self.editor_gui.selected_element is not None:
-            self.editor_gui.selected_element.set_color(self.color)
+        self.change_color_of_selected_element_to_default()
         if self.editor_gui.element_is_picked:
             return False
         event.artist.set_color("red")
@@ -166,12 +194,21 @@ class EditorTool(object):
         self.editor_gui.selected_element = event.artist
         self.canvas.draw()
         self.dragged_element = event.artist
-        self.pick_pos = [event.mouseevent.xdata, event.mouseevent.ydata]
+
+        x_pick_data = event.mouseevent.xdata
+        y_pick_data = event.mouseevent.ydata
+        (x_pick_ax,
+        y_pick_ax) = self.transform_coords_from_data_to_axes(x_pick_data,
+                                                             y_pick_data,
+                                                             self.ax)
+        self.pick_pos = [x_pick_ax, y_pick_ax]
+
         return True
 
 
-    def activate(self, ax =None):
+    def activate(self):
         self.active = True
 
     def deactivate(self):
         self.active = False
+        self.change_color_of_selected_element_to_default()

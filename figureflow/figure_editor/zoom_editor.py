@@ -26,9 +26,25 @@ class ZoomEditor(rectangle_editor.RectangleEditor):
             (rect_dimensions.height == 1)):
                 continue
 
-            # now make them pickable and  add them to list
-            child.set_picker(True)
-            self.all_zoom_rectangles.append(child)
+            zoom_size = child.get_bbox()
+            x0, y0 = (zoom_size.x0, zoom_size.y0)
+            x1, y1 = (zoom_size.x1, zoom_size.y1)
+            width = x1 - x0
+            height = y1 - y0
+
+            rect = matplotlib.patches.Rectangle((x0, y0), width, height,
+                                                linewidth=self.line_width,
+                                                edgecolor=self.color,
+                                                transform=self.ax.transAxes,
+                                                picker=self.pick,
+                                                label=self.element_label,
+                                                facecolor='none')
+            self.ax.add_patch(rect)
+            child.remove()
+
+            self.all_zoom_rectangles.append(rect)
+
+        self.canvas.draw()
 
     @EditorTool.only_do_for_correct_object
     def remove_element(self, event):
@@ -49,6 +65,7 @@ class ZoomEditor(rectangle_editor.RectangleEditor):
         execute = super().use_tool(event)
         if not execute:
             return False
+
         if ((self.rectangle_selector.active_handle is not None) &
                 (self.editor_gui.selected_element is not None)):
             self.all_zoom_rectangles.remove(self.editor_gui.selected_element)
@@ -76,3 +93,9 @@ class ZoomEditor(rectangle_editor.RectangleEditor):
         self.rectangle_selector.set_visible(False)
         self.switch_active_rectangle(rectangle)
 
+    def deactivate(self):
+        super().deactivate()
+        # remove rectangle selector since otherwise
+        # it will appear on the last selected zoom later
+        if self.rectangle_selector is not None:
+            self.rectangle_selector.extents = (0,0,0,0)
