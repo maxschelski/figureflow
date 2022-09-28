@@ -100,6 +100,7 @@ class Figure():
         self.panel_letters_to_show = None
         self.panel_to_edit = None
         self.panel_edit_kwargs = None
+        self.change_cropping = False
 
         #for videos make sure that the height is defined
         if video & (type(self.height) == type(None)):
