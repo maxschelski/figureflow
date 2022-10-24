@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 # from matplotlib.text import Text
+import os
+import re
+import importlib
 import matplotlib.pyplot as plt
 from matplotlib import lines
 import matplotlib.transforms as mtransforms
@@ -19,9 +22,27 @@ import scipy
 import functools
 import itertools
 
+# dynamically load all data plots added
+from . import plots
+from .plots import *
+for plot_module in os.listdir(plots.__path__._path[0]):
+    if plot_module.find(".py") == -1:
+        continue
+    importlib.import_module("figureflow.plots."+plot_module.replace(".py",""))
+
 from scipy import stats
 
 DEFAULT = object()
+
+def module_name_to_class_name(module_name):
+    class_name = module_name.replace(".py","")
+    all_name_parts = class_name.split("_")
+    for name_part in all_name_parts:
+        capitalized_name_part = re.sub("^[\w]", name_part[0].upper(), name_part)
+        # capitalized_name_part[0] = name_part[0].upper()
+        class_name = class_name.replace(name_part, capitalized_name_part)
+    class_name = class_name.replace("_","")
+    return class_name
 
 def create_column_subplot(outer_border, label, grid_columns=1, column=0, column_span=1):
     fig = plt.gcf()
@@ -460,401 +481,87 @@ def construct_all_box_pairs(data,col,col_order,x,x_order,hue,hue_order):
         col_data1 = data.loc[data[col] == col_val1]
         x_vals1 = col_data1[x].drop_duplicates()
         for x_val1 in x_vals1:
-            if (x_val1 in x_order) | (x_val1 == "_-_-None-_-_"):
-                x_data1 = col_data1.loc[col_data1[x] == x_val1]
-                hue_vals1 = x_data1[hue].drop_duplicates()
-                for hue_val1 in hue_vals1:
-                    if (hue_val1 in hue_order) | (hue_val1 == "_-_-None-_-_"):
-                        for col_val2 in col_order:
-                            col_data2 = data.loc[data[col] == col_val2]
-                            x_vals2 = col_data2[x].drop_duplicates()
-                            for x_val2 in x_vals2:
-                                if (x_val2 in x_order) | (x_val2 == "_-_-None-_-_"):
-                                    x_data2 = col_data2.loc[col_data2[x] == x_val2]
-                                    hue_vals2 = x_data2[hue].drop_duplicates()
-                                    for hue_val2 in hue_vals2:
-                                        if (hue_val2 in hue_order) | (hue_val2 == "_-_-None-_-_"):
-                                            col_different = (col_val1 != col_val2)
-                                            x_different = (x_val1 != x_val2)
-                                            hue_different = (hue_val1 != hue_val2)
-                                            if col_different | x_different | hue_different:
-                                                new_box_pair = [(col_val1,x_val1,hue_val1),(col_val2,x_val2,hue_val2)]
-                                                # check if pair was already added
-                                                box_pair_exists = False
-                                                for box_pair in all_box_pairs:
-                                                    if (new_box_pair[0] in box_pair) & (new_box_pair[1] in box_pair):
-                                                        box_pair_exists = True
-                                                        break
-                                                if not box_pair_exists:
-                                                    all_box_pairs.append(new_box_pair)
+            if not( (x_val1 in x_order) | (x_val1 == "_-_-None-_-_")):
+                continue
+            x_data1 = col_data1.loc[col_data1[x] == x_val1]
+            hue_vals1 = x_data1[hue].drop_duplicates()
+            for hue_val1 in hue_vals1:
+                if not((hue_val1 in hue_order) | (hue_val1 == "_-_-None-_-_")):
+                    continue
+                for col_val2 in col_order:
+                    col_data2 = data.loc[data[col] == col_val2]
+                    x_vals2 = col_data2[x].drop_duplicates()
+                    for x_val2 in x_vals2:
+                        if not ((x_val2 in x_order) |
+                                (x_val2 == "_-_-None-_-_")):
+                            continue
+                        x_data2 = col_data2.loc[col_data2[x] == x_val2]
+                        hue_vals2 = x_data2[hue].drop_duplicates()
+                        for hue_val2 in hue_vals2:
+                            if not((hue_val2 in hue_order) |
+                                   (hue_val2 == "_-_-None-_-_")):
+                                continue
+                            col_different = (col_val1 != col_val2)
+                            x_different = (x_val1 != x_val2)
+                            hue_different = (hue_val1 != hue_val2)
+                            if not (col_different | x_different |
+                                    hue_different):
+                                continue
+                            new_box_pair = [(col_val1,x_val1,hue_val1),
+                                            (col_val2,x_val2,hue_val2)]
+                            # check if pair was already added
+                            box_pair_exists = False
+                            for box_pair in all_box_pairs:
+                                if not((new_box_pair[0] in box_pair) &
+                                       (new_box_pair[1] in box_pair)):
+                                    continue
+                                box_pair_exists = True
+                                break
+                            if not box_pair_exists:
+                                all_box_pairs.append(new_box_pair)
     return all_box_pairs
 
 
 
-def plot_data(ax, x, y, hue, data,
-              x_order, hue_order,
-              plot_colors, show_data_points,
-              line_width, size_factor, plot_type,
-              fliersize, show_formula, position_regression_text,
-                show_regression_stats,
-              figure_panel, swarmplot_point_size,
-              use_hue_colors_for_swarm_plot,
-              show_mean_line,
-              bar_plot_dodge, x_range,
-              connect_paired_data_points):
+def plot_data(ax, x, y, plot_hue, hue_column, data, x_order, hue_order,
+              plot_colors, line_width, size_factor, plot_type, nb_x_vals,
+              figure_panel, x_range, show_data_points,
+              pair_unit_columns, connect_paired_data_points,data_plot_kwds):
+    plot_object = None
+    for plot_name in [plot_type+"_plot", plot_type]:
+        if plot_name not in globals():
+            continue
+        plot_class_name = module_name_to_class_name(plot_name)
+        module = globals()[plot_name]
+        if not hasattr(module, plot_class_name):
+            raise ValueError(f"The plot {plot_type} cannot be used "
+                             f"since the class name {plot_class_name} "
+                             f"in the module {plot_name} does not follow "
+                             f"the camel-case PEP8 naming convention.")
+        plot_object = getattr(module, plot_class_name)
+    if plot_object is None:
+        raise ValueError(f"The plot type {plot_type} cannot be found. Is a "
+                         f"module with that name defined in the subpackage "
+                         f"'plots'.")
 
     if plot_colors == -1:
         plot_colors = sns.xkcd_palette(["white","grey"])
-    fig = plt.gcf()
 
-    meanlineprops = dict(linestyle='-', linewidth=line_width*2, color='black',solid_capstyle="butt")
+    plotter = plot_object(x=x, y=y, hue=plot_hue, data=data,
+                          x_order=x_order, hue_order=hue_order,
+                          plot_colors=plot_colors, line_width=line_width,
+                          size_factor=size_factor, ax=ax, plot_type=plot_type,
+                          nb_x_vals=nb_x_vals, x_range=x_range,
+                          show_data_points=show_data_points,
+                          pair_unit_columns=pair_unit_columns,
+                          connect_paired_data_points=connect_paired_data_points,
+                          connect_points_hue=hue_column,
+                          figure_panel=figure_panel,
+                          **data_plot_kwds)
 
-    labels_to_add = []
-
-    if ((show_data_points | connect_paired_data_points) & ( (plot_type == "box") |
-                                                     (plot_type == "bar") |
-                                                     (plot_type.lower() == "points"))):
-        show_outliers =False
-        if hue != None:
-            dodge = True
-        else:
-            dodge = False
-        size = swarmplot_point_size * size_factor # * 0.83  # 0.83 is sqrt of 0.7
-        swarmplot_line_width = swarmplot_point_size/3.5 * size_factor
-        if not show_data_points:
-            # if no datapoints should be shown but there should still be
-            # connections between grouped datapoints, then datapoints
-            # need to be plotted without being visible
-            # to be then connected later
-            alpha = 0
-        else:
-            alpha=0.55
-        if plot_type == "points":
-            alpha=1
-        if use_hue_colors_for_swarm_plot:
-            plot = sns.swarmplot(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order,
-                                        dodge=dodge, edgecolor="black", linewidth=swarmplot_line_width, size = size,
-                                        alpha=alpha, palette=plot_colors)# # fc="none" for empty markers
-        else:
-            plot = sns.swarmplot(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order,
-                                        dodge=dodge, edgecolor="black", linewidth=swarmplot_line_width, size = size,
-                                        alpha=alpha, fc="white")
-
-    else:
-        show_outliers= True
-
-    # if hue is defined, bow_width needs to be 0.8 in order to align points with boxplot
-    if (hue != None):
-        box_width = 0.8
-    else:
-        box_width = 0.63
-
-    if (plot_type == "box") | (plot_type == "points"):
-        # Create the same BoxPlotter object as seaborn's boxplot
-        plot = sns.categorical._BoxPlotter(
-            x, y, hue, data, x_order, hue_order, orient=None, width=box_width, color=None,
-             saturation=1, dodge=True,fliersize=fliersize, linewidth=line_width, palette=plot_colors)
-
-        # set gray of boxplot manually since it is otherwise determined by the colors used in the plotted box_ends
-        # this can lead to different grays for different subplots if only a part of the colors are plotted in one of them
-        gray = mpl.colors.rgb2hex((0, 0, 0))
-        plot.gray = gray
-
-        kwargs = dict(meanprops=meanlineprops,showfliers=show_outliers,
-                      showmeans=show_mean_line,meanline=show_mean_line)
-        kwargs.update(dict(whis=1.5, notch=False))
-        # make boxplots invisible by changing color to white
-        if (plot_type == "box"):
-            plot.plot(ax, kwargs)
-            # kwargs = dict(color="white")
-            # kwargs.update(dict(whis=1.5, notch=False))
-
-    elif plot_type == "bar":
-        plot = sns.categorical._BarPlotter(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order, palette=plot_colors,
-                                estimator=np.mean, ci=None, n_boot=None, units=None, seed=None,
-                                orient=None, color=None,saturation=1, errcolor=None, errwidth=0,
-                                           capsize=None, dodge=bar_plot_dodge)
-        # plot = sns.barplot(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order, palette=plot_colors)
-        # set gray of boxplot manually since it is otherwise determined by the colors used in the plotted box_ends
-        # this can lead to different grays for different subplots if only a part of the colors are plotted in one of them
-        gray = mpl.colors.rgb2hex((0, 0, 0))
-        plot.gray = gray
-        plot.plot(ax, {"linewidth":line_width,"edgecolor":"black"})
-
-    elif plot_type == "line":
-
-        data[x] = pd.to_numeric(data[x])
-        
-        data.sort_values(x, inplace=True)
-
-        if type(hue) == type(None):
-            nb_colors = 1
-        else:
-            if len(hue_order) > 0:
-                nb_colors = len(hue_order)
-            else:
-                nb_colors = len(data[hue].drop_duplicates())
-
-        plot_colors = sns.color_palette(plot_colors, n_colors=nb_colors)
-        variables = {}
-        variables["x"] = x
-        variables["y"] = y
-
-        variables["hue"] = hue
-
-        plot = sns.relational._LinePlotter(
-                data=data, variables=variables,
-                estimator=None, ci=None, n_boot=None, seed=None,
-                sort=None, err_style="band", err_kws=None, legend="full")
-        plot.map_hue(palette=plot_colors, order=hue_order, norm=None)
-
-        plot._attach(ax)
-
-        # only set x range if x_range is not fixed
-        if type(x_range) == type(None):
-            min_x = data[x].min()
-            max_x = data[x].max()
-            ax.set_xlim(min_x, max_x)
-
-        plot.plot(ax,{})
-
-    elif plot_type == "scatter":
-
-
-        data[x] = pd.to_numeric(data[x])
-        if type(hue) != type(None):
-            nb_colors = len(data[hue].drop_duplicates())
-        else:
-            nb_colors = 1
-        plot_colors = sns.color_palette(plot_colors, n_colors=nb_colors)
-
-
-        plot = sns.scatterplot(
-            data=data, x=x, y=y, hue=hue, ax=ax,
-            palette = plot_colors, color=plot_colors[0],
-            alpha=0.5, sizes=[25 * size_factor]
-        )
-
-    elif plot_type == "regression":
-
-        data[x] = pd.to_numeric(data[x])
-
-        if type(hue) != type(None):
-            nb_colors = len(data[hue].drop_duplicates())
-        else:
-            nb_colors = 1
-
-        plot_colors = sns.color_palette(plot_colors, n_colors=nb_colors)
-
-        line_kws = {}
-        scatter_kws = {}
-
-        if len(plot_colors) == 1:
-            line_kws["color"] = plot_colors[0]
-            scatter_kws["color"] = plot_colors[0]
-
-        scatter_kws["sizes"] = [25 * size_factor]
-        scatter_kws["alpha"] = 0.5
-
-        plot = sns.regplot(
-            data=data, x=x, y=y,line_kws=line_kws,
-            scatter_kws=scatter_kws, ax=ax)
-
-        if show_formula | show_regression_stats:
-
-            txt_labels = []
-
-            if show_formula:
-                # get formulat of regression line
-                x_line_vals = plot.get_lines()[0].get_xdata()
-                y_line_vals = plot.get_lines()[0].get_ydata()
-                results = scipy.stats.linregress(x_line_vals, y_line_vals)
-                slope = np.round(results.slope, 2)
-                intercept = np.round(results.intercept, 2)
-
-                # make string of formula for regression line
-                formula_txt = "y = " + str(slope) + "x + " + str(intercept)
-                txt_labels.append(formula_txt)
-
-            if show_regression_stats:
-                r, p_val = scipy.stats.pearsonr(data[x], data[y])
-                r = np.round(r,2)
-                # round pval to two visible digits
-                decimals_round = 1
-                nb_non_zero = 0
-                while True:
-                    p_val_rounded = np.round(p_val, decimals_round)
-                    decimals_round += 1
-                    if p_val_rounded > 0:
-                        nb_non_zero += 1
-                    if nb_non_zero == 2:
-                        break
-
-                regression_text = "r = " + str(r) +"; p = " + str(p_val_rounded)
-                txt_labels.append(regression_text)
-
-            standard_x_position = "top"
-            standard_y_position = "right"
-            # define padding of txt label from sites (horizontal and vertical)
-            padding = 0.03
-
-            # calculate where the formula should displayed within the plot
-            font_size_pt = FontProperties(size="medium").get_size_in_points()
-
-            # initialize txt size in px as zero
-            # but increase for each text label
-            # so that they are shown below each other
-            # the first text label is shown on the top
-
-            # reduce font size to start with to add to reduce vertical padding
-            # value determined through trial and error
-            # good value depends on padding defined above
-            font_height_pt = - font_size_pt * 0.5
-            for label_nb, txt_label in enumerate(txt_labels):
-
-                font_height_pt += font_size_pt
-
-                # increase font size by 10% to enable vertical padding
-                # between first and second label
-                font_height_pt += label_nb * font_size_pt * 0.1
-
-                # add one number at end of string, seems that ax extends over the plot area by + 1.5 numbers
-                txt_size_px = figure_panel.get_dimension_of_text(txt_label,
-                                                                  font_size_pt,
-                                                                  ax)
-                txt_width_px = txt_size_px[0]
-                
-                labels_to_add.append({})
-                # create function to get xy position when needed
-                labels_to_add[-1]["xy"] = functools.partial(figure_panel.get_xy_of_text_from_position,
-                                                            txt_label, ax,
-                                                            position_regression_text,
-                                                            txt_width_px,
-                                                            font_height_pt,
-                                                            standard_x_position,
-                                                            standard_y_position,
-                                                            padding)
-                labels_to_add[-1]["text"] = txt_label
-                labels_to_add[-1]["fontsize"] = font_size_pt
-                labels_to_add[-1]["xycoords"] = "axes fraction"
-                labels_to_add[-1]["label_method"] = ax.annotate
-
-    if (hue != None) & ( (plot_type == "box") | (plot_type == "bar") ):
-        # code from stackoverflow (https://stackoverflow.com/questions/56838187/how-to-create-spacing-between-same-subgroup-in-seaborn-boxplot)
-        fac = 0.8
-        # iterating through axes artists:
-        for c in ax.get_children():
-
-            # searching for PathPatches
-            if isinstance(c, PathPatch):
-                # getting current width of box:
-                p = c.get_path()
-                verts = p.vertices
-                verts_sub = verts[:-1]
-                xmin = np.min(verts_sub[:, 0])
-                xmax = np.max(verts_sub[:, 0])
-                xmid = 0.5*(xmin+xmax)
-                xhalf = 0.5*(xmax - xmin)
-
-                # setting new width of box
-                xmin_new = xmid-fac*xhalf
-                xmax_new = xmid+fac*xhalf
-                verts_sub[verts_sub[:, 0] == xmin, 0] = xmin_new
-                verts_sub[verts_sub[:, 0] == xmax, 0] = xmax_new
-
-                # setting new width of median line
-                for l in ax.lines:
-                    if np.all(l.get_xdata() == [xmin, xmax]):
-                        l.set_xdata([xmin_new, xmax_new])
-
+    plot, labels_to_add = plotter.plot()
+    
     return plot, labels_to_add
-
-
-def add_lines_to_connect_paired_data_points(col_data, ax, nb_x_vals, x, y, hue,
-                                     new_x_order, new_hue_order,
-                                     connecting_line_color,
-                                     connecting_line_alpha,
-                                     connecting_line_width,
-                                            pair_unit_columns):
-    if nb_x_vals <= 1:
-        return
-    # Code to connect paired points from S.A. on stackoverflow:
-    # https://stackoverflow.com/questions/51155396/plotting-colored-lines-connecting-individual-data-points-of-two-swarmplots
-    # go through each set of two groups out of all groups
-    # get all groups from new_x_order and new_hue_order combinations
-    if len(new_hue_order) == 0:
-        sorted_hue_vals = np.unique(col_data[hue].values)
-    else:
-        sorted_hue_vals = new_hue_order
-
-    col_data = col_data.sort_values(pair_unit_columns)
-
-    # without hue there is only one group containing all x values
-    all_x_vals = col_data[x].drop_duplicates().values
-    all_data_groups = []
-    if len(new_hue_order) == 0:
-        all_data_groups.append(list(itertools.product(all_x_vals,
-                                                      sorted_hue_vals)))
-    else:
-        # with hue there are as many groups as there are x values
-        # and for each x there are as many groups
-        for x_val in new_x_order:
-            new_groups = itertools.product(x_val, sorted_hue_vals)
-            all_data_groups.append(new_groups)
-
-    current_group_start_number = 0
-    for data_group in all_data_groups:
-        data_group = list(data_group)
-        sub_group_numbers = list(range(len(data_group)))
-        # go through all group numbers in pairs of two
-        # by taking the group number and one further
-        # therefore stop one before the last group number
-        for sub_group_nb in sub_group_numbers[:-1]:
-
-            # get x and hue values of first group
-            data_group1 = data_group[sub_group_nb]
-            data_group1_vals = col_data.loc[(col_data[x] == data_group1[0]) &
-                                            (col_data[hue] == data_group1[1]), y].values
-            # get x and hue values of second group
-            data_group2 = data_group[sub_group_nb + 1]
-            data_group2_vals = col_data.loc[(col_data[x] == data_group2[0]) &
-                                            (col_data[hue] == data_group2[1]), y].values
-            # do not connect groups if there is only one datapoint
-            if (len(data_group1_vals) <= 1) | (len(data_group2_vals) <= 1):
-                return
-
-            # get the number of the current data group
-            # with respect to the start number
-            data_group_nb1 = current_group_start_number + sub_group_nb
-            data_group_nb2 = data_group_nb1 + 1
-
-            locs1 = ax.get_children()[data_group_nb1].get_offsets()
-            locs2 = ax.get_children()[data_group_nb2].get_offsets()
-
-            # before plotting, we need to sort so that the data points
-            # correspond to each other as they did in the original data
-            # since in the plot the data points are sorted ascendingly
-            # by their value
-            sort_group1 = np.argsort(data_group1_vals)
-            sort_group2 = np.argsort(data_group2_vals)
-
-            # revert "ascending sort" through sort_group2.argsort(),
-            # and then sort into order corresponding with data_group2_vals
-            locs2_sorted = locs2[sort_group2.argsort()][sort_group1]
-
-            for data_point_nb in range(locs1.shape[0]):
-                # the first column corresponds to the x coordinates
-                x_for_line = [locs1[data_point_nb, 0],
-                              locs2_sorted[data_point_nb, 0]]
-                # the second column corresponds to the y coordinates
-                y_for_line = [locs1[data_point_nb, 1],
-                              locs2_sorted[data_point_nb, 1]]
-                ax.plot(x_for_line, y_for_line, color=connecting_line_color,
-                        alpha=connecting_line_alpha,
-                        lw=connecting_line_width)
-
-        # increase the current group start number for next groups
-        current_group_start_number += len(data_group)
 
 
 def add_column_plot_title_above(ax_annot, col_val, col_label_padding, fontsize):
@@ -2045,7 +1752,7 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
                             all_ax_data, ax,annotated_pairs, text_offset,
                             fontsize, h, ann_list, line_width, loc,
                             y_offset_to_box, y_offset, color, use_fixed_offset,
-                            show_data_points, fliersize):
+                            show_data_points):
 
     # if show_data_points is False, outliers will be plotted
     # fliersize is the size in pt of these outliers
@@ -2442,79 +2149,308 @@ def add_labels_within_ax(all_labels_to_add):
 
         label_to_add["label_method"](**params)
 
-def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[],
-                        hue_order=[], box_pairs=[], col=None, col_order=[],
-                        y_range = None, x_range = None, hor_alignment ="left",
-                        show_col_labels_above = False,
+def set_y_ticks(ax, y_tick_interval, show_y_minor_ticks):
+    if show_y_minor_ticks:
+        ax.minorticks_on()
+        ax.xaxis.set_tick_params(which='minor', bottom=False)
+
+    if type(y_tick_interval) != type(None):
+        new_locator = mplticker.MultipleLocator(base=y_tick_interval)
+        ax.yaxis.set_major_locator(new_locator)
+
+def set_x_ticks(ax, x_tick_interval, x_range):
+    if type(x_tick_interval) != type(None):
+        new_locator = mplticker.MultipleLocator(base=x_tick_interval)
+        ax.xaxis.set_major_locator(new_locator)
+
+    if type(x_range) != type(None):
+        ax.set_xlim(x_range[0], x_range[1])
+
+def add_grid_lines(ax, y_range, plot_type, line_width, line_width_thin,
+                   show_y_minor_ticks):
+    if type(y_range) == type(None):
+        return
+
+    # ax.set_ylim(y_range[0], y_range[1])
+    # ax.tick_params(axis="y", which="minor", )
+    # ax.tick_params(axis='y', which='minor', bottom=False)
+    # ax.set_yticks([0.75, 0.85, .95], minor=True)
+
+    if plot_type == "line":
+        line_color = "0.7"
+    else:
+        line_color = "0.8"
+
+    ax.grid(b=True, color=line_color, linestyle='-', which="major",
+            axis="y", linewidth=line_width)
+
+    if plot_type == "line":
+        # visible needs to be set True for line plots
+        # it seems that somewhere the grid is switched off
+        # and therefore just supplying kwargs to the function
+        # does not automatically turn the grid visibility on
+        ax.grid(visible=True, color=line_color, linestyle='-',
+                which="major",
+                axis="x", linewidth=line_width)
+
+    if show_y_minor_ticks:
+        ax.grid(visible=True, b=False, color=line_color, linestyle='-',
+                which="minor", axis="y", linewidth=line_width_thin)
+
+
+def overhanging_axis_tick_labels_into_inner_border(all_x_tick_overhangs,
+                                                   all_axs, ax_annot,
+                                                   ax_labels):
+    # move overhanging axis tick labels into inner_border
+    for ax_nb, (col_val, ax) in enumerate(all_axs.items()):
+
+        # only the first ax has a y column, therefore
+        # get values fom that ax
+        if ax_nb == 0:
+            y_axis_ticks_overhang_rel = get_axis_tick_labels_overhang(ax, "y")
+
+        x_axis_tick_overhang_rel = all_x_tick_overhangs[col_val]
+        axis_size = ax.get_position()
+        # then set new axis position with reduced height and reduced width
+        ax.set_position([axis_size.x0, axis_size.y0,
+                        axis_size.width - x_axis_tick_overhang_rel,
+                        axis_size.height - y_axis_ticks_overhang_rel])
+
+    for ax in [ax_annot, ax_labels]:
+        # also move ax_annot to have consistent positioning of annotations
+        axis_size = ax.get_position()
+        # then set new axis position with reduced height and reduced width
+        ax.set_position([axis_size.x0, axis_size.y0,
+                         axis_size.width - x_axis_tick_overhang_rel,
+                         axis_size.height - y_axis_ticks_overhang_rel])
+
+def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
+                           all_box_structs, all_box_structs_dics,
+                       test, test_short_name, all_box_names,
+                           text_format,
+                           add_bonferroni_correction,
+                           show_stats_to_control_without_lines,
+                       pair_unit_columns, annotate_nonsignificant,
+                       verbose,pvalue_format_string,pvalue_thresholds,
+                                                    show_data_points,
+                       data, col, col_order, y,  x, x_order, hue,
+                       text_offset,use_fixed_offset,loc,
+                       hue_order, included_data,max_yrange,
+                       y_offset, y_offset_to_box,fontsize,color,
+                           line_height,line_width,
+                           show_test_name):
+    ann_list = []
+    test_result_list = []
+    annotated_pairs = {}
+    # get all box pairs depending on grouping of data (group, hue)
+    # and whether pairs were added
+    # get maximum level of pairs for comparison,
+    # will determine where statistics will be performed on
+    all_box_pairs, max_level_of_pairs = get_all_box_pairs(box_pairs, data,
+                                                          col, col_order,
+                                                          x, x_order,
+                                                          hue, hue_order)
+
+    # do statistics on correct level (within group or within x,
+    # depending on how pairs look like)
+    # if annotate_nonsignificant is False,
+    # also exclude non significant box_pairs
+    # TO ADD: CHOICE OF STAT TEST
+    # POSSIBLY TO ADD: automatic choice of
+    # test depending on normal distribution of data
+    (all_box_pairs,
+     p_values,
+     test_result_list) = get_stats_and_exclude_nonsignificant(included_data,
+                                                              col, x, y,hue,
+                                                                all_box_pairs,
+                                                              max_level_of_pairs,
+                                                                test_short_name,
+                                                              test,test_result_list,
+                                                              add_bonferroni_correction,
+                                                              pair_unit_columns,
+                                                                annotate_nonsignificant,
+                                                              verbose,
+                                                              )
+
+    # Build array that contains the x and y_max position
+    # of the highest annotation or box data at a given x position,
+    # and also keeps track of the number of stacked annotations.
+    # This array will be updated when a new annotation is drawn.
+    # combine all arrays from all subplots
+    y_stack_arr = np.array([[box_struct['x']
+                             for box_structs in all_box_structs.values()
+                             for box_struct in box_structs],
+                            [box_struct['ymax']
+                             if not np.isnan(box_struct['ymax']) else 0
+                             for box_structs in all_box_structs.values()
+                             for box_struct in box_structs],
+                            [0 for box_structs in all_box_structs.values()
+                             for i in range(len(box_structs)) ]])
+
+    if loc == 'outside':
+        y_stack_arr[1, :] = ylim[1]
+
+    # within pairs with same x val and
+    # pairs with different x val sort separately:
+    box_pairs_grouped = group_box_pairs_in_same_x(all_box_pairs)
+
+    # create dict with all texts to be annotated
+    pval_texts =  get_annotated_text_dict(p_values,pvalue_format_string,
+                                          test_short_name,pvalue_thresholds,
+                                          show_test_name,text_format)
+
+    h = line_height * max_yrange
+    for x_val, box_pairs_of_x in box_pairs_grouped.items():
+        if ((x_val != "different_x") & (hue != "no_hue_defined") &
+                show_stats_to_control_without_lines):
+            (box_pairs_of_x,
+             ann_list,
+             ax_annot,
+             all_axs,
+             annotated_pairs,
+             y_stack_arr) = plot_comparison_to_control_within_x(box_pairs_of_x,
+                                            hue_order,x_val,hue, col,
+                                            pval_texts, all_box_names,
+                                                                all_box_structs_dics,
+                                            ann_list, ax_annot, text_offset,
+                                                                y_offset_to_box,
+                                            fontsize, all_axs, annotated_pairs,
+                                            y_stack_arr, h, use_fixed_offset, loc)
+
+
+        (box_counter,
+         all_boxes) = count_occurences_of_boxes_in_pairs(box_pairs_of_x,
+                                                         pval_texts)
+
+        # sort pairs by number of occurence of most occuring box in pair
+        # make ranking of all boxes
+        all_boxes_sorted = sorted(all_boxes, reverse=True,
+                                  key=lambda x: box_counter[x])
+        box_struct_pairs_grouped = get_box_dict_pairs_grouped_by_ranking(all_boxes_sorted,
+                                                                         box_pairs_of_x,
+                                                                         pval_texts,
+                                                                         all_box_names,
+                                                                         all_box_structs_dics,
+                                                                         col)
+
+        # sort groups by max y so that lower positioned annotations are done first
+        max_y_groups = {}
+        for box_tuple, box_struct_pairs in box_struct_pairs_grouped.items():
+            max_y_group = 0
+            for box_struct_pair in box_struct_pairs:
+                for box_struct in box_struct_pair:
+                    max_y = box_struct["box_data"].max()
+                    max_y_group = max(max_y_group, max_y)
+            max_y_groups[box_tuple] = max_y_group
+
+        box_struct_pairs_grouped = {k: v for k, v in
+                                    sorted(box_struct_pairs_grouped.items(),
+                                           key=lambda item:
+                                           max_y_groups[item[0]])}
+
+        # go through each of the groups ranked by commonly occuring boxes
+        for (annot_number,
+             (box_tuple,
+              box_struct_pairs)) in enumerate(box_struct_pairs_grouped.items()):
+
+            box = box_tuple[0]
+            # annotate all box_pairs in a group
+            (ax_annot,
+             all_axs,
+             annotated_pairs,
+             y_stack_arr,
+             ann_list) = annotate_box_pair_group(box_struct_pairs, box_tuple,
+                                                 box, y_stack_arr,
+                                                 all_axs, ax_annot,
+                                                 annotated_pairs, text_offset,
+                                                 fontsize, h, ann_list,
+                                                 line_width, loc,
+                                                 y_offset_to_box,
+                                                 y_offset, color,
+                                                 use_fixed_offset,
+                                                 show_data_points)
+    return ax_annot, all_axs, test_result_list
+
+
+def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
+                                 x_order=[], hue_order=[], box_pairs=[],
+                                 col=None, col_order=[], y_range = None,
+                                 x_range = None, hor_alignment ="left",
+                                 show_col_labels_above = False,
                                  show_col_labels_below=True,
-                        perform_stat_test=True,
-                        pvalues=None, test_short_name=None,
-                        test="Dunn", text_format='star', pvalue_format_string=DEFAULT,
+                                 perform_stat_test=True, pvalues=None,
+                                 test_short_name=None, test="Dunn",
+                                 text_format='star', show_test_name=False,
+                                 pvalue_format_string=DEFAULT,
                                  add_bonferroni_correction=False,
-                        text_annot_custom=None, outer_border=None,# padding=0.5,
-                        loc='inside', show_test_name=True,
-                        figure_panel=None, always_show_col_label=False,
-                        meanline_props=None, plot_type="box", bar_plot_dodge=True,
-                                 show_mean_line=True,
-                        pvalue_thresholds=DEFAULT, stats_params=dict(),
-                        y_axis_label=None, fig=None, show_x_axis=True,
-                        leave_space_for_x_tick_overhang=False,
-                        show_y_axis=True,
-                        letter=None, annotate_nonsignificant=False,
-                        use_fixed_offset=False, line_offset_to_box=None,
-                        line_offset=None, line_height=0.15, text_offset=1,
-                        color='0.2', line_width=0.8, line_width_thin=0.3,
-                        fontsize='medium', verbose=False, plot_colors=-1,
-                        show_data_points=True, connect_paired_data_points=True,
-                        pair_unit_columns=None,
-                        connecting_line_width=1, connecting_line_alpha=0.1,
-                        connecting_line_color="black",
-                        neg_y_vals=True, inner_padding=1, box_width=0.4,
-                                 background_color="0.98",
-                        size_factor=1, group_padding=0.04, legend_spacing = 0.25,
-                        x_axis_label = None, x_tick_interval=None, y_tick_interval=None,
-                        axis_padding=10, fliersize=3,
-                        show_formula=True, position_formula="top-right",
-                                 show_regression_stats = True, legend_title=None,
-                        show_legend=True, col_label_padding=4,
-                        swarmplot_point_size = 2,
-                                 use_hue_colors_for_swarm_plot=False,
-                                 show_row_label = False,
-                        row_label_text=None, row_label_orientation = "vert",
-                        auto_scale_group_padding = True,
-                        plot_title = None, show_y_minor_ticks=False,
-                                 y_ticks=None,
-                        borderaxespad_ = 0.2,
-                        add_background_lines = True, vertical_lines=False,
-                        show_stats_to_control_without_lines=False,
-                        show_x_label_in_all_columns=True,
-                        legend_handle_length=2,
-                        x_tick_label_rotation=False,
-                        _leave_space_for_legend=False,
+                                 text_annot_custom=None, outer_border=None,
+                                 loc='inside', figure_panel=None,
+                                 always_show_col_label=False, plot_type="box",
+                                 data_plot_kwds=None, pvalue_thresholds=DEFAULT,
+                                 stats_params=dict(), y_axis_label=None,
+                                 fig=None, show_x_axis=True,
+                                 leave_space_for_x_tick_overhang=False,
+                                 show_y_axis=True, letter=None,
+                                 annotate_nonsignificant=False,
+                                 use_fixed_offset=False,
+                                 line_offset_to_box=None, line_offset=None,
+                                 text_offset=1, line_width=0.8,
+                                 line_height=0.02, line_width_thin=0.3,
+                                 color = "black", fontsize='medium',
+                                 verbose=False, plot_colors=-1,
+                                 show_data_points=True,
+                                 pair_unit_columns=None,
+                                 connect_paired_data_points=True,
+                                 neg_y_vals=True, inner_padding=1,
+                                 box_width=0.4, background_color="0.98",
+                                 size_factor=1, group_padding=0.04,
+                                 legend_spacing = 0.25, x_axis_label = None,
+                                 x_tick_interval=None, y_tick_interval=None,
+                                 axis_padding=10, legend_title=None,
+                                 show_legend=True, col_label_padding=4,
+                                 show_row_label = False, row_label_text=None,
+                                 row_label_orientation = "vert",
+                                 auto_scale_group_padding = True,
+                                 plot_title = None, show_y_minor_ticks=False,
+                                 y_ticks=None, borderaxespad_ = 0.2,
+                                 add_background_lines = True,
+                                 vertical_lines=False,
+                                 show_stats_to_control_without_lines=False,
+                                 show_x_label_in_all_columns=True,
+                                 legend_handle_length=2,
+                                 x_tick_label_rotation=False,
+                                 _leave_space_for_legend=False,
                                  for_measuring=False):
     """
-    Optionally computes statistical test between pairs of data series, and add statistical annotation on top
-    of the boxes. Uses the same exact arguments `data`, `x`, `y`, `hue`, `order`,
+    Optionally computes statistical test between pairs of data series,
+    and add statistical annotation on top
+    of the boxes. Uses the same exact arguments `data`, `x`, `y`,`hue`, `order`,
     `hue_order` as the seaborn boxplot function.
     This function works in one of the two following modes:
-    a) `perform_stat_test` is True: statistical test as given by argument `test` is performed.
-    b) `perform_stat_test` is False: no statistical test is performed, list of custom p-values `pvalues` are
-       used for each pair of boxes. The `test_short_name` argument is then used as the name of the
-       custom statistical test.
+    a) `perform_stat_test` is True: statistical test as given by argument
+                                    `test` is performed.
+    b) `perform_stat_test` is False: no statistical test is performed,
+                                    list of custom p-values `pvalues` are
+       used for each pair of boxes. The `test_short_name` argument is then
+       used as the name of the custom statistical test.
     :param line_height: in axes fraction coordinates
     :param text_offset: in points
     :param box_pairs: can be of either form:
         For non-grouped boxplot: `[[cat1, cat2], [cat3, cat4]]`.
-        For boxplot grouped by hue: `[[(cat1, hue1), (cat2, hue2)], [(cat3, hue3), (cat4, hue4)]]`
+        For boxplot grouped by hue: `[[(cat1, hue1), (cat2, hue2)],
+                                    [(cat3, hue3), (cat4, hue4)]]`
         For boxplots grouped by hue and an additional column (col):
-            '[[(col1,cat1, hue1), (col2,cat2, hue2)], [(col3,cat3, hue3), (col4,cat4, hue4)]]'
+            '[[(col1,cat1, hue1), (col2,cat2, hue2)],
+             [(col3,cat3, hue3), (col4,cat4, hue4)]]'
     :param col: group that is plotted in columns of plot for a three-level plot
-    :param hor_alignment: "right", "left" or "center", horizontal alignment of plots in panel
-                        plots always will the entire y space but not necessarily the entire x space.
-                        therefore alignment in x matters but not in y
-
-    :param bar_plot_dodge: Bool; dodge parameter for barplot, will lead to
-                            stacked barplots if hue is defined
+    :param hor_alignment: "right", "left" or "center", horizontal alignment
+                            of plots in panel plots always will the entire
+                            y space but not necessarily the entire x space.
+                            therefore alignment in x matters but not in y
+    :param data_plot_kwds: dictionary with keywords for plotting object
+                            used in function "plot_data" depending on the
+                            plot_type defined; see respective
+                            data_plot object for parameters which can be used
     :param pvalue_format_string: defaults to `"{.3e}"`
     :param pvalue_thresholds: list of lists, or tuples. Default is:
                                 For "star" text_format: `[[1e-4, "****"],
@@ -2532,32 +2468,43 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     :param neg_y_vals: are there data points below zero, if not lowest y axis
                         value is 0 (margin settings will make it lower
                         than zero otherwise)
-    :param padding: padding between panels in inches (is autoscaled by size factor in figure script)
-    :param box_width: maximum box width in inches - scaled by width of one column in inches / 2
-    :param group_padding: space between two cols in inches - scaled by width of one column in inches / 2
-    :param legend_spacing: space between legend handles (color boxes) and legend text
-    :param axis_padding: padding between plot and y_axis ticks in points (really?)
-    :param show_formula: Bool, Whether formula should be shown in plot for plotting regressions (plot_type="regression")
-    :param position_formula: String, Position where the formula should be shown in plot in x and y dimension:
-                            for x left and right and for y top and bottom, both positions combined with a "-"
-                            e.g. "bottom-left" or "top-right"
-    :param auto_scale_group_padding: Bool; Whether defined group_padding should be scaled automatically
-                                            Autoscaling scales space between plots as much as the size of plots
-                                            Thereby boxes becoming too small due to group padding is prevented
+    :param padding: padding between panels in inches
+                    (is autoscaled by size factor in figure script)
+    :param box_width: maximum box width in inches -
+                     scaled by width of one column in inches / 2
+    :param group_padding: space between two cols in inches -
+                            scaled by width of one column in inches / 2
+    :param legend_spacing: space between legend handles (color boxes)
+                            and legend text
+    :param axis_padding: padding between plot and y_axis ticks in points
+    :param auto_scale_group_padding: Bool; Whether defined group_padding should
+                                            be scaled automatically
+                                            Autoscaling scales space between
+                                            plots as much as the size of plots
+                                            Thereby boxes becoming too small
+                                            due to group padding is prevented
                                             automatically
-                                            this reduces a bit of manual work, however, for facet plots it cannot
-                                            be used since the exact size of the group padding is necessary
+                                            this reduces a bit of manual work,
+                                             however, for facet plots it cannot
+                                            be used since the exact size of the
+                                            group padding is necessary
                                             for a proper grid-like arrangement
-    :param show_row_label: Bool; Whether there should be a label displayed right of the rightmost plot
-                            when True, legend will not be displayed automatically
-                            (both together is not implemented at the moment)
-    :param borderaxespad_: in points, padding of legend from plot and also of row label from plot
-    :param vertical_lines: Boolean, Whether thin vertical lines should be drawn for each box
+    :param show_row_label: Bool; Whether there should be a label displayed
+                                right of the rightmost plot
+                            when True, legend will not be displayed
+                            automatically (both together is not implemented
+                            at the moment)
+    :param borderaxespad_: in points, padding of legend from plot
+                            and also of row label from plot
+    :param vertical_lines: Boolean, Whether thin vertical lines
+                            should be drawn for each box
     :param x_tick_label_rotation: Boolean, Whether the x tick labels
                                     should be rotated by 45 degree
-    :param _leave_space_for_legend: Internal parameter to indicate whether space for legend should be kept free
+    :param _leave_space_for_legend: Internal parameter to indicate whether
+                                    space for legend should be kept free
                                     even if legend was removed
-    :param plot_title: String; Title of the plot that will be added above the plot
+    :param plot_title: String; Title of the plot that will be added
+                        above the plot
 
     """
 
@@ -2565,6 +2512,9 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
     if show_col_labels_above:
         show_col_labels_below = False
+
+    if data_plot_kwds is None:
+        data_plot_kwds = {}
 
     # do not scale group padding for continuous plots
     if plot_type in continuous_plot_types:
@@ -2600,15 +2550,14 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     if type(x_range) != type(None):
         total_nb_columns = len(col_order) * np.abs(x_range[1] - x_range[0])
 
-
-
     # dont perform stat test if there is only one group ploted
     if total_nb_columns == 1:
         perform_stat_test = False
 
     # Validate arguments
-    box_pairs = validate_arguments(perform_stat_test,test,pvalues,test_short_name,
-                           box_pairs,loc,text_format,text_annot_custom)
+    box_pairs = validate_arguments(perform_stat_test,test,pvalues,
+                                   test_short_name, box_pairs,loc,
+                                   text_format,text_annot_custom)
 
     (pvalue_thresholds,
      pvalue_format_string,
@@ -2626,7 +2575,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
     # start counter of current subplot
     plot_nb = 1
-    # start counter of current column (not current subpot!) and initialize other variables
+    # start counter of current column (not current subpot!)
+    # sand initialize other variables
     # y_shift is shift iny  from the bottom
     (current_column, max_yrange, min_y, max_y,
      x_shift, y_shift, rel_width_reduction) = (0, 0, 0, 0, 0, 0, 0)
@@ -2647,14 +2597,11 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
                                    column_span= 1,
                                    label="y_range_measure_plot")
         # plot data to measure y_lim
-        plot_data(ax, x, y, plot_hue, data,
-                  x_order, hue_order, plot_colors,
-                  show_data_points, line_width, size_factor, plot_type,
-                  fliersize, show_formula, position_formula,
-                  show_regression_stats, figure_panel,
-                  swarmplot_point_size, use_hue_colors_for_swarm_plot,
-                  show_mean_line,bar_plot_dodge, x_range,
-                  connect_paired_data_points)
+        nb_x_vals = len(x_order)
+        plot_data(ax, x, y, plot_hue, hue, data, x_order, hue_order, plot_colors,
+                  line_width, size_factor, plot_type, nb_x_vals, figure_panel,
+                  x_range, show_data_points, pair_unit_columns,
+                  connect_paired_data_points, data_plot_kwds)
         y_range = ax.get_ylim()
         ax.remove()
 
@@ -2687,7 +2634,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         new_x_order = get_all_vals_from_order_in_data(col_data, x, x_order)
         nb_x_vals = len(new_x_order)
 
-        new_hue_order = get_all_vals_from_order_in_data(col_data, hue, hue_order)
+        new_hue_order = get_all_vals_from_order_in_data(col_data, hue,
+                                                        hue_order)
 
         # TODO: get number of x vals for each hue instead of assuming
         # that each hue is present for each x!
@@ -2722,28 +2670,17 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
         ax.set_ylim(y_range[0], y_range[1])
 
-        if show_y_minor_ticks:
-            ax.minorticks_on()
-            ax.xaxis.set_tick_params(which='minor', bottom=False)
-
-        if type(x_tick_interval) != type(None):
-            new_locator = mplticker.MultipleLocator(base=x_tick_interval)
-            ax.xaxis.set_major_locator(new_locator)
-
-        if type(y_tick_interval) != type(None):
-            new_locator = mplticker.MultipleLocator(base=y_tick_interval)
-            ax.yaxis.set_major_locator(new_locator)
-
-        if type(x_range) != type(None):
-            ax.set_xlim(x_range[0], x_range[1])
-
+        set_y_ticks(ax, y_tick_interval, show_y_minor_ticks)
+        set_x_ticks(ax, x_tick_interval, x_range)
 
         # advance currentColumn ticker
         current_column += nb_x_vals
 
         if (not data_is_continuous):
-            # adjust size of ax to standardize size of box, needs to be done before plotting data
-            # if done after plotting data, swarmplot will be squeezed, leading to overlap of points
+            # adjust size of ax to standardize size of box,
+            # needs to be done before plotting data
+            # if done after plotting data, swarmplot will be squeezed,
+            # sleading to overlap of points
             (ax,
              width_reduction_by_changing_box_size,
              auto_width_reduction_factor) = change_plot_size_to_standardize_box_size(ax,
@@ -2756,24 +2693,18 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             auto_width_reduction_factor = 0
 
 
-        # plot boxplot and swarmplot and get box_plotter object (necessary to extract information about boxes later)
-        box_plotter, labels_to_add = plot_data(ax, x, y, plot_hue, col_data,
-                                                new_x_order, new_hue_order, plot_colors,
-                                                show_data_points, line_width, size_factor, plot_type,
-                                                fliersize, show_formula, position_formula,
-                                               show_regression_stats, figure_panel,
-                                                swarmplot_point_size,
-                                               use_hue_colors_for_swarm_plot,
-                                               show_mean_line,
-                                               bar_plot_dodge, x_range,
-                                               connect_paired_data_points)
-        if (connect_paired_data_points):
-            add_lines_to_connect_paired_data_points(col_data, ax, nb_x_vals, x, y, hue,
-                                             new_x_order, new_hue_order,
-                                                connecting_line_color,
-                                                connecting_line_alpha,
-                                                connecting_line_width,
-                                                    pair_unit_columns)
+        # plot boxplot and swarmplot and get box_plotter
+        # object (necessary to extract information about boxes later)
+        box_plotter, labels_to_add =  plot_data(ax, x, y, plot_hue, hue,
+                                                col_data, new_x_order,
+                                                new_hue_order, plot_colors,
+                                                line_width, size_factor,
+                                                plot_type, nb_x_vals,
+                                                figure_panel, x_range,
+                                                show_data_points,
+                                                pair_unit_columns,
+                                                connect_paired_data_points,
+                                                data_plot_kwds)
 
         all_labels_to_add = [*all_labels_to_add, *labels_to_add]
 
@@ -2840,7 +2771,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         
 
         axis_padding = set_axis_label_paddings(inner_padding, axis_padding, ax,
-                                                plot_nb, outer_border, size_factor)
+                                                plot_nb, outer_border,
+                                               size_factor)
 
         if plot_nb == 1:
             # for first plot (leftmost with y axis ticks and label)
@@ -2848,31 +2780,39 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             y_shift = get_y_shift_to_vert_fill_outer_border(ax, col,
                                                             col_order,
                                                             max_nb_col_val_lines,
-                                                            y_shift, inner_padding,
-                                                            fontsize, outer_border,
+                                                            y_shift,
+                                                            inner_padding,
+                                                            fontsize,
+                                                            outer_border,
                                                             show_col_labels_below,
                                                             always_show_col_label)
 
-        rel_height_change = vert_fill_outer_border(ax, y_shift, rel_height_change)
+        rel_height_change = vert_fill_outer_border(ax, y_shift,
+                                                   rel_height_change)
 
         # shift ax to get padding between groups
         ax_coords = ax.get_position()
-        ax.set_position([ax_coords.x0 + x_shift, ax_coords.y0, ax_coords.width, ax_coords.height])
+        ax.set_position([ax_coords.x0 + x_shift, ax_coords.y0, ax_coords.width,
+                         ax_coords.height])
 
         # adjust height of annotation plot once (for the first plot)
         if plot_nb == 1:
-            adjust_annotation_plot_height_and_y(ax_annot, y_shift, rel_height_change)
-            adjust_annotation_plot_height_and_y(ax_labels, y_shift, rel_height_change)
+            adjust_annotation_plot_height_and_y(ax_annot, y_shift,
+                                                rel_height_change)
+            adjust_annotation_plot_height_and_y(ax_labels, y_shift,
+                                                rel_height_change)
 
         plot_nb += 1
 
         # increase space of next group by group_padding value (in inches)
         # scale with rel_surplus_width to account
         # for reduction in size to lower than box_width
-        # which was automatically done by matplotlib since not enough space was available
+        # which was automatically done by matplotlib
+        # since not enough space was available
         # do not scale group padding anymore!
         if auto_scale_group_padding:
-            x_shift += group_padding / fig.get_size_inches()[0] * auto_width_reduction_factor
+            x_shift += (group_padding / fig.get_size_inches()[0] *
+                        auto_width_reduction_factor)
         else:
             x_shift += group_padding / fig.get_size_inches()[0]
 
@@ -2885,7 +2825,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
         if not data_is_continuous:
             # Always extract group information since it's also needed to plot
             # col values below
-            # get box structs containing all information about boxes plotted in this group (col)
+            # get box structs containing all information
+            # about boxes plotted in this group (col)
             box_structs_dic,box_names,box_structs = build_box_structs_dic(box_plotter,
                                                                           col_val,
                                                                           hue, ax,
@@ -2896,6 +2837,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
 
             all_box_structs_dics[col_val] = box_structs_dic
             all_box_names[col_val] = box_names
+
         all_axs[col_val] = ax
         all_x_tick_overhangs[col_val] = x_axis_tick_overhang_rel
         # first position is row
@@ -2910,138 +2852,39 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
     # exclude data based on order given for different columns
     included_data = exclude_data(data,col,col_order,x,x_order,hue,hue_order)
 
-    ann_list = []
     test_result_list = []
-    annotated_pairs = {}
-    if perform_stat_test:
-
-        # get all box pairs depending on grouping of data (group, hue) and whether pairs were added
-        # get maximum level of pairs for comparison, will determine where statistics will be performed on
-        all_box_pairs, max_level_of_pairs = get_all_box_pairs(box_pairs, data,
-                                                              col, col_order,
-                                                              x, x_order,
-                                                              hue, hue_order)
-
-        # do statistics on correct level (within group or within x, depending on how pairs look like)
-        # if annotate_nonsignificant is False, also exclude non significant box_pairs
-        # TO ADD: CHOICE OF STAT TEST
-        # POSSIBLY TO ADD: automatic choice of test depending on normal distribution of data
-        (all_box_pairs,
-         p_values,
-         test_result_list) = get_stats_and_exclude_nonsignificant(included_data,col, x, y, hue,
-                                                                    all_box_pairs, max_level_of_pairs,
-                                                                    test_short_name, test,test_result_list,
-                                                                  add_bonferroni_correction,
-                                                                  pair_unit_columns,
-                                                                    annotate_nonsignificant,verbose,
-                                                                  )
-
-        # Build array that contains the x and y_max position of the highest annotation or box data at
-        # a given x position, and also keeps track of the number of stacked annotations.
-        # This array will be updated when a new annotation is drawn.
-        # combine all arrays from all subplots
-        y_stack_arr = np.array([[box_struct['x'] for box_structs in all_box_structs.values() for box_struct in box_structs],
-                                [box_struct['ymax'] if not np.isnan(box_struct['ymax']) else 0 for box_structs in all_box_structs.values() for box_struct in box_structs],
-                                [0 for box_structs in all_box_structs.values() for i in range(len(box_structs)) ]])
-
-        if loc == 'outside':
-            y_stack_arr[1, :] = ylim[1]
-
-        # within pairs with same x val and pairs with different x val sort separately:
-        box_pairs_grouped = group_box_pairs_in_same_x(all_box_pairs)
-
-        # create dict with all texts to be annotated
-        pval_texts =  get_annotated_text_dict(p_values,pvalue_format_string,
-                                              test_short_name,pvalue_thresholds,
-                                              show_test_name,text_format)
-
-        h = line_height * max_yrange
-        for x_val, box_pairs_of_x in box_pairs_grouped.items():
-            if (x_val != "different_x") & (hue != "no_hue_defined") & show_stats_to_control_without_lines:
-                (box_pairs_of_x,
-                 ann_list,
-                 ax_annot,
-                 all_axs,
-                 annotated_pairs,
-                 y_stack_arr) = plot_comparison_to_control_within_x(box_pairs_of_x,
-                                                hue_order,x_val,hue, col,
-                                                pval_texts, all_box_names, all_box_structs_dics,
-                                                ann_list, ax_annot, text_offset, y_offset_to_box,
-                                                fontsize, all_axs, annotated_pairs,
-                                                y_stack_arr, h, use_fixed_offset, loc)
-
-
-            box_counter, all_boxes = count_occurences_of_boxes_in_pairs(box_pairs_of_x,
-                                                                        pval_texts)
-
-            # sort pairs by number of occurence of most occuring box in pair
-            # make ranking of all boxes
-            all_boxes_sorted = sorted(all_boxes, reverse=True,
-                                      key=lambda x: box_counter[x])
-            box_struct_pairs_grouped = get_box_dict_pairs_grouped_by_ranking(all_boxes_sorted,
-                                                                             box_pairs_of_x,
-                                                                             pval_texts,
-                                                                             all_box_names,
-                                                                             all_box_structs_dics,
-                                                                             col)
-
-            # sort groups by max y so that lower positioned annotations are done first
-            max_y_groups = {}
-            for box_tuple, box_struct_pairs in box_struct_pairs_grouped.items():
-                max_y_group = 0
-                for box_struct_pair in box_struct_pairs:
-                    for box_struct in box_struct_pair:
-                        max_y = box_struct["box_data"].max()
-                        max_y_group = max(max_y_group, max_y)
-                max_y_groups[box_tuple] = max_y_group
-
-            box_struct_pairs_grouped = {k: v for k, v in
-                                        sorted(box_struct_pairs_grouped.items(),
-                                               key=lambda item:
-                                               max_y_groups[item[0]])}
-
-            # go through each of the groups ranked by commonly occuring boxes
-            for (annot_number,
-                 (box_tuple,
-                  box_struct_pairs)) in enumerate(box_struct_pairs_grouped.items()):
-
-                # if x_val == "different_x":
-                #     # calculate correction factor for increased height of plot after adding plots
-                #     correction_factor = (1 + ((len(box_struct_pairs_grouped) -
-                #                                annot_number) *
-                #                               (line_height +
-                #                                y_offset / yrange)))
-                #     h *= correction_factor / 1.5
-                #     y_offset *= correction_factor
-                #     y_offset_to_box *= correction_factor
-
-                # if annot_number == 1:
-                #     dasd
-
-                box = box_tuple[0]
-                # annotate all box_pairs in a group
-                (ax_annot,
-                 all_axs,
-                 annotated_pairs,
-                 y_stack_arr,
-                 ann_list) = annotate_box_pair_group(box_struct_pairs, box_tuple,
-                                                     box, y_stack_arr,
-                                                     all_axs, ax_annot,
-                                                     annotated_pairs, text_offset,
-                                                     fontsize, h, ann_list,
-                                                     line_width, loc,
-                                                     y_offset_to_box,
-                                                     y_offset, color,
-                                                     use_fixed_offset,
-                                                     show_data_points, fliersize)
+    if perform_stat_test & (len(all_box_structs) > 0):
+        (ax_annot, all_axs,
+         test_result_list) = get_and_annotate_stats(all_axs, ax_annot, box_pairs,
+                                                   all_box_structs,
+                                                   all_box_structs_dics,
+                                                   test, test_short_name,
+                                                   all_box_names,text_format,
+                                                   add_bonferroni_correction,
+                                                   show_stats_to_control_without_lines,
+                                                   pair_unit_columns,
+                                                   annotate_nonsignificant,
+                                                   verbose,
+                                                   pvalue_format_string,
+                                                   pvalue_thresholds,
+                                                    show_data_points,
+                                                   data, col, col_order, y, x,
+                                                   x_order, hue, text_offset,
+                                                   use_fixed_offset, loc,
+                                                   hue_order, included_data,
+                                                    max_yrange,
+                                                   y_offset, y_offset_to_box, 
+                                                    fontsize, color,
+                                                    line_height, line_width,
+                                                    show_test_name)
 
     # plot a title above all plots (in ax_labels)
     if (type(plot_title) != type(None)):
-        # plt.title(title_above)
         col_label_height = add_column_plot_title_above(ax_labels,
                                                        plot_title,
                                                        col_label_padding,
                                                        fontsize)
+
         # move all data plots down
         for ax in all_axs.values():
             coords = ax.get_position()
@@ -3052,28 +2895,9 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             ax.set_position([coords.x0, coords.y0, coords.width,
                                  coords.height - col_label_height])
 
-    # move overhanging axis tick labels into inner_border
-    for ax_nb, (col_val, ax) in enumerate(all_axs.items()):
-
-        # only the first ax has a y column, therefore
-        # get values fom that ax
-        if ax_nb == 0:
-            y_axis_ticks_overhang_rel = get_axis_tick_labels_overhang(ax, "y")
-
-        x_axis_tick_overhang_rel = all_x_tick_overhangs[col_val]
-        axis_size = ax.get_position()
-        # then set new axis position with reduced height and reduced width
-        ax.set_position([axis_size.x0, axis_size.y0,
-                        axis_size.width - x_axis_tick_overhang_rel,
-                        axis_size.height - y_axis_ticks_overhang_rel])
-
-    for ax in [ax_annot, ax_labels]:
-        # also move ax_annot to have consistent positioning of annotations
-        axis_size = ax.get_position()
-        # then set new axis position with reduced height and reduced width
-        ax.set_position([axis_size.x0, axis_size.y0,
-                         axis_size.width - x_axis_tick_overhang_rel,
-                         axis_size.height - y_axis_ticks_overhang_rel])
+    overhanging_axis_tick_labels_into_inner_border(all_x_tick_overhangs,
+                                                   all_axs, ax_annot,
+                                                   ax_labels)
 
     # Finetuning plot needs to happen after final height is set
     # otherwise the line collides with text
@@ -3098,34 +2922,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, x_order=[]
             ax.set_ylim(-0.05, ax.get_ylim()[1])
 
     for ax in all_axs.values():
-
-        if type(y_range) == type(None):
-            continue
-
-        # ax.set_ylim(y_range[0], y_range[1])
-        # ax.tick_params(axis="y", which="minor", )
-        # ax.tick_params(axis='y', which='minor', bottom=False)
-        # ax.set_yticks([0.75, 0.85, .95], minor=True)
-
-        if plot_type == "line":
-            line_color = "0.7"
-        else:
-            line_color = "0.8"
-
-        ax.grid(b=True, color=line_color, linestyle='-', which="major",
-                axis="y", linewidth=line_width)
-
-        if plot_type == "line":
-            # visible needs to be set True for line plots
-            # it seems that somewhere the grid is switched off
-            # and therefore just supplying kwargs to the function
-            # does not automatically turn the grid visibility on
-            ax.grid(visible=True,color=line_color, linestyle='-', which="major",
-                    axis="x", linewidth=line_width)
-
-        if show_y_minor_ticks:
-            ax.grid(visible=True, b=False, color=line_color, linestyle='-',
-                    which="minor", axis="y", linewidth=line_width_thin)
+        add_grid_lines(ax, y_range, plot_type, line_width, line_width_thin,
+                       show_y_minor_ticks)
 
     if y_ticks is not None:
         for ax in all_axs.values():
