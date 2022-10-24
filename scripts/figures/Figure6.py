@@ -49,7 +49,7 @@ figure.show_data(x="neurite", y="speed", hue="treatment", col="stage",
                     average_columns=["date", "experiment", "cell"],
                     plot_colors=sb.color_palette(["white", "silver", "grey"]),
                     y_axis_label = "Microtubule retrograde flow [\u03BCm/min]",
-                    swarmplot_point_size=1.4,
+                   data_plot_kwds={"swarm_plot_size":1.4},
                     y_range=[-0.5, 2.0],
                     inclusion_criteria=inclusion_criteria,
                     y_tick_interval=0.3)

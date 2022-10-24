@@ -47,7 +47,7 @@ figure.show_data(col="time_speedup", y="tubb_frac", x="region",
                     always_show_col_label=True,
                     y_range = [-2, 120],
                     y_axis_label="Fraction of\nmicrotubule mass [%]",
-                  swarmplot_point_size=1.6,
+                   data_plot_kwds={"swarm_plot_point_size":1.6},
                     legend_handle_length=1,
                     scale_columns={"tubb_frac":100}
                   )
@@ -72,7 +72,7 @@ figure.show_data(col="time_speedup", y="tubb_frac", x="region",
                     y_range = [-2, 105],
                     y_ticks=[0,20,40,60,80,100],
                     y_axis_label="Fraction of\nmicrotubule mass [%]",
-                  swarmplot_point_size=1.6,
+                   data_plot_kwds={"swarm_plot_point_size":1.6},
                     legend_handle_length=1,
                     scale_columns={"tubb_frac":100}
                   )

@@ -57,7 +57,7 @@ inclusion_criteria[-1]["time_slowdown_diff"] = "<1000"
 figure.show_data(x="nb_neurites_slower", y="time_slowdown_diff", 
                   y_axis_label="Time of MT-RF slowdown\nafter initial axon growth [h]", 
                   inclusion_criteria=inclusion_criteria,
-                  swarmplot_point_size=3.5)
+                   data_plot_kwds={"swarm_plot_size":3.5},)
 figure.draw_line_on_images(position = 0, line_width=0.5, 
                             orientation="hor", color="black")
 figure.get_basic_statistics()

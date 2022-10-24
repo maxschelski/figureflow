@@ -41,7 +41,7 @@ figure.show_data(col="orientation", y="fraction", x="treatment",hue="timepoint",
                   average_columns = ["date", "treatment","cell"],
                    y_range = [-2, 100],
                   y_axis_label="Fraction plus-end-out\nmicrotubules [%]",
-                   swarmplot_point_size=1.3,
+                   data_plot_kwds={"swarm_plot_point_size":1.3},
                     legend_handle_length=1,
                     scale_columns={"fraction":100}
                   )
@@ -66,7 +66,7 @@ figure.show_data(col="orientation", y="fraction", x="treatment",hue="timepoint",
                   average_columns = ["date", "cell"],
                    y_range = [-2, 100],
                   y_axis_label="Fraction plus-end-in\nmicrotubules [%]",
-                  swarmplot_point_size=1.3,
+                   data_plot_kwds={"swarm_plot_point_size":1.3},
                     legend_handle_length=1,
                     scale_columns={"fraction":100}
                   )

@@ -48,7 +48,7 @@ figure.show_data(hue=None, y="speed", x="accumulation",
                    pair_unit_columns=["date", "cell"],
                   y_tick_interval=0.4,
                   y_axis_label="Microtubule retrograde flow [\u03BCm/min]",
-                    swarmplot_point_size=2.3,
+                   data_plot_kwds={"swarm_plot_size":2.3},
                     inclusion_criteria=inclusion_criteria,
                   )
 figure.draw_line_on_images(position = 0, line_width=0.5, 

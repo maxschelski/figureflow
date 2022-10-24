@@ -44,7 +44,7 @@ figure.show_data(x="neurite",hue = "fraction_group",
                   perform_stat_test = False,
                   plot_type="bar", show_x_axis=False,
                   show_data_points=False,
-                  swarmplot_point_size=2,
+                   data_plot_kwds={"swarm_plot_size":2},
                   inclusion_criteria=inclusion_criteria,
                   scale_columns={"speed":100})
 figure.get_basic_statistics(["fraction_group"])

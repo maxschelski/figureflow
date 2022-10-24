@@ -43,7 +43,7 @@ figure.show_data(hue=None, y="speed", x="type",
                   y_tick_interval=0.2,
                   verbose=True,
                   y_axis_label="Microtubule retrograde flow\n[\u03BCm/min]",
-                    swarmplot_point_size=1.7,
+                   data_plot_kwds={"swarm_plot_size":1.7},
                   )
 figure.get_basic_statistics(show_from_ungrouped_data=True,
                             n_columns=["date", "cell"])

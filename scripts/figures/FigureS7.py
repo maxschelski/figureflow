@@ -38,7 +38,7 @@ figure.show_data(x="neurite", y="speed", col="stage",hue=None,
                   x_labels=[("short","Minor\nneurite"),('long','Axon')], x_order=["Minor\nneurite","Dendrite\n","Axon"],
                   y_axis_label="Microtubule retrograde flow\n[\u03BCm/min]",
                   y_range=[-0.3, 2], y_tick_interval=0.3,line_height=0.13,
-                  swarmplot_point_size=2,
+                   data_plot_kwds={"swarm_plot_size":2},
                   renaming_dicts = renaming_dicts)
 figure.draw_line_on_images(position = 0, line_width=0.5, 
                             orientation="hor", color="black")

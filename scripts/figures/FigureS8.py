@@ -43,7 +43,7 @@ figure.show_data(hue=None, y="speed", x="accumulation",
                   y_range = [-0.2, 1.4],
                   y_tick_interval=0.2,
                   y_axis_label="Microtubule retrograde\nflow [\u03BCm/min]",
-                  swarmplot_point_size=2.3,
+                   data_plot_kwds={"swarm_plot_size":2.3},
                     box_pairs=[[("caKIF5C"), ("No\ncaKIF5C")]],
                     inclusion_criteria=inclusion_criteria,
                     legend_handle_length=1

@@ -62,7 +62,7 @@ figure.show_data(x="condition", y="speed", col="direction",
                   average_columns=["date", "experiment", "cell"],
                     y_tick_interval=10,
                   y_axis_label="Speed of microtubule spread [\u03BCm/min]",
-                    swarmplot_point_size=1.4,
+                   data_plot_kwds={"swarm_plot_size":1.4},
                     legend_handle_length=1,
                     scale_columns={"spread":0.22}
                   )

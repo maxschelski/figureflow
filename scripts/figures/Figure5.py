@@ -122,7 +122,9 @@ figure.show_data(x="MT-RFmed_neg", y="cycles/h", col=None,
                     y_range=[0,1.81],
                     y_tick_interval=0.3,
                     inclusion_criteria=inclusion_criteria, 
-                    show_formula=True, position_formula ="top-left",
+
+                   data_plot_kwds={"show_formula":True,
+				   "position_regression_text":"top-left"},
                     scale_columns={"MT-RFmed_neg":-1})
 
 

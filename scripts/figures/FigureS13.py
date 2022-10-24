@@ -44,7 +44,7 @@ figure.show_data(x="condition", y="MT-RFmed", col="manipulation",
                     y_range = [-0.05, 5.1],
                   y_tick_interval=0.5,
                   y_axis_label="Microtubule retrograde flow\n[\u03BCm/min]",
-                    swarmplot_point_size=1.3,
+                   data_plot_kwds={"swarm_plot_point_size":1.3},
                     legend_handle_length=1,
                     scale_columns={"MT-RFmed":-1}
                   )
