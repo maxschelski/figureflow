@@ -7472,7 +7472,7 @@ class FigurePanel():
     def show_data(self, x=None, y=None, x_labels=[], hue=None, hue_labels=[],
                   col=None, col_labels=[], row=None, row_labels=[],
                   x_order=None, col_order=None, hue_order=None,
-                  inclusion_criteria= None, show_data_points=True,
+                  inclusion_criteria= None,
                   remove_outliers=False, nb_stds_outliers=4,
                     scale_columns=None, norm_cats=None, normalize_by="mean",
                     smoothing_rad = None,
@@ -7627,7 +7627,6 @@ class FigurePanel():
             self.col_labels = col_labels
             self.row_labels = row_labels
             self.inclusion_criteria = inclusion_criteria
-            self.show_data_points = show_data_points
             self.scale_columns = scale_columns
             self.norm_cats = norm_cats
             self.smoothing_rad = smoothing_rad
@@ -7775,7 +7774,6 @@ class FigurePanel():
             self.plot_multi_rows(inner_border,  show_legend, **kwargs)
             return None
 
-        kwargs["show_data_points"] = show_data_points
 
         # replace everything except the row values
         # for each row separately
@@ -8053,7 +8051,6 @@ class FigurePanel():
                                                     col=self.col,
                                                     col_labels=self.col_labels,
                                                     row=None,
-                                                    show_data_points=self.show_data_points,
                                                     baseline=0,
                                                     for_measuring=True,
                                                     increase_padding_above=False,
@@ -8429,7 +8426,6 @@ class FigurePanel():
                                          col=self.col,
                                         col_labels=self.col_labels, row=None,
                                         inclusion_criteria=new_inclusion_criteria,
-                                        show_data_points=self.show_data_points,
                                         baseline=0, row_label_text=row_value,
                                         add_background_lines=False,
                                         y_range=y_range,
