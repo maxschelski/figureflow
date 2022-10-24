@@ -560,7 +560,7 @@ def plot_data(ax, x, y, plot_hue, hue_column, data, x_order, hue_order,
                           **data_plot_kwds)
 
     plot, labels_to_add = plotter.plot()
-    
+
     return plot, labels_to_add
 
 
