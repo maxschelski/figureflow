@@ -6,6 +6,7 @@ Features
 ----------
 
 - General features:
+
   - create figure according to exact size necessary for desired journal in inches<br>
   - automatically perfectly aligns plots and images in figure panels<br>
   - Display illustrations as png file; or as powerpoint file to unify font size<br>
