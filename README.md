@@ -68,7 +68,7 @@ The name of files for a specific panel starts with "panel" followed by the upper
 
 # Installation
 
-The package was developed in Windows and the exact package versions for the environment in Windows are available for Anaconda and pip.
+The package was developed in Windows and the exact package versions for the environment in Windows are available for Anaconda.
 <br/>
 1. Open a terminal, navigate to the folder where you want to put FigureFlow and clone the FigureFlow repository:
 > git clone https://github.com/maxschelski/figureflow.git
