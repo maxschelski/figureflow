@@ -8,23 +8,25 @@ The package was developed in Windows and the exact package versions for the envi
 git clone https://github.com/maxschelski/figureflow.git
 
 2. Navigate into the folder of the repository (figureflow):
+
 .. code:: sh 
-cd figureflow
+  cd figureflow
 
 3. (Recommended on Mac/Linux) Create environment for FigureFlow with Anaconda:
+
 .. code:: sh 
-conda env create -f environment.yml
+  conda env create -f environment.yml
 3. (Recommended on Windows) Create environment for FigureFlow with Anaconda:
 .. code:: sh 
-conda env create -f environment_windows.yml
+  conda env create -f environment_windows.yml
 3. (Alternatively on Windows, without Anaconda) Pip install all required packages:
 .. code:: sh 
-pip install -r requirements_windows.txt
+  pip install -r requirements_windows.txt
 
 4. Install FigureFlow locally using pip:
 .. code:: sh 
-pip install -e .
+  pip install -e .
 
 5. You can now import FigureFlow and use it to build figures and generate movies as figure objects
 .. code:: sh 
-from figureflow.figure import Figure
+  from figureflow.figure import Figure
