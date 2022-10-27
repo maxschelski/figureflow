@@ -25,10 +25,18 @@ Figureflow automatically assigns files to the respective panel by file name:
 
 The name of files for a specific panel starts with "panel" followed by the uppercase panel letter and then an underscore (e.g. a file for panel A starts with "panelA_"). Alternatively, files for a panel can be stored in a folder named "panel" followed by the uppercase panel letter ("e.g. "panelA").
 
-Using the GUI to add elements (arrows, text, zooms, cropping) to images in panels
+Using the GUI to add elements to images in panels
 ------------------
 
-if you want to add zooms or arrows or text in a panel, you can also try the new GUI that I developed some weeks ago. Right after defining the figure object ("Figure(...)") you can write the following:
+If you want to add text, arrows, zooms or cropping to an image in a panel, you can also use the GUI for one panel at the time. The GUI also allows you to adjust the position of elements you added already. 
+
+To use the GUI, right after defining the figure object:
+
+.. code:: sh
+
+  Figure(...)
+  
+you can write the following:
 
 .. code:: sh 
 
@@ -36,7 +44,9 @@ if you want to add zooms or arrows or text in a panel, you can also try the new 
 
 (where "C" is the panel you want to edit)
 
-The GUI has a button to generate the code you can then copy paste into the script after you are done adding the elements you want. With the GUI you don't need to check at which coordinates you want to add an arrow or text in ImageJ.
+The GUI has a button to generate the code after you are done adding the elements you want you can then copy paste into the script of the figure/movie. 
+
+With the GUI you don't need to check at which coordinates you want to add an arrow or text in ImageJ.
 
 
 Creating new plot types
