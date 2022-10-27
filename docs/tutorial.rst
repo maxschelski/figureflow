@@ -57,12 +57,12 @@ They can use the following parameters always supplied as kwargs to function:
 In addition, they can use the following parameter which will also be supplied to function:
   - data_plot_kwds (which should be a dictionary containing all parameters specific to the plot)
 
-Since many parameters will be supplied to function, adding kwargs as parameter is necessary.
+Since many parameters will be supplied to the __init__ function of the plotting object, adding kwargs as parameter is necessary.
 
 The object needs to have a plot function, which does not take any parameters (except self).
 
-The plot function needs to return the plot object for group plots which needs to be of a similar structure then seaborns _BoxPlotter object. This _BoxPlotter is needed to extract the x groups (position, data, etc.). It also needs to either return an empty list or a list of strings which should be added to the plot (check in regression_plot.py in the add_text_to_be_plotted function how the variable labels_to_add is structured for details of how to structure the list).
+The plot function must return the plot object for group plots which needs to be of a similar structure then seaborns _BoxPlotter object. This _BoxPlotter is needed to extract the x groups (position, data, etc.). It also must return either an empty list or a list of strings which should be added to the plot (check in regression_plot.py in the add_text_to_be_plotted function how the variable labels_to_add is structured for details of how to structure the list).
 
-They must define in the __init__ function whether they are continuous on the x axis or not (have continuous or categorical values). Non continuous data should only be used for group_plots, where an object similar to seaborns _BoxPlotter object is created and can be returned.
+They must define in the class function whether they are continuous on the x axis or not (have continuous or categorical values) by defining the variable CONTINUOUS_X as True or False. Non continuous data should only be used for group_plots, where an object similar to seaborns _BoxPlotter object is created and can be returned.
 
 To use the plot the plot_type must equal the string before the "_plot.py" in the file name of the class or if no "_plot" is present in the file name it must equal the part before the filetype (before ".py").
