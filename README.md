@@ -87,7 +87,7 @@ The package was developed in Windows and the exact package versions for the envi
 
 For any questions feel free to contact me via E-Mail to max.schelski@googlemail.com.
 # Examples
-Example code for using the package will follow once the corresponding research paper is published in a peer-reviewed journal. Examples are not displayed to scale on this website but were all generated with 4.75 inch width.
+Examples are not displayed to scale on this website but were all generated with 4.75 inch width.
 For now, examples are available upon request via Github or via E-Mail to max.schelski@googlemail.com.<br/>
 <br/>
 <br/>
