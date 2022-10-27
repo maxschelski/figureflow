@@ -27,12 +27,6 @@ The package was developed in Windows and the exact package versions for the envi
 
   conda env create -f environment_windows.yml
 
-3. (Alternatively on Windows, without Anaconda) Pip install all required packages:
-
-.. code:: sh 
-
-  pip install -r requirements_windows.txt
-
 4. Install FigureFlow locally using pip:
 
 .. code:: sh 
