@@ -1,7 +1,7 @@
 Usage Examples
 ===========
 
-Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
+Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py.
 Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (under "scripts/figures") or movies (under "scripts/movies").<br/>
 To find out which examples might be interesting to you, start by looking 
 - in "data/example_figures" for generated figures (as .png file, e.g. data/example_figures/figure1.png) or 
