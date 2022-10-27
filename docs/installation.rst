@@ -7,7 +7,7 @@ The package was developed in Windows and the exact package versions for the envi
 
 .. code:: sh 
 
-git clone https://github.com/maxschelski/figureflow.git
+  git clone https://github.com/maxschelski/figureflow.git
 
 2. Navigate into the folder of the repository (figureflow):
 
