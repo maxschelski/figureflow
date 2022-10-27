@@ -25,7 +25,7 @@ Figureflow automatically assigns files to the respective panel by file name:
 
 The name of files for a specific panel starts with "panel" followed by the uppercase panel letter and then an underscore (e.g. a file for panel A starts with "panelA_"). Alternatively, files for a panel can be stored in a folder named "panel" followed by the uppercase panel letter ("e.g. "panelA").
 
-Using the GUI to add elements to images in panels
+Using the GUI to add/edit elements
 ------------------
 
 If you want to add text, arrows, zooms or cropping to an image in a panel, you can also use the GUI for one panel at the time. The GUI also allows you to adjust the position of elements you added already. 
