@@ -245,12 +245,12 @@ class FigurePanel():
                     line_width_zoom_rectangle = 0.3,
                     zoom_nb_font_size_overview = None, zoom_nb_color = "white",
                     zoom_nb_font_size = None, zoom_nb_padding = 0.015,
-                    overlay_opacity = 0.5,
+                    black_composite_background = True,
                     repositioning_map = None, additional_padding = None,
                     show_axis_grid = False, use_same_LUTs=True,
                     show_non_zoom_channels=False,
                     show_zoom_number_in_image=True, simple_remapping=False,
-                    show_focus_in=None, cmaps="gray", overlay_cmaps=None,
+                    show_focus_in=None, cmaps="gray", composite_cmaps=None,
                     replace_nan_with=0,
                     sub_padding_factor= 0.25
                     ):
@@ -260,6 +260,10 @@ class FigurePanel():
         after functions that annotate outside of the image.
         Ranges seemingly can only be extracted from ImageJ images
         if the LUT is set to gray.
+        :param channel: List of channels (integers) which should be displayed
+                        composite/composite images can be by adding
+                        a string with all channel numbers separated by "-",
+                        e.g. channels=[0,1,2,"0-1-2"].
         :param dimension_equal: Determines in which dimension
                                 ("height" or "width") images should be similar
                                 e.g. for "height", images in same row
@@ -341,11 +345,9 @@ class FigurePanel():
                                 (e.g. if frame 5,10,20 will be shown
                                 and zoom_nb_frames is [0,1] then the zoom_nb
                                 will be shown in the first and second frame (5, 10)
-        :param overlay_opacity: Opacity of each channel for overlay of channels
-                                Higher values mean less transparency.
-                                Can be float if applied similarly to all channels
-                                or a list/tuple with different values for each
-                                channel.
+        :param black_composite_background: Whether the background (image below
+                                            image range) of the composite should
+                                            be black
         :param repositioning_map: join specific images together with another
                                 dimension (by remapping the identity)
                                 e.g. join one image from a channel
@@ -394,8 +396,8 @@ class FigurePanel():
         if type(channels_to_show_first_nonzoomed_timeframe) == type(None):
             channels_to_show_first_nonzoomed_timeframe = []
 
-        # since this could also be an overlay
-        # convert into overlay format from strings
+        # since this could also be an composite
+        # convert into composite format from strings
         for channel_nb, channel_val in enumerate(channels_to_show_first_nonzoomed_timeframe):
             if type(channel_val) == str:
                 channel_vals = channel_val.split("-")
@@ -752,11 +754,11 @@ class FigurePanel():
          self.image_heights) = self.plot_images_without_setting_position(img_ranges,
                                                                           use_same_LUTs,
                                                                           cmaps,
-                                                                         overlay_cmaps,
+                                                                         composite_cmaps,
                                                                           make_image_size_equal,
                                                                           replace_nan_with,
                                                                           scale_images,
-                                                                         overlay_opacity)
+                                                                         black_composite_background)
 
 
         width_columns, height_rows = self.get_width_columns_and_height_rows(self.image_widths,
@@ -1115,10 +1117,7 @@ class FigurePanel():
             tiff_tag = tiff_tags_inv_dict["ImageDescription"]
             # use create ordered dict of imagedescription
             # order in dict determines which dimension in the array is used
-            # counting starts from right
-            # print( dir(img))
-            # print( img.tiff.tagformat1)
-            # print( img.tiff.tagformat2)
+            # counting starts from rightf
 
             data_dict = OrderedDict()
             if tiff_tag not in img.pages[0].tags:
@@ -1354,8 +1353,8 @@ class FigurePanel():
             # check if current value exists in dimension
             dim_val_in_image = False
             #  if the dim val is a string,
-            #  then  a overlay might be defined
-            #  check for overlay image (ints in string separated by "-")
+            #  then  a composite might be defined
+            #  check for composite image (ints in string separated by "-")
             if (type(dim_val) == str):
                 # split dim_val by separator
                 dim_val = tuple([int(val) for val in dim_val.split("-")])
@@ -1432,16 +1431,16 @@ class FigurePanel():
                     identity_val_map[dim_identity][pre_identity[-1]] = mapped_identity_val
 
                 # if there are multiple dim vals
-                # then this is an overlay, for which multiple images
+                # then this is an composite, for which multiple images
                 # have to be concatanated
                 all_pre_identities = [pre_identity]
 
-                # since only one dimension can be used for overlay
+                # since only one dimension can be used for composite
                 # keep track that this is the case
-                overlay_dimension = np.nan
+                composite_dimension = np.nan
 
                 # create list of pre_identities corresponding to all
-                # images which are overlayed
+                # images which are compositeed
                 for dimension_nb, dim_identity in enumerate(dimensions):
 
                     dim_val = current_dimension.get(dim_identity, np.nan)
@@ -1451,22 +1450,22 @@ class FigurePanel():
                     if (type(dim_val) not in self.itertypes):
                         continue
 
-                    # if another dimension already is overlay
+                    # if another dimension already is composite
                     # then prompt error
-                    if not np.isnan(overlay_dimension):
-                        error_msg = ("Overlays can be defined "
+                    if not np.isnan(composite_dimension):
+                        error_msg = ("composites can be defined "
                                      "in only one category. "
-                                     "However, overlays are defined"
+                                     "However, composites are defined"
                                      " for categories '{}' and '{}'"
                                      "".format(self.inv_map[dimension_nb],
-                                        self.inv_map[overlay_dimension]))
+                                        self.inv_map[composite_dimension]))
                         raise ValueError(error_msg)
 
-                    overlay_dimension = dimension_nb
+                    composite_dimension = dimension_nb
 
                     # create list with as many pre_identities as there
-                    # are images overlayed, where each pre_identity
-                    # differs only in the dimension with overlay
+                    # are images compositeed, where each pre_identity
+                    # differs only in the dimension with composite
                     all_pre_identities *= len(dim_val)
                     # make independent objects of each pre_identity
                     # otherwise they point to the same object
@@ -1479,14 +1478,14 @@ class FigurePanel():
                     for dim_val_nb, one_dim_val in enumerate(dim_val):
                         all_pre_identities[dim_val_nb][dimension_nb] = one_dim_val
 
-                # create concatanated image for overlays
-                # with one image for each overlay value
+                # create concatanated image for composites
+                # with one image for each composite value
                 # save this multi image then
                 # under the pre_identity with the list
-                # and under mapped identity with the position of the overlay
+                # and under mapped identity with the position of the composite
                 # compared to other values in that category
 
-                # get all images for overlay
+                # get all images for composite
                 all_imgs = []
 
                 for sub_pre_identity in all_pre_identities:
@@ -1599,7 +1598,7 @@ class FigurePanel():
             # to 2D RGB image by adding dimensions
             image = self.expand_img_dimensions(image)
 
-            # add dimension for overlay as first dimension
+            # add dimension for composite as first dimension
             image = np.expand_dims(image, axis=0)
 
             all_images_by_pre_identity[pre_identity] = image
@@ -1809,7 +1808,7 @@ class FigurePanel():
         for category in identity_value_lists.keys():
             cat_vals = identity_value_lists[category]
             identity_value_lists[category] = list(set(cat_vals))
-            # with key make sure that overlays are also sorted
+            # with key make sure that composites are also sorted
             # they are sorted based on their highest number
             identity_value_lists[category].sort(key=self.sort_category_vals_key)
 
@@ -2842,10 +2841,10 @@ class FigurePanel():
         image_min_max = {}
         for position, image in all_images_by_position.items():
             pre_identity = self.pos_to_pre_identity_map[position]
-            pre_identities, _ = self._get_all_pre_identities_from_overlay(pre_identity)
-            for overlay_img_nb, pre_identity in enumerate(pre_identities):
+            pre_identities, _ = self._get_all_pre_identities_from_composite(pre_identity)
+            for composite_img_nb, pre_identity in enumerate(pre_identities):
                 image_nb = pre_identity[self.map["images"]]
-                # for overlay, channel is a list of channels
+                # for composite, channel is a list of channels
                 channel = pre_identity[self.map["channels"]]
                 # remove nan and inf values from image
                 # image can only contain nan or inf values if the dtype
@@ -2857,37 +2856,37 @@ class FigurePanel():
                 if image_nb not in image_min_max:
                     image_min_max[image_nb] = {}
                 # get minima and maxima of each image at the current position
-                # there would only be multiple images if the image is an overlay
-                min_val = np.nanmin(image, axis=(-3,-2,-1))[overlay_img_nb]
-                max_val = np.nanmax(image, axis=(-3,-2,-1))[overlay_img_nb]
+                # there would only be multiple images if the image is an composite
+                min_val = np.nanmin(image, axis=(-3,-2,-1))[composite_img_nb]
+                max_val = np.nanmax(image, axis=(-3,-2,-1))[composite_img_nb]
                 image_min_max[image_nb][channel] = [min_val, max_val]
         return image_min_max
 
     def get_range_of_image(self, img_ranges, pre_identity,
                            images_min_max, use_same_LUTs,
-                           image_nb_overlay = 0):
+                           image_nb_composite = 0):
         """
         Get pixel value range of current image, based on ranges extracted
         from tiff and alternatively minimum and maximum values in image.
-        For overlays with similar ranges (same image and channel but
+        For composites with similar ranges (same image and channel but
         e.g. different slices) and if no range was set in imageJ, the lowest
-        min of all mins and the highest max of all max values of the overlay
+        min of all mins and the highest max of all max values of the composite
         will be used for the range.
         :param img_ranges: List of ranges for each channel in each image,
                             extracted from values set in ImageJ for tiff file
         :param pre_identity: list of dimension values of current image
         :param images_min_max: list of min and max values for each
-                                image - channel combination; for overlay
+                                image - channel combination; for composite
                                 of channels/images, channel/image would be a
                                 list of channels/images
-                                for overlays will include list of
-                                min and max values for each image in overlay:
+                                for composites will include list of
+                                min and max values for each image in composite:
                                 [all_min_values, all_max_values]
         :param use_same_LUTs: string or Boolean; if string, then it is
                              dimension within which the same LUTs should be used
                              if Boolean, then whether to use same LUTs for
                              all images or have separate LUTs for each image
-        :param image_nb_overlay: Number of the image in the overlay
+        :param image_nb_composite: Number of the image in the composite
         :return: range of current image to use
         """
 
@@ -2922,10 +2921,10 @@ class FigurePanel():
                         range_defined = (len(ranges) > channel)
                         if same_image_sub & range_defined:
                             # if range is tuple, only use position in tuple
-                            # corresponding to the current overlay
+                            # corresponding to the current composite
                             if type(ranges) in self.itertypes:
                                 ranges = self.get_range_from_min_max(ranges,
-                                                                    image_nb_overlay)
+                                                                    image_nb_composite)
                             else:
                                 ranges = ranges[channel]
                             return ranges
@@ -2943,18 +2942,18 @@ class FigurePanel():
             if len(img_ranges) > image_nb:
                 if len(img_ranges[image_nb]) > channel:
                     return img_ranges[image_nb][channel]
-            return self.get_range_from_min_max(image_min_max, image_nb_overlay)
+            return self.get_range_from_min_max(image_min_max, image_nb_composite)
 
-    def get_range_from_min_max(self, image_min_max, image_nb_overlay):
-        # if there is no overlay with different ranges,
+    def get_range_from_min_max(self, image_min_max, image_nb_composite):
+        # if there is no composite with different ranges,
         # the minimum min value and the maximum max value
-        # will be used (indicated by image_nb_overlay
+        # will be used (indicated by image_nb_composite
         # being None
-        if type(image_nb_overlay) == type(None):
+        if type(image_nb_composite) == type(None):
             range = [np.min(image_min_max[0]),
                      np.max(image_min_max[1])]
         else:
-            range = image_min_max[image_nb_overlay]
+            range = image_min_max[image_nb_composite]
         return range
 
     def get_max_values_of_dimensions(self, all_images_by_identity):
@@ -3972,7 +3971,7 @@ class FigurePanel():
             # to 2D RGB image by adding dimensions
             image = self.expand_img_dimensions(image)
 
-            # create 4th dimension for overlay images, to standarize dimensions
+            # create 4th dimension for composite images, to standarize dimensions
             image = np.expand_dims(image, axis=0)
 
             ranges = self.extract_img_ranges_from_file(file_path)
@@ -4049,17 +4048,17 @@ class FigurePanel():
                                  "allowed.".format(make_image_size_equal[1]))
         return image
 
-    def _get_all_pre_identities_from_overlay(self, pre_identity):
+    def _get_all_pre_identities_from_composite(self, pre_identity):
 
         all_pre_identities = [pre_identity]
-        is_overlay = False
+        is_composite = False
         for cat_nb, cat_val in enumerate(pre_identity):
             if (type(cat_val) not in self.itertypes):
                 continue
-            is_overlay = True
+            is_composite = True
             #  create nested list with one entry for each
             #  pre_identity, differing only
-            #  in the dimension with overlay
+            #  in the dimension with composite
             all_pre_identities *= len(cat_val)
 
             for cat_val_nb, one_cat_val in enumerate(cat_val):
@@ -4068,14 +4067,14 @@ class FigurePanel():
                 all_pre_identities[cat_val_nb] = tuple(all_pre_identities[cat_val_nb])
 
 
-        return all_pre_identities, is_overlay
+        return all_pre_identities, is_composite
 
 
     def plot_images_without_setting_position(self, img_ranges, use_same_LUTs,
-                                             cmaps, overlay_cmaps,
+                                             cmaps, composite_cmaps,
                                              make_image_size_equal,
                                              replace_nan_with, scale_images,
-                                             overlay_opacity):
+                                             black_composite_background):
         fig = plt.gcf()
         heights = np.zeros((self.max_row+1,self.max_col+1))
         widths = np.zeros((self.max_row+1,self.max_col+1))
@@ -4137,18 +4136,18 @@ class FigurePanel():
                 heights[row,column] = 1
 
             pre_identity = self.pos_to_pre_identity_map[position]
-            pre_identities, is_overlay = self._get_all_pre_identities_from_overlay(pre_identity)
+            pre_identities, is_composite = self._get_all_pre_identities_from_composite(pre_identity)
             # pre_identity is now a LIST of pre_identities
 
-            # for overlays use overlay_cmaps if they are defined
-            if is_overlay & (not (self.is_none(overlay_cmaps))):
-                cmaps_to_use = overlay_cmaps
+            # for composites use composite_cmaps if they are defined
+            if is_composite & (not (self.is_none(composite_cmaps))):
+                cmaps_to_use = composite_cmaps
             else:
                 cmaps_to_use = cmaps
 
             cmaps_for_img = []
             all_img_ranges = []
-            for overlay_img_nb, pre_identity in enumerate(pre_identities):
+            for composite_img_nb, pre_identity in enumerate(pre_identities):
                 # dont search for img_range for placeholder images
                 if pre_identity[0] != -1:
 
@@ -4156,7 +4155,7 @@ class FigurePanel():
                                                         pre_identity,
                                                          images_min_max, 
                                                         use_same_LUTs,
-                                                        overlay_img_nb)
+                                                        composite_img_nb)
 
                     # replace nan in images by value
                     image[np.isnan(image)] = replace_nan_with
@@ -4169,7 +4168,7 @@ class FigurePanel():
                                              "No corresponding cmap for channel "
                                              "'{}'".format(channel)
                                              )
-                        # for overlay images (more than one image range)
+                        # for composite images (more than one image range)
                         # set cmap for each image separately
                         cmap_for_img = cmaps_to_use[channel]
 
@@ -4177,10 +4176,10 @@ class FigurePanel():
                         channel = 0
                         cmap_for_img = cmaps_to_use
 
-                    # dont add information for colorbars for overlay images
+                    # dont add information for colorbars for composite images
                     # since otherwise two colorbars would need to be at the same
                     # position!
-                    if not is_overlay:
+                    if not is_composite:
                         # put each position in a list for each channel
                         if cmap_for_img not in self.positions_for_cmaps:
                             self.positions_for_cmaps[cmap_for_img] = []
@@ -4203,30 +4202,41 @@ class FigurePanel():
 
             self.cmaps_for_position[position] = [plt.get_cmap(cmap)
                                                  for cmap in cmaps_for_img]
-            #go through each image (first dimension) of potential overlay image
-            
-            if is_overlay:
-                opacity = overlay_opacity
-            else:
-                opacity = 1
-                
-            for overlay_img_nb, single_image in enumerate(image):
-                if type(opacity) in [list, tuple]:
-                    if len(opacity) <= overlay_img_nb:
-                        raise ValueError("Overlay opacity was supplied as list."
-                                         "But not enough elements for each overlay"
-                                         " channel were supplied. Only "
-                                         f"{len(opacity)} values were supplied "
-                                         f"for {len(image)} overlay channels.")
-                    opacity_channel = opacity[overlay_img_nb]
-                else:
-                    opacity_channel = opacity
-                img_range = all_img_ranges[overlay_img_nb]
-                cmap_for_img = cmaps_for_img[overlay_img_nb]
+            #go through each image (first dimension) of potential composite image
+        
+            all_rgb_images = []
+            for composite_img_nb, single_image in enumerate(image):
+
+                img_range = all_img_ranges[composite_img_nb]
+                cmap_for_img = cmaps_for_img[composite_img_nb]
+
                 im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range,
-                               alpha=opacity_channel,
+                               alpha=1,
                                interpolation=self.interpolate_images)
 
+                # get rgb image for additive blending
+                rgb_image = im.make_image(fig.canvas.get_renderer(),
+                                          unsampled=True)[0]
+
+                if black_composite_background:
+                    # pixels below image range should be black and not in the color
+                    # of the color map
+                    below_img_range_map = single_image[:,:,:] <= img_range[0]
+                    below_img_range_map = np.repeat(below_img_range_map, 4, axis=-1)
+                    below_img_range_map[:,:,-1] = False
+
+                    rgb_image[below_img_range_map] = 0
+
+                all_rgb_images.append(rgb_image)
+
+            ax.clear()
+            # perform additive blending for composite images
+            if len(all_rgb_images) > 1:
+                rgb_image_to_show = np.maximum(*all_rgb_images)
+            else:
+                rgb_image_to_show = all_rgb_images[0]
+
+            ax.imshow(rgb_image_to_show)
             #  ax.set_axis_off()
             # add plot to all_axs[row]
             if row == None:
@@ -5590,16 +5600,16 @@ class FigurePanel():
                              label_orientation=label_orientation, **kwargs)
 
 
-    def label_channels(self, texts, site=None, label_overlays=False,
-                       default_overlay_label=None, font_size=None,
+    def label_channels(self, texts, site=None, label_composites=False,
+                       default_composite_label=None, font_size=None,
                        padding=2, font_size_factor = None,
                        label_orientation = None, **kwargs):
 
         label_cat = "channels"
 
         self._label_category(label_cat, texts, site = site,
-                             label_overlays=label_overlays,
-                             default_overlay_label=default_overlay_label,
+                             label_composites=label_composites,
+                             default_composite_label=default_composite_label,
                              font_size=font_size,
                              padding=padding, font_size_factor=font_size_factor,
                              label_orientation=label_orientation, **kwargs)
@@ -5632,8 +5642,8 @@ class FigurePanel():
 
 
     def _label_category(self, label_cat, label_vals, site=None,
-                        label_sub_remapped=False, label_overlays=False,
-                        default_overlay_label=None, font_size=None, padding=2,
+                        label_sub_remapped=False, label_composites=False,
+                        default_composite_label=None, font_size=None, padding=2,
                         font_size_factor=None, label_orientation = None,
                         plot_line=None, string_separating_channels=" + ",
                         **kwargs):
@@ -5671,34 +5681,34 @@ class FigurePanel():
          label_vals) = self.pool_adjacent_similar_labels(label_vals, all_cat_vals,
                                                          positions_for_cat_vals,
                                                          label_cat)
-        # initiate counter for multiple categories (overlay channels)
+        # initiate counter for multiple categories (composite channels)
         for cat_nb, cat_val in enumerate(all_cat_vals):
             site_positions = positions_for_cat_vals[cat_val]
 
-            # for overlays either label wth default_overlay_label or with
+            # for composites either label wth default_composite_label or with
             # combination of labels of respective channels
             # labeling with channel names in respective colors is not possible
             # this has to be done within the image
             if type(cat_val) in self.itertypes:
                 label_text = ""
-                if (label_overlays) | (default_overlay_label != None):
-                    if not label_overlays:
+                if (label_composites) | (default_composite_label != None):
+                    if not label_composites:
                         print("WARNING: Since '{}' was supplied as "
-                              "default_overlay_label, "
-                              "overlay channels will be printed "
-                              "even though label_overlay "
-                              "is False.".format(default_overlay_label))
-                    if default_overlay_label != None:
-                        label_text = str(default_overlay_label)
+                              "default_composite_label, "
+                              "composite channels will be printed "
+                              "even though label_composite "
+                              "is False.".format(default_composite_label))
+                    if default_composite_label != None:
+                        label_text = str(default_composite_label)
                     else:
-                        # if default overlay label is None,
+                        # if default composite label is None,
                         #  then use a combination of label_texts
                         #  from all the labels included
                         # build label_text from texts of all channels
-                        for cat_val_nb, overlay_cat_val in enumerate(cat_val):
+                        for cat_val_nb, composite_cat_val in enumerate(cat_val):
                             if (cat_val_nb) > 0:
                                 label_text += string_separating_channels
-                            label_text += str(label_vals[overlay_cat_val])
+                            label_text += str(label_vals[composite_cat_val])
             else:
                 if cat_nb >= len(label_vals):
                     print("WARNING: Not enough labels were supplied for labeling "
@@ -5942,7 +5952,7 @@ class FigurePanel():
             padding_px_for_shift = padding_px
 
         # TODO:
-        # for overlays: fuse text objects together
+        # for composites: fuse text objects together
         # check if text objects fused together are wider than image
         # if so, add \n after each time that the text is wider than the image
 
@@ -9637,13 +9647,13 @@ class FigurePanel():
         :param only_show_in_column: list of columns in which the labels
                                     should be displayed,
                                     if None display in all columns
-        :param string_separating_channels: For overlays with multiple channels
+        :param string_separating_channels: For composites with multiple channels
                                             add this string between channels
                                             maximum one space in a row is allowed
 
         """
         # potential feature to add:
-        # allow supply of single channel images and plot them as overlay
+        # allow supply of single channel images and plot them as composite
         #  if same positions, then get correct color from each single image
         if font_size == None:
             font_size = self.font_size
