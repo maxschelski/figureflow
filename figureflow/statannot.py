@@ -44,7 +44,8 @@ def module_name_to_class_name(module_name):
     class_name = class_name.replace("_","")
     return class_name
 
-def create_column_subplot(outer_border, label, grid_columns=1, column=0, column_span=1):
+def create_column_subplot(outer_border, label, grid_columns=1, column=0,
+                          column_span=1):
     fig = plt.gcf()
     # plot data in one row, therefore height equals total height available
     ax = fig.add_subplot(label=label)
@@ -77,13 +78,15 @@ def pval_annotation_text(pvals, pvalue_thresholds):
         single_value = True
 
     # Sort the threshold array
-    pvalue_thresholds = pd.DataFrame(pvalue_thresholds).sort_values(by=0,
-                                                                    ascending=False).values
+    pvalue_thresholds = pd.DataFrame(pvalue_thresholds)
+    pvalue_thresholds = pvalue_thresholds.sort_values(by=0,
+                                                      ascending=False).values
     x_annot = pd.Series(["" for _ in range(len(pvals))])
     for i in range(len(pvalue_thresholds)):
         if i < len(pvalue_thresholds)-1:
             # p value must be smaller than the threshold
-            condition = (pvals < pvalue_thresholds[i][0]) & (pvalue_thresholds[i+1][0] <= pvals)
+            condition = ((pvals < pvalue_thresholds[i][0]) &
+                         (pvalue_thresholds[i+1][0] <= pvals))
             x_annot[condition] = pvalue_thresholds[i][1]
         else:
             condition = pvals < pvalue_thresholds[i][0]
@@ -126,19 +129,22 @@ def validate_arguments(perform_stat_test,test,pvalues,test_short_name,
         box_pairs = []
     if perform_stat_test:
         if test is None:
-            raise ValueError("If `perform_stat_test` is True, `test` must be specified.")
+            raise ValueError("If `perform_stat_test` is True, `test` "
+                             "must be specified.")
         if pvalues is not None or test_short_name is not None:
             raise ValueError("If `perform_stat_test` is True, custom `pvalues` "
                              "or `test_short_name` must be `None`.")
-        valid_list = ['t-test_ind', 't-test_welch', 't-test_paired',
-                      'Mann-Whitney', 'Mann-Whitney-gt', 'Mann-Whitney-ls',
-                      'Levene', 'Wilcoxon', 'Kruskal', "Dunn"]
-        if test not in valid_list:
-            raise ValueError("test value should be one of the following: {}."
-                             .format(', '.join(valid_list)))
+        # valid_list = ['t-test_ind', 't-test_welch', 't-test_paired',
+        #               'Mann-Whitney', 'Mann-Whitney-gt', 'Mann-Whitney-ls',
+        #               'Levene', 'Wilcoxon', 'Kruskal', "Dunn"]
+        # if test not in valid_list:
+        #     raise ValueError("test value should be one of the following: {}."
+        #                      .format(', '.join(valid_list)))
 
-    if text_annot_custom is not None and len(text_annot_custom) != len(box_pairs):
-        raise ValueError("`text_annot_custom` should be of same length as `box_pairs`.")
+    if (text_annot_custom is not None and
+            (len(text_annot_custom) != len(box_pairs))):
+        raise ValueError("`text_annot_custom` should be "
+                         "of same length as `box_pairs`.")
 
     valid_list = ['inside', 'outside']
     if loc not in valid_list:
@@ -152,7 +158,8 @@ def validate_arguments(perform_stat_test,test,pvalues,test_short_name,
     return box_pairs
 
 
-def set_pval_arguments(text_format,verbose,pvalue_thresholds,pvalue_format_string):
+def set_pval_arguments(text_format,verbose,pvalue_thresholds,
+                       pvalue_format_string):
 
 
     # Set default values if necessary
@@ -172,17 +179,21 @@ def set_pval_arguments(text_format,verbose,pvalue_thresholds,pvalue_format_strin
                                  [1e-3, "0.001"], [1e-2, "0.01"]]
 
 
-    if verbose and text_format == 'star':
-        print("p-value annotation legend:")
-        pvalue_thresholds = pd.DataFrame(pvalue_thresholds).sort_values(by=0, ascending=False).values
-        for i in range(0, len(pvalue_thresholds)):
-            if i < len(pvalue_thresholds)-1:
-                print('{}: {:.2e} < p <= {:.2e}'.format(pvalue_thresholds[i][1],
-                                                        pvalue_thresholds[i+1][0],
-                                                        pvalue_thresholds[i][0]))
-            else:
-                print('{}: p <= {:.2e}'.format(pvalue_thresholds[i][1], pvalue_thresholds[i][0]))
-        print()
+    if not (verbose and text_format == 'star'):
+        return pvalue_thresholds, pvalue_format_string, simple_format_string
+    print("p-value annotation legend:")
+    pvalue_thresholds = pd.DataFrame(pvalue_thresholds).sort_values(by=0,
+                                                                    ascending=
+                                                                    False).values
+    for i in range(0, len(pvalue_thresholds)):
+        if i < len(pvalue_thresholds)-1:
+            print('{}: {:.2e} < p <= {:.2e}'.format(pvalue_thresholds[i][1],
+                                                    pvalue_thresholds[i+1][0],
+                                                    pvalue_thresholds[i][0]))
+        else:
+            print('{}: p <= {:.2e}'.format(pvalue_thresholds[i][1],
+                                           pvalue_thresholds[i][0]))
+    print()
 
     return pvalue_thresholds, pvalue_format_string, simple_format_string
 
@@ -210,7 +221,8 @@ def process_col_and_hue(data, col, x, hue, x_order, col_order, hue_order):
     if len(hue_order) == 0:
         hue_order = list(data[hue].drop_duplicates())
 
-    # change hue value to None if none was given to allow colors being used for other things than hue
+    # change hue value to None if none was given
+    # to allow colors being used for other things than hue
     if hue == "no_hue_defined":
         plot_hue = None
         hue_order = []
@@ -226,15 +238,19 @@ def process_col_and_hue(data, col, x, hue, x_order, col_order, hue_order):
     total_nb_cols = 0
     for col_val in col_order:
         if col_val not in all_cols.values:
-            raise Exception("One group in group_order not present in data:"+str(col_val))
+            raise Exception("One group in group_order not present "
+                            "in data:"+str(col_val))
 
-    total_nb_cols = get_nb_of_boxes(data, x, x_order, hue, hue_order, col, col_order,)
+    total_nb_cols = get_nb_of_boxes(data, x, x_order, hue, hue_order, col,
+                                    col_order,)
 
     return col_order,col,hue,hue_order,plot_hue,total_nb_cols
 
-def get_nb_of_boxes(data, x, x_order, hue=None, hue_order=None, col = None, col_order=None):
+def get_nb_of_boxes(data, x, x_order, hue=None, hue_order=None,
+                    col = None, col_order=None):
     """
-    Get nb of all boxes in all plots considering column separation, x values and hue.
+    Get nb of all boxes in all plots considering column separation,
+    x values and hue.
     If one of the values is None
     """
     if col == None:
@@ -249,7 +265,8 @@ def get_nb_of_boxes(data, x, x_order, hue=None, hue_order=None, col = None, col_
         if hue != "no_hue_defined":
             for x_val in x_vals:
                 x_data = col_data.loc[col_data[x] == x_val]
-                hue_vals = get_all_vals_from_order_in_data(x_data, hue, hue_order)
+                hue_vals = get_all_vals_from_order_in_data(x_data, hue,
+                                                           hue_order)
                 nb_cols = len(hue_vals)
                 total_nb_cols += nb_cols
         else:
@@ -308,7 +325,8 @@ def get_box_data(box_plotter, box_name):
 
 
 def extract_cols_from_pairs(box_pairs):
-    # if each of the pairs in a box_pair has more than 2 links, the first one is the group
+    # if each of the pairs in a box_pair has more than 2 links,
+    # sthe first one is the group
     # isolate the group as one pair list
     pairs_grouped = False
     for box_pair in box_pairs:
@@ -322,7 +340,8 @@ def extract_cols_from_pairs(box_pairs):
         for box_pair in box_pairs:
             # only dissect
             if len(box_pair[0]) == 3:
-                box_pair_no_col = ((box_pair[0][1],box_pair[0][2]),(box_pair[1][1],box_pair[1][2]))
+                box_pair_no_col = ((box_pair[0][1],box_pair[0][2]),
+                                   (box_pair[1][1],box_pair[1][2]))
                 box_pairs_no_col.append(box_pair_no_col)
                 col_pairs.append((box_pair[0][0],box_pair[1][0]))
             else:
@@ -355,8 +374,10 @@ def get_box_names_and_labels(box_plotter):
         box_names = group_names
         labels = box_names
     else:
-        box_names = [(group_name, hue_name) for group_name in group_names for hue_name in hue_names]
-        labels = ['{}_{}'.format(group_name, hue_name) for (group_name, hue_name) in box_names]
+        box_names = [(group_name, hue_name)
+                     for group_name in group_names for hue_name in hue_names]
+        labels = ['{}_{}'.format(group_name, hue_name)
+                  for (group_name, hue_name) in box_names]
 
     return box_names, labels
 
@@ -377,13 +398,16 @@ def build_box_structs_dic(box_plotter,col_val, hue,ax,ax_annot):
 
     box_names, labels = get_box_names_and_labels(box_plotter)
 
-    complete_box_names = tuple([complete_box_name(box_name, col_val, hue) for box_name in box_names])
+    complete_box_names = tuple([complete_box_name(box_name, col_val, hue)
+                                for box_name in box_names])
     # guarantee that box_names always includeds x and hue (even if no hue is defined)
     # since box_pairs will always include both as well
     box_structs = [{'group':col_val,
                     'box':complete_box_names[i],
                     'label':labels[i],
-                    'x':find_transformed_x_position_box(box_plotter, box_names[i],ax,ax_annot),
+                    'x':find_transformed_x_position_box(box_plotter,
+                                                        box_names[i],ax,
+                                                        ax_annot),
                     'x_orig':find_x_position_box(box_plotter, box_names[i]),
                     'box_data':get_box_data(box_plotter, box_names[i]),
                     'ymax':transform_ymax(box_plotter,box_names[i],ax,ax_annot)}
@@ -391,9 +415,11 @@ def build_box_structs_dic(box_plotter,col_val, hue,ax,ax_annot):
     # Sort the box data structures by position along the x axis
     box_structs = sorted(box_structs, key=lambda x: x['x'])
     # Add the index position in the list of boxes along the x axis
-    box_structs = [dict(box_struct, xi=i) for i, box_struct in enumerate(box_structs)]
+    box_structs = [dict(box_struct, xi=i)
+                   for i, box_struct in enumerate(box_structs)]
     # Same data structure list with access key by box name
-    box_structs_dic = {box_struct['box']:box_struct for box_struct in box_structs}
+    box_structs_dic = {box_struct['box']:box_struct
+                       for box_struct in box_structs}
     return box_structs_dic,complete_box_names,box_structs
 
 def get_axis_tick_labels_overhang(ax, axis):
@@ -522,11 +548,7 @@ def construct_all_box_pairs(data,col,col_order,x,x_order,hue,hue_order):
     return all_box_pairs
 
 
-
-def plot_data(ax, x, y, plot_hue, hue_column, data, x_order, hue_order,
-              plot_colors, line_width, size_factor, plot_type, nb_x_vals,
-              figure_panel, x_range, show_data_points,
-              pair_unit_columns, connect_paired_data_points,data_plot_kwds):
+def get_plotting_class(plot_type):
     plot_object = None
     for plot_name in [plot_type+"_plot", plot_type]:
         if plot_name not in globals():
@@ -543,6 +565,14 @@ def plot_data(ax, x, y, plot_hue, hue_column, data, x_order, hue_order,
         raise ValueError(f"The plot type {plot_type} cannot be found. Is a "
                          f"module with that name defined in the subpackage "
                          f"'plots'.")
+    return plot_object
+
+def plot_data(ax, x, y, plot_hue, hue_column, data, x_order, hue_order,
+              plot_colors, line_width, size_factor, plot_type, nb_x_vals,
+              figure_panel, x_range, show_data_points,
+              pair_unit_columns, connect_paired_data_points,data_plot_kwds):
+
+    plot_object = get_plotting_class(plot_type)
 
     if plot_colors == -1:
         plot_colors = sns.xkcd_palette(["white","grey"])
@@ -573,19 +603,13 @@ def add_column_plot_title_above(ax_annot, col_val, col_label_padding, fontsize):
     title = ax_annot.set_title(col_val, pad = col_label_padding,
                                loc="center", fontsize=fontsize,
                                x=0.5, ha="center")
-
-    col_label_height_px = title.get_window_extent( fig.canvas.get_renderer() ).height
+    renderer = fig.canvas.get_renderer()
+    col_label_height_px = title.get_window_extent(renderer).height
     fig = plt.gcf()
     # not sure why divided by 10... little bit of confusion why this works well
     col_label_padding_px = points_to_pixels(col_label_padding) / 10
-    # padding_to_move_into_borders = pixels_to_points(col_label_height_px +
-    #                                                 col_label_padding_px)*10
-    # # set final title with correct padding
-    # title = plt.title(col_val, pad = -padding_to_move_into_borders,
-    #                   fontsize=fontsize)
-    # col_label_height_px = title.get_window_extent( fig.canvas.get_renderer() ).height
-    # fig = plt.gcf()
-    # # not sure why divided by 10... little bit of confusion why this works well
+
+    # # not sure why divided by 10...little bit of confusion why this works well
     # col_label_padding_px = points_to_pixels(col_label_padding) / 10
     col_label_height = ((col_label_height_px +col_label_padding_px) /
                         (fig.get_size_inches()[0] * fig.dpi))
@@ -596,7 +620,8 @@ def add_column_plot_title_above(ax_annot, col_val, col_label_padding, fontsize):
 def get_all_box_pairs(box_pairs,data,col,col_order,x,x_order,hue,hue_order):
     max_level_of_pairs = 0
     if len(box_pairs) == 0:
-        all_box_pairs = construct_all_box_pairs(data,col,col_order,x,x_order,hue,hue_order)
+        all_box_pairs = construct_all_box_pairs(data,col,col_order,x,
+                                                x_order,hue,hue_order)
         max_level_of_pairs = 3
     else:
         all_box_pairs = []
@@ -606,32 +631,45 @@ def get_all_box_pairs(box_pairs,data,col,col_order,x,x_order,hue,hue_order):
             if(type(box_pair[1]) != tuple):
                 box_pair[1] = [box_pair[1]]
             if (len(box_pair[0]) != len(box_pair[1])):
-                raise ValueError("Two parts '"+str(box_pair[0])+"' and '"+str(box_pair[1])+"' need to have the same number of items.")
+                raise ValueError("Two parts '"+str(box_pair[0])+"' and '"
+                                 +str(box_pair[1])+
+                                 "' need to have the same number of items.")
             # if no "col" is in box_pair, then repeat pair over all "col"
             if (len(box_pair[0]) < 3):
                 if len(box_pair[0]) == 2:
-                    # level of statistics is 2, compare within each group but not outside of it
+                    # level of statistics is 2,
+                    # compare within each group but not outside of it
                     max_level_of_pairs = max(max_level_of_pairs,2)
 
                 for col_val in col_order:
-                    # if each elements in  pair only contains one group, repeat over group
+                    # if each elements in  pair only contains one group,
+                    # repeat over group
                     if (len(box_pair[0]) == 1):
-                        # level of statistics is 1, compare within hue but not outside of it
+                        # level of statistics is 1,
+                        # compare within hue but not outside of it
                         max_level_of_pairs = max(max_level_of_pairs,1)
-                        # if hue is not defined, add third group in element of pair as no_hue_defined
+                        # if hue is not defined, add third group
+                        # in element of pair as no_hue_defined
                         if (hue == "no_hue_defined"):
-                            new_box_pair = [(col_val,box_pair[0][0],"_-_-None-_-_"),(col_val,box_pair[1][0],"_-_-None-_-_")]
+                            new_box_pair = [(col_val,box_pair[0][0],
+                                             "_-_-None-_-_"),
+                                            (col_val,box_pair[1][0],
+                                             "_-_-None-_-_")]
                             all_box_pairs.append(new_box_pair)
                         else:
-                            # if no "x" is in box_pair, but "hue" is defined, repeat pair over all "x" & "col"
+                            # if no "x" is in box_pair, but "hue" is defined,
+                            # repeat pair over all "x" & "col"
                             col_data = data.loc[data[col] == col_val]
                             x_vals = col_data[x].drop_duplicates().dropna()
                             for x_val in x_vals:
-                                new_box_pair = [(col_val,x_val,box_pair[0][0]),(col_val,x_val,box_pair[1][0])]
+                                new_box_pair = [(col_val,x_val,box_pair[0][0]),
+                                                (col_val,x_val,box_pair[1][0])]
 
                                 all_box_pairs.append(new_box_pair)
                     else:
-                        new_box_pair = [(col_val,box_pair[0][0],box_pair[0][1]),(col_val,box_pair[1][0],box_pair[1][1])]
+                        new_box_pair = [(col_val,box_pair[0][0],
+                                         box_pair[0][1]),
+                                        (col_val,box_pair[1][0],box_pair[1][1])]
 
                         all_box_pairs.append(new_box_pair)
             else:
@@ -685,7 +723,8 @@ def build_box_struct_pairs(all_box_pairs, all_box_names,
 
 
 def exclude_data(data,col,col_order,x,x_order,hue,hue_order):
-    # get all column values that are excluded from data because they are missing in order
+    # get all column values that are excluded from data
+    # because they are missing in order
     missing_vals_in_column = {}
     missing_vals_in_column[col] = get_excluded_column_vals(data,col,col_order)
     missing_vals_in_column[x] = get_excluded_column_vals(data,x,x_order)
@@ -697,18 +736,79 @@ def exclude_data(data,col,col_order,x,x_order,hue,hue_order):
             exclude_by_column_val = True
             if type(missing_val) == float:
                 if (np.isnan(missing_val)):
-                    included_data = included_data.dropna(axis=0,subset=[missing_val_column])
+                    included_data = included_data.dropna(axis=0,
+                                                         subset=
+                                                         [missing_val_column])
                     exclude_by_column_val = False
             if exclude_by_column_val:
-                included_data = included_data.loc[included_data[missing_val_column] != missing_val]
+                included_data = included_data.loc[included_data[missing_val_column]
+                                                  != missing_val]
     return included_data
 
+def perform_stat_test(data_groups, data_group_names,
+                      test_name, stats_params, type):
+    """
+    :param type: "group" or "single"
+    """
+    split_test_name = test_name.split(".")
+    # if a dot is involved, the test is part of scipy.stats or scikit-posthocs
+    if len(split_test_name) > 1:
+        if split_test_name[0] == "stats":
+            if not hasattr(stats, split_test_name[1]):
+                raise ValueError(f"The stat test name "
+                                 f"{split_test_name[1]} does not exist"
+                                 f" in scipy.stats.")
 
-def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs,
+            if (type == "single") & (len(data_groups) > 2):
+                raise ValueError(f"Single comparisons using the scipy.stats "
+                                 f"package are only allowed for two groups not "
+                                 f"for comparing {len(data_groups)} groups. "
+                                 f"Use tests from scikit-posthocs instead "
+                                 f"using 'posthocs.' before the function name.")
+
+            stat_func = getattr(stats, split_test_name[1])
+            p_val = stat_func(*data_groups, **stats_params).pvalue
+            if type == "group":
+                return p_val
+
+            group_name1 = data_group_names.values[0]
+            group_name2 = data_group_names.values[1]
+
+            stat_results = pd.DataFrame(columns=data_group_names.values)
+
+            stat_results.loc[group_name1] = [1, p_val]
+            stat_results.loc[group_name2] = [p_val, 1]
+
+        elif split_test_name[0] == "posthocs":
+            if not hasattr(posthocs, split_test_name[1]):
+                raise ValueError(f"The stat test name "
+                                 f"{split_test_name[1]} does not exist"
+                                 f" in scikit_posthocs.")
+            stat_func = getattr(posthocs, split_test_name[1])
+
+            stat_results = stat_func(data_groups, **stats_params)
+
+            if type == "group":
+                return stat_results[0]
+
+            rename_map = {nb+1:col_name
+                          for nb, col_name
+                          in enumerate(data_group_names.values)}
+
+            stat_results.rename(rename_map, inplace=True, axis=0)
+            stat_results.rename(rename_map, inplace=True, axis=1)
+        else:
+            raise ValueError(f"Test names can only start with 'stats.' or "
+                             f"'posthocs.' and not with {split_test_name[0]}.")
+    else:
+        raise ValueError("Stat tests based on classes are not implemented yet.")
+    return stat_results
+
+def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
+                                         all_box_pairs,
                                          max_level_of_pairs,test_short_name,
-                                         test,
-                                         test_result_list,
-                                         add_bonferroni_correction,
+                                         test, test_result_list,
+                                         stats_params,add_bonferroni_correction,
                                          pair_unit_columns,
                                          annotate_nonsignificant,
                                          verbose):
@@ -724,7 +824,8 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
     # for each group in all_data comparisons will be performed
     # if the maximum level of pairs is 3 then ALL data will be compared
     # therefore, the data will not be split into groups
-    # if the maximum level of pairs is smaller than 3, split the data into groups
+    # if the maximum level of pairs is smaller than 3,
+    # split the data into groups
     # if the level of pairs is smaller than 2 AND hue is defined
     # then compare only within each col and x_val group
     # however, if the maximum level is 2 then compare everything 
@@ -732,7 +833,8 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
     if (max_level_of_pairs < 3):
         all_cols = included_data[col].drop_duplicates()
         for col_val in all_cols:
-            # hue needs to be defined since otherwise there is only one group for each x_val
+            # hue needs to be defined since otherwise
+            # there is only one group for each x_val
             # if (max_level_of_pairs < 2) & (hue != "no_hue_defined"):
             if (max_level_of_pairs < 2) & (hue != "no_hue_defined"):
                 col_data = included_data[included_data[col] == col_val]
@@ -741,41 +843,10 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
                     x_data = col_data[col_data[x] == x_val]
                     all_data[(str(col_val),str(x_val))] = x_data
             else: # was not included in initial script
-                all_data[(str(col_val))] = included_data[included_data[col] == col_val]
+                all_data[(str(col_val))] = (included_data[included_data[col] ==
+                                                          col_val])
     else:
         all_data[0] = included_data
-
-    max_group_length = 0
-    for data_key in all_data:
-        group_check_vals = []
-        if type(data_key) == str:
-            group_check_vals.append(data_key)
-        elif type(data_key) == tuple:
-            group_check_vals.append(data_key[0])
-            group_check_vals.append("")
-            group_check_vals.append(data_key[1])
-        one_group_data = all_data[data_key]
-
-        # create new column to separate groups for statistic analysis
-        col_strings = one_group_data[col].astype(str) + "___"
-        hue_strings = "___" + one_group_data[hue].astype(str)
-        # hue_strings = "___"+one_group_data[hue].astype(str)
-
-        one_group_data.loc[:, 'constructed_group'] = col_strings + \
-                                                     one_group_data[x].astype(
-                                                         str) + hue_strings
-        # construct list with one list with all data points from each box
-        # for statistical multi-comparison of all groups
-        group_data_list = []
-        all_data_groups = one_group_data['constructed_group'].drop_duplicates()
-        for group in all_data_groups:
-            one_box_data = one_group_data.loc[
-                one_group_data['constructed_group']
-                == group, y]
-            group_data_list.append(list(one_box_data))
-
-        max_group_length = max(len(group_data_list), max_group_length)
-
 
     for data_key in all_data:
         group_check_vals = []
@@ -791,8 +862,10 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
         col_strings = one_group_data[col].astype(str) + "___"
         hue_strings = "___"+one_group_data[hue].astype(str)
         # hue_strings = "___"+one_group_data[hue].astype(str)
-        
-        one_group_data.loc[:,'constructed_group'] = col_strings+one_group_data[x].astype(str)+hue_strings
+
+        one_group_data.loc[:,'constructed_group'] = (col_strings+
+                                                     one_group_data[x].astype(str)
+                                                     +hue_strings)
         # construct list with one list with all data points from each box
         # for statistical multi-comparison of all groups
         group_data_list = []
@@ -805,97 +878,53 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
             one_box_data = one_group_data.loc[one_group_data['constructed_group']
                                               == group, y]
             group_data_list.append( list(one_box_data) )
-        # check if group comparison using non parametric kruskal wallis is significant
-        group_stat_results = stats.kruskal(*group_data_list)
 
-        if ((max_group_length == 2) & (pair_unit_columns is not None) &
-                (test != "Dunn")):
-            group_name1 = all_data_groups.values[0]
-            group_name2 = all_data_groups.values[1]
-            p_value_paired = stats.wilcoxon(group_data_list[0],  group_data_list[1]).pvalue
+        # for statistic test a single test can be defined or
+        # two tests in a list, where the first will be the group test
+        # if only one test is defined, it is assumed to not be a group test
+        # for tests in the scikit-posthocs package the test name should start
+        # with "posthocs." while for tests under scipy.stats should start with
+        # "stats.". Scipy stats test work for group comparisons and
+        # for comparing two groups without control.
 
-            test_below_thresh = (p_value_paired < 0.05)
+        # NOT YET IMPLEMENTED:
+        # Alternatively, stat tests can be supplied as a string that refers
+        # to a class with that name under figureflow.stat_tests
 
-            group_test_below_thresh = test_below_thresh
+        # parameters of tests can be supplied in stats_params as dictionary for
+        # single tests and as list of two dictionaries for two tests
 
-            if (not test_below_thresh) & (not annotate_nonsignificant):
-                continue
+        if type(test) in [list, tuple]:
+            if len(test) > 2:
+                raise ValueError("Not more than two tests can be used for "
+                                 "the parameter 'test'.")
+            if len(test) == 1:
 
-            stat_results = pd.DataFrame(columns=all_data_groups.values)
-
-            if add_bonferroni_correction:
-                p_value_paired /= len(all_data)
-            stat_results.loc[group_name1] = [1, p_value_paired]
-            stat_results.loc[group_name2] = [p_value_paired, 1]
-
+                stat_results = perform_stat_test(group_data_list,
+                                                 all_data_groups,
+                                                 test[0], stats_params, "single")
+                # perform single comparison
+            elif (len(test) == 2):
+                if type(stats_params) in [tuple, list]:
+                    if (len(stats_params) > 0) & (len(stats_params) != 2):
+                        raise ValueError("If two stat tests are supplied, "
+                                         "either no stats_params are used  "
+                                         "or stats_params are supplied as "
+                                         "a list of two dictionaries.")
+                # perform group comparison first
+                grup_p_val = perform_stat_test(group_data_list, all_data_groups,
+                                               test[0], stats_params[0], "group")
+                if grup_p_val < THRESHOLD:
+                    continue
+                # perform comparison of sub groups
+                stat_results = perform_stat_test(group_data_list,
+                                                 all_data_groups,
+                                                 test[1], stats_params[1],
+                                                 "single")
         else:
+            stat_results = perform_stat_test(group_data_list, all_data_groups,
+                                             test, stats_params, "single")
 
-            # print(len(one_group_data['constructed_group'].drop_duplicates()))
-
-            a = 1
-            group_test_below_thresh = (group_stat_results.pvalue < 0.05)
-
-            if (not group_test_below_thresh) & (not annotate_nonsignificant):
-                continue
-
-            # group_col = "constructed_group"
-            # group_vals = one_group_data[group_col].drop_duplicates()
-            # stat_results = pd.DataFrame()
-            # stat_results["test"] = group_vals
-            # stat_results.set_index("test", inplace=True)
-            # for group_val in group_vals:
-            #     stat_results[group_val] = 1
-            # nb_groups = len(group_vals)
-            # nb_tests = math.factorial(nb_groups) / (2 * math.factorial(nb_groups - 2))
-            # for first_group_val in group_vals:
-            #     first_group = one_group_data.loc[one_group_data[group_col] == first_group_val]
-            #     for second_group_val in group_vals:
-            #         if first_group_val != second_group_val:
-            #             second_group = one_group_data.loc[one_group_data[group_col] == second_group_val]
-            #             print(first_group)
-            #             print(second_group)
-            #             p_val = stats.mannwhitneyu(first_group[y], second_group[y]).pvalue
-            #             # add the corrected pval
-            #             stat_results.loc[first_group_val, second_group_val] = p_val * nb_tests
-
-            stat_results = posthocs.posthoc_dunn(one_group_data,val_col=y,
-                                                 group_col="constructed_group",
-                                                 p_adjust="bonferroni")
-            if add_bonferroni_correction:
-                stat_results *= len(all_data)
-
-            # one_group_data["block"] = one_group_data["date"].astype(str) + one_group_data["cell"].astype(str)
-            # stat_results = posthocs.posthoc_nemenyi_friedman(one_group_data,
-            #                                                  y_col=y,
-            #                                                  group_col="constructed_group",
-            #                                                  block_col="block",
-            #                                                  melted=True)
-            #
-            # pd.set_option('display.width', 10000)
-            # pd.set_option('display.max_columns', 500)
-            # print(stat_results)
-            #
-            #
-            # stat_results = posthocs.posthoc_siegel_friedman(one_group_data,
-            #                                                  y_col=y,
-            #                                                  group_col="constructed_group",
-            #                                                  block_col="block",
-            #                                                  melted=True)
-            # print(stat_results)
-            #
-            # stat_results = posthocs.posthoc_conover_friedman(one_group_data,
-            #                                                  y_col=y,
-            #                                                  group_col="constructed_group",
-            #                                                  block_col="block",
-            #                                                  melted=True)
-            # print(stat_results)
-
-
-            # one_group_data.to_csv("C:\\Users\\Maxsc\\Desktop\\data_"+str(a)+".csv")
-            # a += 1
-            # print(stat_results)
-            # stat_results.to_csv("C:\\Users\\Maxsc\\Desktop\\tests.csv")
-            # print(type(stat_results))
         for box_pair in all_box_pairs:
             box_pair = tuple(box_pair)
             box1 = box_pair[0]
@@ -905,14 +934,6 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
             # not sure what this should do... commented out for now.
             use_box_pair = True
 
-            # print(group_check_vals)
-            # for i,group_check_val in enumerate(group_check_vals):
-            #     print("BOX:", box1[i])
-            #     print("GROUO CHECK:", group_check_val)
-            #     if (box1[i] != group_check_val) & (group_check_val != ""):
-            #         use_box_pair = False
-            #         break
-
             stat_column = str(box1[0]) + "___" + str(box1[1]) + "___" + str(box1[2])
             stat_row = str(box2[0]) + "___" + str(box2[1]) + "___" + str(box2[2])
 
@@ -921,9 +942,7 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
 
             if stat_row not in stat_results.columns:
                 use_box_pair = False
-            # print(stat_column)
-            # print(stat_row)
-            # print(box_pair)
+
             if use_box_pair:
 
                 pval = stat_results.loc[stat_column,stat_row]
@@ -931,8 +950,8 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,all_box_pairs
                                     .format(test_short_name, pval))
 
                 # set pval as above 0.05 if group test was not below threshold!
-                if (not group_test_below_thresh) & (pval < 0.05):
-                    pval = 0.051
+                # if (grup_p_val > 0.05) & (pval < 0.05):
+                #     pval = 0.051
 
                 test_result_list.append({'pvalue': pval, 'test_short_name': test_short_name,
                                          'formatted_output': formatted_output, 'box1': box1,
@@ -2226,7 +2245,7 @@ def overhanging_axis_tick_labels_into_inner_border(all_x_tick_overhangs,
 
 def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                            all_box_structs, all_box_structs_dics,
-                       test, test_short_name, all_box_names,
+                       test, test_short_name, stats_params, all_box_names,
                            text_format,
                            add_bonferroni_correction,
                            show_stats_to_control_without_lines,
@@ -2266,6 +2285,7 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                                                               max_level_of_pairs,
                                                                 test_short_name,
                                                               test,test_result_list,
+                                                              stats_params,
                                                               add_bonferroni_correction,
                                                               pair_unit_columns,
                                                                 annotate_nonsignificant,
@@ -2387,7 +2407,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
                                  loc='inside', figure_panel=None,
                                  always_show_col_label=False, plot_type="box",
                                  data_plot_kwds=None, pvalue_thresholds=DEFAULT,
-                                 stats_params=dict(), y_axis_label=None,
+                                 stats_params=None, y_axis_label=None,
                                  fig=None, show_x_axis=True,
                                  leave_space_for_x_tick_overhang=False,
                                  show_y_axis=True, letter=None,
@@ -2508,7 +2528,13 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
 
     """
 
-    continuous_plot_types = ["line", "regression", "scatter"]
+    plot_object = get_plotting_class(plot_type)
+
+    data_is_continuous = plot_object.CONTINUOUS_X
+
+    if plot_colors == -1:
+        plot_colors = sns.xkcd_palette(["white", "grey"])
+
 
     if show_col_labels_above:
         show_col_labels_below = False
@@ -2516,16 +2542,13 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
     if data_plot_kwds is None:
         data_plot_kwds = {}
 
-    # do not scale group padding for continuous plots
-    if plot_type in continuous_plot_types:
-        data_is_continuous = True
-    else:
-        data_is_continuous = False
-
+    # do not scale group padding for plots with continuous x
     if data_is_continuous:
         auto_scale_group_padding = False
         show_data_points = False
 
+    if stats_params is None:
+        stats_params = {}
 
     # convert all values according to size factor
     # inner_padding *= size_factor
@@ -2859,6 +2882,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
                                                    all_box_structs,
                                                    all_box_structs_dics,
                                                    test, test_short_name,
+                                                    stats_params,
                                                    all_box_names,text_format,
                                                    add_bonferroni_correction,
                                                    show_stats_to_control_without_lines,
