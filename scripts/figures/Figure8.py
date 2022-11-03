@@ -36,7 +36,7 @@ inclusion_criteria = [{"stage":["2.0"]}]
 figure.create_panel("B", increase_size_fac=7, hor_alignment="center")
 figure.show_data(x="treatment", y="speed", hue=None, col=None, 
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Dunn",
+                    perform_stat_test=True, test=["stats.kruskal","posthocs.posthoc_dunn"],
                     x_labels=[("DMSO2x","Control"),("cilA50-30m", "Ciliobrevin"),
                               ("cilA50-60m", "Ciliobrevin")],
                     x_order=["Control", "Ciliobrevin"],
@@ -57,7 +57,7 @@ inclusion_criteria = [{"stage":["2.0"],  "expression":">400"}]
 figure.create_panel("C", increase_size_fac=6, hor_alignment="center")
 figure.show_data(x="treatment", y="speed", col="neurite", hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Dunn",
+                    perform_stat_test=True, test=["stats.kruskal","posthocs.posthoc_dunn"],
                   col_labels=[("short","Minor\nneurite")], col_order=["Minor\nneurite"],
                     x_labels=[("baseline2x","Control"),("baseline","Control"),("IC2", "IC2N")],
                     x_order=["Control", "IC2N"],

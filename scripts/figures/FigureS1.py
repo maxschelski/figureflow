@@ -28,7 +28,7 @@ inclusion_criteria = [{"channel": ["eos","halo"]}]
 figure.show_data(x="channel", y="Mean_norm", col=None, hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","grey"]),
                     perform_stat_test=True,
-                    test="Dunn",
+                    test=["stats.kruskal","posthocs.posthoc_dunn"],
                     x_order=["Patch", "Array"],
                     x_labels=[("eos", "Patch"),("halo","Array")],
                   y_axis_label="Normalized tubulin intensity",

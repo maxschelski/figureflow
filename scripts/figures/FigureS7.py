@@ -32,7 +32,7 @@ renaming_dicts[-1]["stage"] = ["With axon\nwith dendrites"]
 figure.show_data_columns()
 figure.show_data(x="neurite", y="speed", col="stage",hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Dunn",
+                    perform_stat_test=True, test=["stats.kruskal","posthocs.posthoc_dunn"],
                     col_labels=[("3","With axon\nno dendrites"),("4", "With axon\nwith dendrites")],
                     col_order=["With axon\nno dendrites","With axon\nwith dendrites"],
                   x_labels=[("short","Minor\nneurite"),('long','Axon')], x_order=["Minor\nneurite","Dendrite\n","Axon"],

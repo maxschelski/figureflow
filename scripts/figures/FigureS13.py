@@ -36,7 +36,7 @@ figure.create_panel("B", increase_size_fac=6, hor_alignment="center",
                     padding=[None, None])
 figure.show_data(x="condition", y="MT-RFmed", col="manipulation",
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Dunn",
+                    perform_stat_test=True, test=["stats.kruskal","posthocs.posthoc_dunn"],
                   col_labels=[("before","Before"),('early','After')],
                   col_order=["Before","After"],
                   x_labels =[("wt", "Wildtype"), ("mut", "Motor-\ndeficient")],

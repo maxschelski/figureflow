@@ -31,7 +31,7 @@ figure.create_panel("B", increase_size_fac=4, hor_alignment="center",
                     padding=[0.04,None])
 figure.show_data(x="neurite", y="speed", col="stage", hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Wilcoxon",
+                    perform_stat_test=True, test="stats.Wilcoxon",
                   x_labels=[("short","Minor\nneurite"),('long','Axon')], x_order=["Minor\nneurite","Axon"],
                   col_labels=[("3.0","Stage 3")],col_order=["Stage 3"],
                   pair_unit_columns=["date", "experiment", "cell"],
@@ -74,7 +74,7 @@ figure.rescale_font_size()
 figure.create_panel("E", increase_size_fac=5,padding=[0.04,None])
 figure.show_data(x="type", y="speed", col=None, hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Wilcoxon",
+                    perform_stat_test=True, test="stats.Wilcoxon",
                   x_labels=[("neurite","Minor\nneurite"),('axon','Axon')], x_order=["Minor\nneurite","Axon"],
                    pair_unit_columns=["date", "cell"],
                   y_tick_interval=0.3,

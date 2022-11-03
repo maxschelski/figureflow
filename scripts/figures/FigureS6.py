@@ -32,7 +32,7 @@ figure.create_panel("B", increase_size_fac=5)
 
 figure.show_data(x="neurite", y="speed", col="stage", hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Wilcoxon",
+                    perform_stat_test=True, test="stats.Wilcoxon",
                   x_labels=[("short","Minor\nneurite"),('long','Axon')], x_order=["Minor\nneurite","Axon"],
                   col_labels=[("3.0","Stage 3")],col_order=["Stage 3"],
                   pair_unit_columns=["date", "experiment","cell"],

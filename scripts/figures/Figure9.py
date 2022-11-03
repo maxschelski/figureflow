@@ -43,7 +43,7 @@ figure.show_data_columns()
 inclusion_criteria = [{"bicd":"<1000", "caax":">200"}]
 figure.show_data(x="manipulation", y="MT-RFmed", col="condition",hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Dunn",
+                    perform_stat_test=True, test=["stats.kruskal","posthocs.posthoc_dunn"],
                     col_labels=[("bicd", "With bicDN"), ("control", "Control")],
                     col_order = ["Control", "With bicDN"],
                     always_show_col_label=True,
@@ -114,7 +114,7 @@ figure.create_panel("F", increase_size_fac=6, hor_alignment = "center",
                     padding=[0.02,0.05])
 figure.show_data(x="manipulation", y="MT-RFmed", col="stage", hue="condition",
                   plot_colors=sb.xkcd_palette(["white","grey"]),
-                    perform_stat_test=True, test="Dunn",
+                    perform_stat_test=True, test=["stats.kruskal","posthocs.posthoc_dunn"],
                     always_show_col_label=True,
                     line_height=0.3,
                     hue_labels=[("Dync1h1K2599T", "Motor\ndeficient"),("Dync1h1", "Wildtype")],

@@ -42,7 +42,7 @@ figure.create_panel("C", increase_size_fac=6, hor_alignment="center")
 inclusion_criteria= [{"stage":["2.0"]}]
 figure.show_data(hue=None, y="speed", x="accumulation",
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Wilcoxon",
+                    perform_stat_test=True, test="stats.Wilcoxon",
                   x_labels=[("yes","caKIF5C"),('no','No\ncaKIF5C')], 
                   x_order=["No\ncaKIF5C","caKIF5C"],
                    pair_unit_columns=["date", "cell"],

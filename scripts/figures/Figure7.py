@@ -39,7 +39,7 @@ inclusion_criteria[0]["treatment"] = ["dmso","taxol","pablebb"]
 inclusion_criteria[0]["stage"] = [2.0, 2.5]
 figure.show_data(x="treatment", y="cycles/h", col=None, hue=None,
                   plot_colors=sb.xkcd_palette(["white","silver","grey"]),
-                    perform_stat_test=True, test="Dunn",
+                    perform_stat_test=True, test=["stats.kruskal","posthocs.posthoc_dunn"],
                     x_labels=[("dmso","Control"),('pablebb','pa-\nBlebb'), 
                               ('taxol', 'Taxol')],
                     x_order=["Control","pa-\nBlebb", "Taxol"],

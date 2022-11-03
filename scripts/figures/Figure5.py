@@ -41,7 +41,7 @@ inclusion_criteria = [{}]
 inclusion_criteria[0]["cycle_threshold"] = [0.2]
 figure.show_data(x="axon", y="cycles/h", col="stage", hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="Wilcoxon",
+                    perform_stat_test=True, test="stats.Wilcoxon",
                     col_labels=[("2.0", "No axon"), ("3.0", "With axon")],
                     box_pairs=[["Minor\nneurites","Axon"]],#,
                     pair_unit_columns=["date", "neuron"],

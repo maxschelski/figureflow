@@ -28,7 +28,7 @@ figure.create_panel("B", increase_size_fac=3.4, hor_alignment = "left")
 inclusion_criteria = [{"exclude":[False], "speed": "< 3"}]
 figure.show_data(x="neurite", y="speed", col="stage", hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=False, test="Dunn",
+                    perform_stat_test=False, test="posthocs.posthoc_dunn",
                   x_labels=[("short","Minor\nneurite")], x_order=["Minor\nneurite"],
                   col_labels=[("2.0","Stage 2")],col_order=["Stage 2"],
                   y_axis_label="Microtubule\nretrograde flow [\u03BCm/min]",
