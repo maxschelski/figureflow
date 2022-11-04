@@ -84,6 +84,40 @@ The package was developed in Windows and the exact package versions for the envi
 > from figureflow.figure import Figure
 
 For any questions feel free to contact me via E-Mail to max.schelski@googlemail.com.
+
+# Creating a layout for a figure
+
+The layout of a figure is created by defining the position and size of the panels. This can either be done by setting the parameters x, y, width and height separately for each figure panel or by creating a csv file the following way:
+
+The csv needs to be in the main folder of the figure with the name __figure__ followed by the "number" and ".csv"
+A grid with letters of the panels where
+if a panel should span several cells
+the corresponding letter should be written in several cells.
+
+Widths and heights can be defined by two possible ways:
+  1) In which the first row is the width of each column and the last column is the height of each row
+  2) In which above every panel letters there is a number corresponding to the relative width of the panel in that row and the last column of the csv contains the height of each row
+  3) In which widths are defined as in the second point but heights are defined for every panel by a number right of the panel letter           
+
+# Using the GUI to add/edit elements
+
+If you want to add text, arrows, zooms or cropping to an image in a panel, you can also use the GUI for one panel at the time. The GUI also allows you to adjust the position of elements you added already. 
+
+To use the GUI, right after defining the figure object:
+
+> Figure(...)
+  
+you can write the following:
+
+> figure.edit_panel("C")
+
+(where "C" is the panel you want to edit)
+
+The GUI has a button to generate the code after you are done adding the elements you want you can then copy paste into the script of the figure/movie. 
+
+With the GUI you don't need to check at which coordinates you want to add an arrow or text in ImageJ.
+
+
 # Examples
 Examples are not displayed to scale on this website but were all generated with 4.75 inch width.<br/>
 <br/>
