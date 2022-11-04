@@ -25,6 +25,20 @@ Figureflow automatically assigns files to the respective panel by file name:
 
 The name of files for a specific panel starts with "panel" followed by the uppercase panel letter and then an underscore (e.g. a file for panel A starts with "panelA_"). Alternatively, files for a panel can be stored in a folder named "panel" followed by the uppercase panel letter ("e.g. "panelA").
 
+Creating a layout for a figure
+-----------
+The layout of a figure is created by defining the position and size of the panels. This can either be done by setting the parameters x, y, width and height separately for each figure panel or by creating a csv file the following way:
+
+The csv needs to be in the main folder of the figure with the name __figure__ followed by the "number" and ".csv"
+A grid with letters of the panels where
+if a panel should span several cells
+the corresponding letter should be written in several cells.
+
+Widths and heights can be defined by two possible ways:
+  1) In which the first row is the width of each column and the last column is the height of each row
+  2) In which above every panel letters there is a number corresponding to the relative width of the panel in that row and the last column of the csv contains the height of each row
+  3) In which widths are defined as in the second point but heights are defined for every panel by a number right of the panel letter           
+
 Using the GUI to add/edit elements
 ------------------
 
