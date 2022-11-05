@@ -52,7 +52,7 @@ figure.show_images(frames=[0,2,11,21],
                     auto_enlarge=True,
                       position_zoom_nb="top-left")
 figure.label_channels(texts=["Not photoconverted","Photoconverted tubulin"], 
-                      site="top", label_overlays=False)
+                      site="top", label_composites=False)
 figure.annotate_channel_within_image(["Tubulin", "P"], 
                                       only_show_in_columns=[0],
                                       position="top-left",
