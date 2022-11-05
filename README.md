@@ -3,10 +3,10 @@ A Python package to allow fast, modular and reproducible generation of publicati
 <br/>
 A lot of the code to plot data and add significance information (in statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
 <br/>
-FigureFlow was used to generate all figures and all movies from Schelski and Bradke 2021 (examples from preprint at the bottom of this page):<br/>
-https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
-Figureflow was also used to generate all 26 figures (10 main, 16 supplementary) and 22 movies for the published manuscript Schelski and Bradke 2022:<br/>
+Figureflow was used to generate all 26 figures (10 main, 16 supplementary) and 22 movies for Schelski and Bradke 2022:<br/>
 https://www.science.org/doi/10.1126/sciadv.abo2336 <br/>
+FigureFlow was also used to generate all figures and all movies from the corresponding preprint Schelski and Bradke 2021 (examples from preprint at the bottom of this page):<br/>
+https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 <br/>
 Documentation and code base under development.<br/>
 
