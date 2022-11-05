@@ -42,8 +42,8 @@ The name of files for a specific panel starts with "panel" followed by the upper
 - Define which timepoints, channels etc. to display
 - Position of images is automatically determined... but can be customized as well
 - Contrast set in ImageJ is automatically extracted from Hyperstack
-- Add annotations (star, asterisk, arrow, lines,text)
-- Define regions to be zoomed in, crop images
+- Add annotations (star, asterisk, arrow, lines,text), *also using GUI*
+- Define regions to be zoomed in, crop images, *also using GUI*
 - Add timestamp, scale bar, channel names
 - Annotate outside of image based on dimension (e.g. Annotate on the outside all timepoints)
 - ...
