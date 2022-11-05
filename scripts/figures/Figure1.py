@@ -50,8 +50,7 @@ figure.show_images(frames=[0,2,11,21],
                     channels=[0, 1],
                     channels_to_show_first_nonzoomed_timeframe=[0],
                     auto_enlarge=True,
-                      position_zoom_nb="top-left",
-                      overlay_cmaps=["Reds", "Blues"])
+                      position_zoom_nb="top-left")
 figure.label_channels(texts=["Not photoconverted","Photoconverted tubulin"], 
                       site="top", label_overlays=False)
 figure.annotate_channel_within_image(["Tubulin", "P"], 
