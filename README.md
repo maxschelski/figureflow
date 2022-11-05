@@ -3,8 +3,10 @@ A Python package to allow fast, modular and reproducible generation of publicati
 <br/>
 A lot of the code to plot data and add significance information (in statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
 <br/>
-FigureFlow was used to generate all figures and all movies from Schelski and Bradke 2021 (examples from paper at the bottom of this page):<br/>
+FigureFlow was used to generate all figures and all movies from Schelski and Bradke 2021 (examples from preprint at the bottom of this page):<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
+Figureflow was also used to generate all 26 figures (10 main, 16 supplementary) and 22 movies for the published manuscript Schelski and Bradke 2022:<br/>
+https://www.science.org/doi/10.1126/sciadv.abo2336 <br/>
 <br/>
 Documentation and code base under development.<br/>
 
@@ -12,7 +14,7 @@ For any questions or an introduction of how to use the package please contact me
 
 # Usage Examples
 Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
-Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (under "scripts/figures") or movies (under "scripts/movies").<br/>
+Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (under "scripts/figures") or movies (under "scripts/movies"). The figures and movies are from Schelski and Bradke 2022.<br/>
 To find out which examples might be interesting to you, start by looking 
 - in "data/example_figures" for generated figures (as .png file, e.g. data/example_figures/figure1.png) or 
 - in "data/example_movies" for generated movies (as .mp4 file, e.g. data/example_movies/MovieS1.mp4) 
