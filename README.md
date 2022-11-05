@@ -8,7 +8,7 @@ https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 <br/>
 Documentation and code base under development.<br/>
 
-For any questions or an introduction of how to use the package please contact me via E-Mail to max.schelski@googlemail.com. I am very happy to help people starting to use the package and I am very open to any feedback. 
+For any questions or an introduction of how to use the package please contact me via E-Mail to max.schelski@googlemail.com. I am very happy to help people starting to use the package and I am very open to any feedback - including anything not working properly or easily. 
 
 # Usage Examples
 Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
