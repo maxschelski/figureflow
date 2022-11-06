@@ -82,7 +82,10 @@ class FigurePanel():
             :param padding: list or float, if list, first value is xpadding,
                             second is ypadding if float,
                             is padding for both xpadding and ypadding
-                            However, x_padding will determine
+                            xpadding and ypadding can each also be a float
+                            or list. if list, the first value is for padding
+                            left / top and the second value is for padding
+                            right / bottom.
         """
         # figure is the parent figure object
         # not a matplotlib figure!
@@ -4199,16 +4202,24 @@ class FigurePanel():
                     img_range = [0,0]
                 all_img_ranges.append(img_range)
                 cmaps_for_img.append(cmap_for_img)
-
-            self.cmaps_for_position[position] = [plt.get_cmap(cmap)
-                                                 for cmap in cmaps_for_img]
+            print(cmaps_for_img)
+            if len(image) > 1:
+                self.cmaps_for_position[position] = [sb.dark_palette(cmap,
+                                                                     reverse=False,
+                                                                     as_cmap=True,
+                                                                     input='rgb')
+                                                     for cmap in cmaps_for_img]
+            else:
+                self.cmaps_for_position[position] = [plt.get_cmap(cmap)
+                                                     for cmap in cmaps_for_img]
             #go through each image (first dimension) of potential composite image
         
             all_rgb_images = []
             for composite_img_nb, single_image in enumerate(image):
 
                 img_range = all_img_ranges[composite_img_nb]
-                cmap_for_img = cmaps_for_img[composite_img_nb]
+
+                cmap_for_img = self.cmaps_for_position[position][composite_img_nb]
 
                 im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range,
                                alpha=1,
@@ -4218,18 +4229,22 @@ class FigurePanel():
                 rgb_image = im.make_image(fig.canvas.get_renderer(),
                                           unsampled=True)[0]
 
-                if black_composite_background:
+                if (black_composite_background) & is_composite:
                     # pixels below image range should be black and not in the color
                     # of the color map
                     below_img_range_map = single_image[:,:,:] <= img_range[0]
-                    below_img_range_map = np.repeat(below_img_range_map, 4, axis=-1)
+                    below_img_range_map = np.repeat(below_img_range_map, 4,
+                                                    axis=-1)
                     below_img_range_map[:,:,-1] = False
 
                     rgb_image[below_img_range_map] = 0
 
                 all_rgb_images.append(rgb_image)
+                # if composite_img_nb == 2:
+                #     dasdd
 
-            ax.clear()
+                ax.clear()
+                
             # perform additive blending for composite images
             if len(all_rgb_images) > 1:
                 rgb_image_to_show = np.maximum(*all_rgb_images)
@@ -9132,32 +9147,32 @@ class FigurePanel():
                     label += str(arrow_head_width_factor)+ "_"
                     label += str(arrow_head_length_factor)
 
-                    x0_ax, y0_ax = self.transform_coords_from_data_to_axes(x0_data,
-                                                                           y0_data,
-                                                                           ax)
-
-                    dx_ax, dy_ax = self.transform_coords_from_data_to_axes(dX_data,
-                                                                           dY_data,
-                                                                           ax)
+                    # x0_ax, y0_ax = self.transform_coords_from_data_to_axes(x0_data,
+                    #                                                        y0_data,
+                    #                                                        ax)
+                    #
+                    # dx_ax, dy_ax = self.transform_coords_from_data_to_axes(dX_data,
+                    #                                                        dY_data,
+                    #                                                        ax)
                     
                     # transform coords subtracts transformed y value from 1
                     # since orientation of axes and data coords are opposite
                     # since dy is not based on orientation (its a relative diff)
                     # reverse this step
-                    dy_ax -= 1
+                    # dy_ax -= 1
 
-                    width,_ =self.transform_coords_from_data_to_axes(width,0,ax)
+                    # width,_ =self.transform_coords_from_data_to_axes(width,0,ax)
+                    #
+                    # head_width,_ =self.transform_coords_from_data_to_axes(head_width,
+                    #                                                       0,ax)
+                    #
+                    # head_length,_ =self.transform_coords_from_data_to_axes(head_length,
+                    #                                                        0,ax)
 
-                    head_width,_ =self.transform_coords_from_data_to_axes(head_width,
-                                                                          0,ax)
-
-                    head_length,_ =self.transform_coords_from_data_to_axes(head_length,
-                                                                           0,ax)
-
-                    ax.arrow(x0_ax, y0_ax, - dx_ax, - dy_ax,
+                    ax.arrow(x0_data, y0_data, - dX_data, - dY_data,
                              width=width, head_width=head_width,
                              head_length=head_length,
-                            transform=ax.transAxes, color=color,
+                            transform=ax.transData, color=color,
                              length_includes_head=True,lw=0,
                              label = label
                              )

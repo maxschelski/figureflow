@@ -182,7 +182,6 @@ class EditorTool(object):
             self.change_color_of_object(self.editor_gui.selected_element,
                                         self.color)
 
-
     @only_do_for_correct_object
     def on_pick_event(self, event):
         #Store which text object was picked and were the pick event occurs.

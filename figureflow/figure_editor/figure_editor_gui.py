@@ -475,13 +475,13 @@ class FigureEditorGUI(QtWidgets.QDialog):
         # first convert d_x and d_y from data to inches
         ax_width_data = max(ax.get_xlim()) - min(ax.get_xlim())
 
-        d_x_rel = d_x #/ ax_width_data
+        d_x_rel = d_x / ax_width_data
         ax_width_inches = (ax.get_position().width *
                            ax.figure.get_size_inches()[0])
         d_x_inches = d_x_rel * ax_width_inches
 
         ax_height_data = max(ax.get_ylim()) - min(ax.get_ylim())
-        d_y_rel = d_y #/ ax_height_data
+        d_y_rel = d_y / ax_height_data
         ax_height_inches = (ax.get_position().height *
                             ax.figure.get_size_inches()[1])
         d_y_inches = d_y_rel * ax_height_inches
@@ -651,11 +651,11 @@ class FigureEditorGUI(QtWidgets.QDialog):
             # get and set target for each arrow
             target = arrow.get_path().vertices[0,:]
 
-            target[1] = 1 - target[1]
+            # target[1] = 1 - target[1]
             # coordinates of arrow are in axes fraction and not in data
-            target = self.transform_coords_from_axes_to_data(target[0],
-                                                             target[1],
-                                                             ax)
+            # target = self.transform_coords_from_axes_to_data(target[0],
+            #                                                  target[1],
+            #                                                  ax)
 
             target = self.correct_position_for_zoom_and_cropping(target, ax)
 

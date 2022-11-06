@@ -2,6 +2,7 @@ from .editor_tool import EditorTool
 from . import shape_editor
 import matplotlib
 import inspect
+import copy
 
 class ArrowEditor(shape_editor.ShapeEditor):
 
@@ -16,6 +17,7 @@ class ArrowEditor(shape_editor.ShapeEditor):
 
         self.new_arrow = None
         self.arrow_length = arrow_props.get("length",None)
+        axis_width_data = max(self.ax.get_xlim()) - min(self.ax.get_xlim())
         if self.arrow_length is None:
             # calculate default length from default value of
             default_length_pt = self.default_in_drawing_arrow_func("size")
@@ -28,7 +30,6 @@ class ArrowEditor(shape_editor.ShapeEditor):
         # first get axes width in data coords
         axis_width_inches = (self.ax.get_position().width *
                              self.ax.figure.get_size_inches()[0])
-        # axis_width_data = max(self.ax.get_xlim()) - min(self.ax.get_xlim())
 
         # get parameter values from arrow_props dict or
         # from default values when drawing the arrow
@@ -45,7 +46,8 @@ class ArrowEditor(shape_editor.ShapeEditor):
                     param_value_pt/self.arrow_length)
             #scale to axes values
             param_value_inch = param_value_pt / 72
-            param_value_data = (param_value_inch / axis_width_inches)
+            param_value_data = ((param_value_inch / axis_width_inches) *
+                                axis_width_data)
             # set parameter on self
             setattr(self, param_name.replace("_factor", ""), param_value_data)
 
@@ -73,12 +75,17 @@ class ArrowEditor(shape_editor.ShapeEditor):
 
     def add_arrow(self, end_position):
 
-        end_position = self.transform_coords_from_data_to_axes(end_position[0],
-                                                               end_position[1],
-                                                               self.ax)
+        # end_position = self.transform_coords_from_data_to_axes(end_position[0],
+        #                                                        end_position[1],
+        #                                                        self.ax)
+        tool_start_position = copy.copy(self.tool_start_position)
+        tool_start_position[1] = 1 - tool_start_position[1]
+        tool_start_position = self.transform_coords_from_axes_to_data(tool_start_position[0],
+                                                                      tool_start_position[1],
+                                                                      self.ax)
 
         (arrow_end_position,
-        d_x, d_y) = self.get_arrow_coords_at_standard_length(self.tool_start_position,
+        d_x, d_y) = self.get_arrow_coords_at_standard_length(tool_start_position,
                                                             end_position,
                                                             self.arrow_length,
                                                             self.ax)
@@ -90,6 +97,15 @@ class ArrowEditor(shape_editor.ShapeEditor):
                 (isinstance(self.new_arrow, matplotlib.patches.FancyArrow))):
             self.new_arrow.remove()
 
+        # arrow_end_position_data = self.transform_coords_from_axes_to_data(self.arrow_end_position[0],
+        #                                                              self.arrow_end_position[1],
+        #                                                              self.ax)
+
+        # (d_x_arrow_data,
+         # d_y_arrow_data) = self.transform_coords_from_axes_to_data(self.d_x_arrow,
+         #                                                           self.d_y_arrow,
+         #                                                           self.ax)
+
         self.new_arrow = self.ax.arrow(self.arrow_end_position[0],
                                        self.arrow_end_position[1],
                                        -self.d_x_arrow,-self.d_y_arrow,
@@ -97,7 +113,7 @@ class ArrowEditor(shape_editor.ShapeEditor):
                                         head_width=self.head_width,
                                          head_length=self.head_length,
                                        picker=True,
-                                        transform=self.ax.transAxes,
+                                        transform=self.ax.transData,
                                        color="red",
                                        label=self.arrow_label,
                                  length_includes_head=True,lw=0)
@@ -114,10 +130,11 @@ class ArrowEditor(shape_editor.ShapeEditor):
         d_y = orig_tail_position[1] - head_position[1]
         x_y_ratio = d_x / d_y
         figure_size_inch = self.editor_gui.figure.get_size_inches()
+        axis_width_data = max(self.ax.get_xlim()) - min(self.ax.get_xlim())
 
         ax_width_inch = (figure_size_inch[0] *
                          ax.get_position().width)
-        arrow_length_ax = (arrow_length/72 / ax_width_inch)
+        arrow_length_ax = (arrow_length/72 / ax_width_inch) * axis_width_data
         d_x_arrow = ((arrow_length_ax**2 * x_y_ratio**2)/(x_y_ratio**2 + 1)) ** 0.5
         d_y_arrow = (arrow_length_ax**2 - d_x_arrow**2) ** 0.5
 
