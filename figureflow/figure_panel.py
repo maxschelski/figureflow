@@ -10,6 +10,7 @@ import pandas as pd
 from . import statannot
 from matplotlib import pyplot as plt
 import matplotlib
+from matplotlib.colors import LinearSegmentedColormap
 import inspect
 import os
 import itertools
@@ -248,12 +249,12 @@ class FigurePanel():
                     line_width_zoom_rectangle = 0.3,
                     zoom_nb_font_size_overview = None, zoom_nb_color = "white",
                     zoom_nb_font_size = None, zoom_nb_padding = 0.015,
-                    black_composite_background = True,
                     repositioning_map = None, additional_padding = None,
                     show_axis_grid = False, use_same_LUTs=True,
                     show_non_zoom_channels=False,
                     show_zoom_number_in_image=True, simple_remapping=False,
                     show_focus_in=None, cmaps="gray", composite_cmaps=None,
+                    black_composite_background=True,
                     replace_nan_with=0,
                     sub_padding_factor= 0.25
                     ):
@@ -350,7 +351,8 @@ class FigurePanel():
                                 will be shown in the first and second frame (5, 10)
         :param black_composite_background: Whether the background (image below
                                             image range) of the composite should
-                                            be black
+                                            be black, if False, background is
+                                            white
         :param repositioning_map: join specific images together with another
                                 dimension (by remapping the identity)
                                 e.g. join one image from a channel
@@ -4204,11 +4206,20 @@ class FigurePanel():
                 cmaps_for_img.append(cmap_for_img)
             print(cmaps_for_img)
             if len(image) > 1:
-                self.cmaps_for_position[position] = [sb.dark_palette(cmap,
-                                                                     reverse=False,
-                                                                     as_cmap=True,
-                                                                     input='rgb')
+                if black_composite_background:
+                    start_color = "black"
+                else:
+                    start_color = "white"
+                # self.cmaps_for_position[position] = [sb.dark_palette(cmap,
+                #                                                      reverse=False,
+                #                                                      as_cmap=True,
+                #                                                      input='rgb')
+                #                                      for cmap in cmaps_for_img]
+                self.cmaps_for_position[position] = [LinearSegmentedColormap.from_list("dark",
+                                                                                       [start_color,
+                                                                                        cmap])
                                                      for cmap in cmaps_for_img]
+                
             else:
                 self.cmaps_for_position[position] = [plt.get_cmap(cmap)
                                                      for cmap in cmaps_for_img]
@@ -4222,36 +4233,32 @@ class FigurePanel():
                 cmap_for_img = self.cmaps_for_position[position][composite_img_nb]
 
                 im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range,
-                               alpha=1,
-                               interpolation=self.interpolate_images)
+                               alpha=1)#,
+                               # interpolation=self.interpolate_images)
 
                 # get rgb image for additive blending
                 rgb_image = im.make_image(fig.canvas.get_renderer(),
                                           unsampled=True)[0]
 
-                if (black_composite_background) & is_composite:
-                    # pixels below image range should be black and not in the color
-                    # of the color map
-                    below_img_range_map = single_image[:,:,:] <= img_range[0]
-                    below_img_range_map = np.repeat(below_img_range_map, 4,
-                                                    axis=-1)
-                    below_img_range_map[:,:,-1] = False
-
-                    rgb_image[below_img_range_map] = 0
-
                 all_rgb_images.append(rgb_image)
-                # if composite_img_nb == 2:
-                #     dasdd
 
                 ax.clear()
-                
+
             # perform additive blending for composite images
             if len(all_rgb_images) > 1:
-                rgb_image_to_show = np.maximum(*all_rgb_images)
+                rgb_image_to_show = all_rgb_images[0]
+                for rgb_image in all_rgb_images[1:]:
+                    if black_composite_background:
+                        rgb_image_to_show = np.maximum(rgb_image_to_show,
+                                                       rgb_image)
+                    else:
+                        rgb_image_to_show = np.minimum(rgb_image_to_show,
+                                                       rgb_image)
             else:
                 rgb_image_to_show = all_rgb_images[0]
 
             ax.imshow(rgb_image_to_show)
+
             #  ax.set_axis_off()
             # add plot to all_axs[row]
             if row == None:
