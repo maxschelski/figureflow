@@ -110,7 +110,7 @@ Widths and heights can be defined by two possible ways:
 
 # Using the GUI to add/edit elements
 
-If you want to add text, arrows, zooms or cropping to an image in a panel, you can also use the GUI for one panel at the time. The GUI also allows you to adjust the position of elements you added already. 
+If you want to add text, arrows, zooms or cropping to an image in a panel, you can also use the GUI for one panel at the time. The GUI also allows you to adjust the position of elements you added already. With the GUI you don't need to check in ImageJ at which coordinates you want to add an arrow or text.
 
 To use the GUI, right after defining the figure object:
 
@@ -123,9 +123,6 @@ you can write the following:
 (where "C" is the panel you want to edit)
 
 The GUI has a button to generate the code after you are done adding the elements you want you can then copy paste into the script of the figure/movie. 
-
-With the GUI you don't need to check at which coordinates you want to add an arrow or text in ImageJ.
-
 
 # Examples
 Examples are not displayed to scale on this website but were all generated with 4.75 inch width.<br/>
