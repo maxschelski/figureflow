@@ -71,20 +71,28 @@ The name of files for a specific panel starts with "panel" followed by the upper
 
 The package was developed in Windows and the exact package versions for the environment in Windows are available for Anaconda.
 <br/>
-1. Open a terminal, navigate to the folder where you want to put FigureFlow and clone the FigureFlow repository:
+1. If you don't already have Anaconda installed: Download and install Anaconda from https://www.anaconda.com/.
+2. If you don't already have git installed: Download and install git from https://git-scm.com/downloads
+3. Open a terminal, navigate to the folder where you want to put Figureflow and clone the Figureflow repository:
 > git clone https://github.com/maxschelski/figureflow.git
-2. Navigate into the folder of the repository (figureflow):
+4. Navigate into the folder of the repository (figureflow):
 > cd figureflow
-3. (Recommended on Mac/Linux) Create environment for FigureFlow with Anaconda:
+5. (Recommended on Mac/Linux) Create environment for Figureflow with Anaconda:
 > conda env create -f environment.yml
-3. (Recommended on Windows) Create environment for FigureFlow with Anaconda:
+5. (Recommended on Windows) Create environment for Figureflow with Anaconda:
 > conda env create -f environment_windows.yml
-4. Install FigureFlow locally using pip:
+6. Install FigureFlow locally using pip:
 > pip install -e .
-5. You can now import FigureFlow and use it to build figures and generate movies as figure objects
+7. You can now import Figureflow and use it to build figures and generate movies as figure objects
 > from figureflow.figure import Figure
 
 For any questions feel free to contact me via E-Mail to max.schelski@googlemail.com.
+
+Figureflow is constantly updated.
+For updating Figureflow on your machine, open a terminal, navigate into the folder where you put Figureflow and then type:
+> git pull
+
+This will download all new files on GitHub (if there are some).
 
 # Creating a layout for a figure
 
