@@ -400,7 +400,7 @@ class FigureEditorGUI(QtWidgets.QDialog):
         return position
 
     def correct_position_for_zoom_and_cropping(self, position, ax):
-        get_zoom_params = self.figure_panel.get_zoom_params_for_identity
+        get_zoom_params = self.figure_panel._get_zoom_params_for_identity
         position = list(position)
         # position needs to be corrected for zoom, if image is a zoom image
         axes_position = self.get_position_of_axes(ax)
@@ -691,8 +691,8 @@ class FigureEditorGUI(QtWidgets.QDialog):
             head_width_factor = float(arrow_params[1])
             head_length_factor = float(arrow_params[2])
             # check if each of the parameters is different from the default
-            default_in_function = self.figure_panel.default_in_function
-            function_object = self.figure_panel.draw_on_image
+            default_in_function = self.figure_panel._default_in_function
+            function_object = self.figure_panel._draw_on_image
 
             default_factor = default_in_function(function_object,
                                                  "arrow_width_factor")

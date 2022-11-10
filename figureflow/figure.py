@@ -54,19 +54,40 @@ class Figure():
         the corresponding letter should be written in several cells.
         Widths and heights can be defined by three possible ways:
         1) in which the first row is the width of each column
-           and the last column is the height of each row
+        and the last column is the height of each row
         2) in which above every panel letters
-           there is a number corresponding to the relative
-           width of the panel in that row
-           and the last column of the csv contains the height of each row
+        there is a number corresponding to the relative
+        width of the panel in that row
+        and the last column of the csv contains the height of each row
         3) in which widths are defined as in 2) but
            heights are defined for every panel
            by a number right of the panel letter
-           ( 3) IS NOT IMPLEMENTED YET)
-        :param height: height of the figure in inches or in multiples of width if relative_height is True
-                        Default is same height as width, will be adjusted when saving the figure automatically.
-                        However, for videos height needs to be set and will not be changed at the end
-                        (matplotlib requires defining the size of the figure for videos beforehand)
+        :param folder: Absolute path to folder with files for figure
+        :param letter_fontsize: Fontsize in pt for panel letters in figure
+        :param number: Number of the figure, which will be used for the file
+                        name. Can also be a string which is added for the
+                        file name instead of the number (also for supplementary
+                        figures something like "S1")
+        :param name: string of file name start (will be followed by value
+                    of parameter "number")
+        :param video: Whether the Figure object is a video or not. For videos,
+                        no panel letters will be added.
+        :param dark_background: Whether the background of the figure should be
+                                dark instead of white. This will also change the
+                                default font color on the background from black
+                                to white
+        :param relative_height: Whether the height is defined as multiples of
+                                the width (True) or as inches (False).
+        :param panel_str: panel string that is searched for in file names
+                            to find files belonging to specific panel
+        :param height: height of the figure in inches or in multiples of width
+                        if relative_height is True
+                        Default is same height as width, will be adjusted when
+                        saving the figure automatically.
+                        However, for videos height needs to be set and will
+                        not be changed at the end
+                        (matplotlib requires defining the size of the figure
+                        for videos beforehand)
         :param width: width of the figure in inches
         :param padding: float "DEFAULT" or list, in inches
                         if "DEFAULT", will be half of the letter fontsize
@@ -187,7 +208,7 @@ class Figure():
             if os.path.isdir(file_path):
                 all_files_filtered.append(file_path)
             else:
-                if self.file_has_allowed_extension(file):
+                if self._file_has_allowed_extension(file):
                     all_files_filtered.append(file_path)
 
         self.all_files = all_files_filtered
@@ -201,9 +222,9 @@ class Figure():
             figure_structure = np.nan_to_num(figure_structure)
             number_regex = re.compile("[\d]")
 
-            column_widths = self.extract_non_nan_num_array(figure_structure)
+            column_widths = self._extract_non_nan_num_array(figure_structure)
 
-            row_heights = self.extract_non_nan_num_array(figure_structure.T)
+            row_heights = self._extract_non_nan_num_array(figure_structure.T)
 
             all_letters = []
             max_nb_columns = 0
@@ -313,13 +334,12 @@ class Figure():
         #     self.fig_width_available += padding_size_x * 2
         #     self.fig_height_available += padding_size_x * (fig_size[0] / fig_size[1]) *2
 
-        self.add_all_figure_panel_functions()
+        self._add_all_figure_panel_functions()
         #necessary to initiate renderer
         if video:
             self.fig.canvas.draw()
 
-
-    def extract_non_nan_num_array(self, array):
+    def _extract_non_nan_num_array(self, array):
         #generate a matrix with all num values
         rows_of_num_array = []
         max_row_length = 0
@@ -340,7 +360,7 @@ class Figure():
 
         return np.array(rows_of_num_array)
 
-    def file_has_allowed_extension(self, file, extensions=None):
+    def _file_has_allowed_extension(self, file, extensions=None):
         """
         Checks if file contains the full extension with the "."
         And if the end of the filename is the extension without the "."
@@ -354,7 +374,7 @@ class Figure():
                     return True
 
 
-    def get_next_panel_letter(self):
+    def _get_next_panel_letter(self):
         all_used_letters = list(self.all_panels.keys())
         all_used_letters.sort()
         if len(all_used_letters) == 0:
@@ -370,7 +390,7 @@ class Figure():
             letter = next_letter.upper()
         return letter
 
-    def get_all_panel_files(self, letter):
+    def _get_all_panel_files(self, letter):
         # get all files belonging to the new panel panel
         panel_files = []
         files_in_separate_folders = False
@@ -393,7 +413,7 @@ class Figure():
                 # however, they do need to have an allowed extension
                 for file_in_folder in os.listdir(file_path):
                     file_path_in_folder = os.path.join(file_path, file_in_folder)
-                    if self.file_has_allowed_extension(file_path_in_folder):
+                    if self._file_has_allowed_extension(file_path_in_folder):
                         panel_files.append(file_path_in_folder)
             else:
                 if files_in_separate_folders:
@@ -409,10 +429,24 @@ class Figure():
 
         return panel_files
 
-    def get_representative_data_from_multiple_panels(self, panels, nb_vals_to_show=20):
+    def get_representative_data_from_multiple_panels(self, panels,
+                                                     nb_vals_to_show=20):
         """
-        Get representative data matching data from multiple panels best
+        Get representative data matching data from multiple panels best.
+        Only works after representative data was already calculated for the
+        defined panels.
+
+        Get list of units (cells etc) that are closest to average of data.
+        Data from one unit is in a single image, therefore cannot be separated
+        the function will rank units
+        than regarding their difference to the mean.
+        If you want a representative neuron but did measure neurites,
+        a unit should be a neuron but the function will account the difference
+        from the mean of all measured neurites.
+        It will weigh larger differences from the mean more
+        (squared difference of mean).
         :param panels: list of strings of panel letters, capitalization matters
+        :param nb_vals_to_show: Number of datapoints to show in the list
         """
         #sum all representative data for each unit
         #in order to get total deviations of all cells
@@ -442,8 +476,6 @@ class Figure():
             diff_to_mean_column = panel.representative_diff_column
             cols_to_show.append(diff_to_mean_column)
             summed_representative_data[diff_to_mean_column] = panel_data_indexed[diff_to_mean_column]
-
-
 
         summed_representative_data = summed_representative_data.reset_index().set_index(data_groups)
 
@@ -476,6 +508,25 @@ class Figure():
         is created or alternatively before the figure is saved (for the last
         panel)
         :param panel_letter: panel letter that should be edited
+        :param change_cropping: Whether you want to change cropping. If True
+                                no cropping will be done. Instead the region
+                                that would have been cropped will be a rectangle
+                                which you can change.
+        :param coord_decimals: For printing code for generating objects
+                                number of decimals plotted
+                                for each number (e.g. coordinates, width etc)
+        :param color: Standard color used for added elements.
+        :param include_all_labels: Whether all labels on an image should be
+                                    available to change (including channel
+                                    names on the image etc). Changing these
+                                    labels will result in code printed
+                                    out that uses a different function to
+                                    add the label, then the function that was
+                                    used initially.
+        :param arrow_props: dict with arrow parameters as keys and values in pt
+                            possible parameters: width, head_width, head_length.
+                            Arrows added in the GUI will be added using these
+                            properties.
         :param plot_row_col_pos_of_cropping: Whether to plot row and column
                                             position for code to add cropping
                                             images= information will always be
@@ -504,13 +555,13 @@ class Figure():
                                   "color": color,
                                   "include_all_labels": include_all_labels,
                                   "arrow_props": arrow_props,
+                                  "change_cropping":change_cropping
                                   "plot_row_col_pos_of_cropping":
                                       plot_row_col_pos_of_cropping,
                                   "get_text_pos_as_abs_data_coords":
                                       get_text_pos_as_abs_data_coords
                                   }
         self.panel_edit_kwargs.update(kwargs)
-        self.change_cropping=change_cropping
 
     def create_panel(self, letter=None, x=0, y=0,  width=1,
                      height=None, padding = None, **kwargs):
@@ -524,6 +575,13 @@ class Figure():
         :param height: height as multiples of  width (or in inches if
                         parameter "relative_height" == False when creating
                         figure object)
+        :param padding: list or float, if list, first value is xpadding,
+                        second is ypadding if float,
+                        is padding for both xpadding and ypadding
+                        xpadding and ypadding can each also be a float
+                        or list. if list, the first value is for padding
+                        left / top and the second value is for padding
+                        right / bottom.
         """
         if hasattr(self.current_panel, "pos_to_pre_identity_map"):
             # panel with data plots do not have the attribute
@@ -565,8 +623,8 @@ class Figure():
         #check if dimensions should be taken from csv
         #therefore from self.panel_dimensions
         #only one value has to be None to get ALL values from csv
-        if (FigurePanel.is_none(x) | FigurePanel.is_none(y) |
-            FigurePanel.is_none(width) | FigurePanel.is_none(height)):
+        if (FigurePanel._is_none(x) | FigurePanel._is_none(y) |
+            FigurePanel._is_none(width) | FigurePanel._is_none(height)):
             if len(list(self.panel_dimensions)) == 0:
                 raise ValueError("Not all necessary parameters for the panel "
                                  "{} were supplied."
@@ -589,21 +647,21 @@ class Figure():
         #last letter that can be used is Z - don't think you will ever need more panels than that.
         #if so could use multi-letter panel names. Not implemented yet though.
         if letter is None:
-            letter = self.get_next_panel_letter()
+            letter = self._get_next_panel_letter()
 
         if self.panel_letters_to_show is not None:
             if letter not in self.panel_letters_to_show:
                 self.current_panel = None
                 return None
 
-        panel_file_paths = self.get_all_panel_files(letter)
+        panel_file_paths = self._get_all_panel_files(letter)
 
         all_panel_imgs = []
         panel_pptxs = []
         for panel_file_path in panel_file_paths:
-            if self.file_has_allowed_extension(panel_file_path, [".tif",".jpg", ".png",".gif"]):
+            if self._file_has_allowed_extension(panel_file_path, [".tif",".jpg", ".png",".gif"]):
                 all_panel_imgs.append(io.imread(panel_file_path))
-            if self.file_has_allowed_extension(panel_file_path, [".pptx"]):
+            if self._file_has_allowed_extension(panel_file_path, [".pptx"]):
                 panel_pptxs.append(pptx.Presentation(panel_file_path))
 
         #load data
@@ -644,16 +702,34 @@ class Figure():
         return data
 
     def edit_this_panel(self, coord_decimals=2, color="white",
-                   include_all_labels=False, arrow_props=None,
+                        change_cropping=True,
+                       include_all_labels=False, arrow_props=None,
                         plot_row_col_pos_of_cropping=False,
                         get_text_pos_as_abs_data_coords=True, **kwargs
                         ):
         """
         Open editor window to allow adding text, arrows, zoom rectangles
         and cropping to panel images. This will stop plotting further panels.
+
         :param coord_decimals: For printing code for generating objects
                                 number of decimals plotted
                                 for each number (e.g. coordinates, width etc)
+        :param color: Standard color used for added elements.
+        :param change_cropping: Whether you want to change cropping. If True
+                                no cropping will be done. Instead the region
+                                that would have been cropped will be a rectangle
+                                which you can change.
+        :param include_all_labels: Whether all labels on an image should be
+                                    available to change (including channel
+                                    names on the image etc). Changing these
+                                    labels will result in code printed
+                                    out that uses a different function to
+                                    add the label, then the function that was
+                                    used initially.
+        :param arrow_props: dict with arrow parameters as keys and values in pt
+                            possible parameters: width, head_width, head_length.
+                            Arrows added in the GUI will be added using these
+                            properties.
         :param plot_row_col_pos_of_cropping: Whether to plot row and column
                                             position for code to add cropping
                                             images= information will always be
@@ -684,7 +760,7 @@ class Figure():
                                coord_decimals=coord_decimals, color=color,
                                include_all_labels=include_all_labels,
                                arrow_props=arrow_props,
-                               change_cropping=self.change_cropping,
+                               change_cropping=change_cropping,
                                plot_row_col_pos_of_cropping=
                                plot_row_col_pos_of_cropping,
                                get_text_pos_as_abs_data_coords=
@@ -696,9 +772,12 @@ class Figure():
 
     def relabel_panels(self, relabel_dict):
         """
-        Function to relabel all files with a certain panel letter for another panel letter
-        Be careful to not execute it more than once, otherwise it will obviously be mixed up.
-        :param relabel_dict: dict in which the key is the origin label and the value is the target label
+        Function to relabel all files with a certain panel letter for
+        another panel letter
+        Be careful to not execute it more than once, otherwise it will
+        obviously be mixed up.
+        :param relabel_dict: dict in which the key is the origin label
+                              and the value is the target label
         """
         for target, source in relabel_dict.items():
             for file_name in os.listdir(self.folder):
@@ -711,13 +790,21 @@ class Figure():
                 shutil.move(source_file, target_file)
 
     def save(self,format ="png"):
+        """
+        Save entire figure object as figure/image file.
+        :param format: Any format that is allowed for the matplotlib safefig
+                        function (e.g. "png", "jpg", "tiff").
+                        However, "pdf" might lead to some errors
+                        as empirically tested. This might be fixed in some
+                        future matplotlib version.
+        """
         #remove all placeholder images in figure_panel
 
         for figure_panel in self.all_panels.values():
             if hasattr(figure_panel, "pos_to_pre_identity_map"):
                 #panel with data plots do not have the attribute
                 #and does not have placeholder images
-                figure_panel.remove_placeholder_images()
+                figure_panel._remove_placeholder_images()
 
         #temp fix, delete after checking below
         plt.style.use("classic")
@@ -764,19 +851,47 @@ class Figure():
                          bbox_inches=bbox_inches, pad_inches=0#self.padding[0]
                          # bbox_inches=Bbox([[x_min, y_min],[x_max,y_max]])
                          )
-        # self.fig.savefig("C:\\\\Users\\maxsc\\desktop\\test." + format)
-        #bbox_inches="tight" option would allow to save whole plot, also outside of ax
-        # self.fig.hide()
 
 
-    def get_representative_data_from_multiple_panels(self, panel_letters,
-                                                     unit_columns,
-                                                     group_columns,
-                                                     column_suffix =
-                                                     "___d___",
-                                                     merge_suffixes=None,
-                                                     nb_values_to_show=20):
+    def get_representative_data_from_multiple_panels_from_scratch(self,
+                                                                  panel_letters,
+                                                                  unit_columns,
+                                                                  group_columns,
+                                                                  column_suffix =
+                                                                  "___d___",
+                                                                  merge_suffixes=None,
+                                                                  nb_vals_to_show=20):
         """
+        Get representative data matching data from multiple panels best.
+        Also works if represntative data for panels was not calculated already.
+
+        Get list of units (cells etc) that are closest to average of data.
+        Data from one unit is in a single image, therefore cannot be separated
+        the function will rank units
+        than regarding their difference to the mean.
+        If you want a representative neuron but did measure neurites,
+        a unit should be a neuron but the function will account the difference
+        from the mean of all measured neurites.
+        It will weigh larger differences from the mean more
+        (squared difference of mean).
+        :param panel_letters: list of strings of panel letters,
+                                capitalization matters
+        :param unit_columns: list of columns which uniquely identify one "unit".
+                            (e.g. for a neurite it could be
+                            ["date", "neuron", "neurite"]).
+        :param group_columns: List of columns which uniquely identify one group.
+                                Representative datapoints should be identified
+                                separately for each group.
+        :param column_suffix: Suffix to use for newly calculated columns used
+                                for ranking datapointsthis
+                                should be something that is not present
+                                in any current column name.
+        :param merge_suffixes: Suffixes of columns for merging data, needed
+                                since merging of data with same columns
+                                must lead to columns with new names
+                                default (if None) is: ["___xXx___", "___yYy___"]
+        :param nb_vals_to_show: Number of datapoints to show in the list
+
         """
 
         panels_to_use = []
@@ -897,16 +1012,17 @@ class Figure():
                 group_data_list.append(all_representative_data.loc[tuple(group)])
         else:
             group_data_list = [all_representative_data]
+
         for group_data in group_data_list:
             sorted_group_data = group_data.sort_values(by=["nb_measurements",
                                                            "d_mean"],
                                                        ascending=[False,
                                                                   True])
             data_to_print = sorted_group_data[columns_to_be_shown]
-            print(data_to_print.head(nb_values_to_show))
+            print(data_to_print.head(nb_vals_to_show))
 
 
-    def add_all_figure_panel_functions(self):
+    def _add_all_figure_panel_functions(self):
         #add copies of all figure_panel functions here
         #to allow function calls on the figure automatically being done on current_panel
         all_functions = [module_function
@@ -919,9 +1035,9 @@ class Figure():
             if not function_name.startswith("_"):
                 function_obj = one_function[1]
                 setattr(self, function_name,
-                        self.execute_function_on_current_panel(function_name))
+                        self._execute_function_on_current_panel(function_name))
 
-    def execute_function_on_current_panel(self, function_name, *args, **kwargs):
+    def _execute_function_on_current_panel(self, function_name, *args, **kwargs):
         def wrapper(*args, **kwargs):
             # if the current panel should not be shown
             # (e.g. not included in panel letter list in function "show_panels")
@@ -965,6 +1081,19 @@ class Figure():
                    seconds_to_show_frames=1,
                    min_final_fps=10):
         """
+        Save entire figure object as video.
+        :param fps: Data frames per second of video.
+        :param bitrate: Bitrate of video. -1 means matplotlib will find the
+                        best bitrate automatically. For non-grey movies
+                        matplotlib does not find great bitrates. Choose a high
+                        bitrate manually.
+        :param title_page_text: String for the text on the title page of the
+                                video (can also include linebreaks as "\n")
+        :param duration_title_page: Seconds the title page will be shown
+        :param repeats: Number of times the data part of the movie is repeated
+                        (helpful for movies in publications so that the title
+                        is not replayed and that the movie is replayed without
+                        the user needing to click on the play button)
         :param frames_to_show_longer: List of numbers; Which frames to show longer
                                     than just one videoframe
         :param seconds_to_show_frames: how many seconds to show frames_to_show_longer
@@ -997,7 +1126,7 @@ class Figure():
         #by the duration multiplied by fps
         if self.title_page_text != "":
             nb_frames_title_page = int(self.duration_title_page * self.fps)
-            title_video_path = self.create_video(self.animate_title_page,
+            title_video_path = self._create_video(self._animate_title_page,
                                                  nb_frames_title_page,
                                                  bitrate = bitrate,
                                                  name = "title")
@@ -1023,11 +1152,11 @@ class Figure():
                 nb_frames += additional_videoframes - 1
 
         #give paramters to animate_video function
-        animate_data = functools.partial(self.animate_video,
+        animate_data = functools.partial(self._animate_video,
                                          frames_to_show_longer,
                                          additional_videoframes)
 
-        data_video_path = self.create_video(animate_data,
+        data_video_path = self._create_video(animate_data,
                                             nb_frames,
                                             bitrate=bitrate)
         all_videos.append(editor.VideoFileClip(data_video_path))
@@ -1055,7 +1184,7 @@ class Figure():
 
         shutil.rmtree(self.tmp_video_folder)
 
-    def create_video(self, animate_function, nb_frames,
+    def _create_video(self, animate_function, nb_frames,
                      bitrate=-1, name=""):
 
         #get maximum number of frames by looking at video_frames parameter of each figure_panel
@@ -1080,7 +1209,7 @@ class Figure():
         return video_path
 
 
-    def animate_title_page(self, frame):
+    def _animate_title_page(self, frame):
         # print(frame)
         if frame == 0:
             #first remove old title page
@@ -1097,7 +1226,7 @@ class Figure():
 
 
 
-    def animate_video(self,
+    def _animate_video(self,
                    frames_to_show_longer,
                    additional_videoframes,
                     frame):

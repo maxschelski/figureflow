@@ -2399,7 +2399,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
                                  show_col_labels_above = False,
                                  show_col_labels_below=True,
                                  perform_stat_test=True, pvalues=None,
-                                 test_short_name=None, test="Dunn",
+                                 test_short_name=None, test=None,
                                  text_format='star', show_test_name=False,
                                  pvalue_format_string=DEFAULT,
                                  add_bonferroni_correction=False,
@@ -2453,6 +2453,16 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
                                     list of custom p-values `pvalues` are
        used for each pair of boxes. The `test_short_name` argument is then
        used as the name of the custom statistical test.
+    :param test: statistics test that should be performed. For comparing two
+                groups can be a list with one element or just a string. For
+                comparing more than two groups has to be a list with two strings
+                with the first string being the group test
+                Statistics test can either be from scipy.stats or
+                scikit-posthocs, for tests in the scikit-posthocs package
+                the test name should start with "posthocs." while for tests
+                under scipy.stats should start with "stats.". Scipy stats
+                test work for group comparisons and for comparing two
+                groups without control.
     :param line_height: in axes fraction coordinates
     :param text_offset: in points
     :param box_pairs: can be of either form:
@@ -2527,6 +2537,9 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
                         above the plot
 
     """
+
+    if test is None:
+        test = ["stats.Wilcoxon", "posthocs.posthoc_dunn"]
 
     plot_object = get_plotting_class(plot_type)
 

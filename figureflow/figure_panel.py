@@ -211,16 +211,15 @@ class FigurePanel():
         self.dim_val_finder["slices"] = re.compile("__z([\d-]+)")
 
         # get outer border as relative coordinates in whole figure (min=0,max=1)
-        self.calculate_outer_border_ax_grid()
+        self._calculate_outer_border_ax_grid()
 
         if (not self.video) & show_letter:
             # if letter ever is hidden, its probably because it is added
             #  before all the other things are added in the panel
             # probably also an addition error of the padding could be the cause
-            self.add_letter_subplot(letter)
+            self._add_letter_subplot(letter)
 
-
-        self.initiate_label_dicts()
+        self._initiate_label_dicts()
 
 
 
@@ -230,33 +229,34 @@ class FigurePanel():
         Set scaling for how values on image axes should be scaled for displaying
         the values on the axes ticks
         (does not change the size of images but only the axes tick values)
+        :param x_scale: Relative scale of x values
+        :param y_scale: Relative scale of y values
         """
         self.tick_scales = [x_scale, y_scale]
 
 
-
     def show_images(self, images=None, channels=None, slices=None, frames=None,
-                    order_of_categories=None, focus=None,
+                    order_of_categories=None, focus=None, show_focus_in=None,
                     interpolate_images="None",
                     dimension_equal="heights", scale_images=True,
                     auto_image_sub_param=None, make_image_size_equal=None,
                     auto_enlarge=True,enlarged_image_site="left",
+                    simple_remapping=False,
                     channels_to_show_first_nonzoomed_timeframe=None,
                     show_only_zoom=True, force_show_non_zoom_channels=False,
+                    show_non_zoom_channels=False,
                     position_zoom_nb = "top-left", zoom_nb_frames=0,
                     show_single_zoom_numbers = False,
+                    show_zoom_number_in_image=True,
                     zoom_nb_rows=None, zoom_nb_columns=None,
                     line_width_zoom_rectangle = 0.3,
                     zoom_nb_font_size_overview = None, zoom_nb_color = "white",
                     zoom_nb_font_size = None, zoom_nb_padding = 0.015,
                     repositioning_map = None, additional_padding = None,
                     show_axis_grid = False, use_same_LUTs=True,
-                    show_non_zoom_channels=False,
-                    show_zoom_number_in_image=True, simple_remapping=False,
-                    show_focus_in=None, cmaps="gray", composite_cmaps=None,
+                    cmaps="gray", composite_cmaps=None,
                     black_composite_background=True,
-                    replace_nan_with=0,
-                    sub_padding_factor= 0.25
+                    replace_nan_with=0, sub_padding_factor= 0.25
                     ):
         """
         Display images of current panel.
@@ -264,10 +264,41 @@ class FigurePanel():
         after functions that annotate outside of the image.
         Ranges seemingly can only be extracted from ImageJ images
         if the LUT is set to gray.
+        :param images: List of images (integers) which should be displayed
+                        each image corresponds to one image file for the 
+                        panel
         :param channel: List of channels (integers) which should be displayed
                         composite/composite images can be by adding
                         a string with all channel numbers separated by "-",
                         e.g. channels=[0,1,2,"0-1-2"].
+                        dimension is extracted from ImageJ Hyperstack
+                        information
+        :param slices: List of slices (integers) which should be displayed
+                        dimension is extracted from ImageJ Hyperstack
+                        information
+        :param frames: List of frames (integers) which should be displayed
+                        dimension is extracted from ImageJ Hyperstack
+                        information
+        :param order_of_categories: List of strings with order of the image
+                                    dimensions ("images", "channels", "slices",
+                                    "frames"), determines how images will be 
+                                    put into a grid. Images of different 
+                                    dimensions values for a dimension
+                                    earlier in the list will be closer together
+                                    (e.g. for ["frames", "channels"] first
+                                    all frames from one channel will be shown
+                                    then all frames from the other channel)
+        :param focus: String of dimensions ("images", "channels", "slices",
+                                    "frames") that will be alone on one axis 
+                                    of the image grid (e.g. for "frames" all 
+                                    different frames will be along one axis 
+                                    (e.g. columns) while the different images
+                                    and channels will be along the other axis 
+                                    (e.g. rows).
+        :param show_focus_in: "row" or "column" - allows to fix
+                                in which dimension the focus will be shown
+        :param interpolate_images: Type of interpolation for the matplotlib
+                                    function ax.imshow
         :param dimension_equal: Determines in which dimension
                                 ("height" or "width") images should be similar
                                 e.g. for "height", images in same row
@@ -325,15 +356,22 @@ class FigurePanel():
                             (where they will be displayed
                             and how much they will consequently be enlarged
                             to fill up the image grid)
+        :param enlarged_image_site: Site at which the enlarged image should be
+                                    shown ("left", "right", "top" or "bottom"
+                                    possible)
+        :param simple_remapping: Whether only the image with the identity
+                                should be increased in size
         :param channels_to_show_first_nonzoomed_timeframe: If a zoom is defined,
                                                 should the first frame
                                                 of each channel be always shown
                                                 (as overview)
-        :param only_show_zoom: Potentially apart from overview image,
+        :param show_only_zoom: Potentially apart from overview image,
                                 dont show any non zoom pictures
         :param force_show_non_zoom_channels: Force to show channels that were
                                             not zoomed independent
                                             of other settings
+        :param show_non_zoom_channels: show channels that were
+                                        not zoomed independent of other settings
         :param show_zoom_mark_on_all_channels: Whether rectangle with number of
                                                 zoom should be shown on top
                                                 of all channels
@@ -341,7 +379,21 @@ class FigurePanel():
                                                 shown on overview
         :param position_zoom_nb: position at which the zoom number shouldbe
                                 shown in the zoomed image
+        :param show_single_zoom_numbers: Show zoom number in image
+                                        and at zoom rectangle in overview
+                                        image, even if there is just one
+                                        zoomed area
+        :param show_zoom_number_in_image: Add zoom number to edge of zoomed
+                                        image
+        :param zoom_nb_rows: List of rows in image grid in which zoom numbers will be
+                            added
+        :param zoom_nb_columns: List of columns in image grid in which zoom
+                                numbers will be added
+        :param line_width_zoom_rectangle: Line width in pt of zoom rectangle
+                                            added to overview iamge
         :param zoom_nb_font_size_overview: font size of zoom number in overview image
+        :param zoom_nb_color: Color of zoom number text on images
+        :param zoom_nb_padding: Padding of zoom number text to edges of image
         :param zoom_nb_font_size: font size of zoom number in zoom image
         :param zoom_nb_frames: List with ints or int, Index of frames where
                                 zoom nb should be shown in zoom
@@ -349,10 +401,6 @@ class FigurePanel():
                                 (e.g. if frame 5,10,20 will be shown
                                 and zoom_nb_frames is [0,1] then the zoom_nb
                                 will be shown in the first and second frame (5, 10)
-        :param black_composite_background: Whether the background (image below
-                                            image range) of the composite should
-                                            be black, if False, background is
-                                            white
         :param repositioning_map: join specific images together with another
                                 dimension (by remapping the identity)
                                 e.g. join one image from a channel
@@ -374,14 +422,33 @@ class FigurePanel():
         :param additional_padding: Multiply padding by factor to separate
                                     elements within one category dict
                                     where key is the category and value is the factor
+        :param show_axis_grid: Show axis grid on top of image (major ticks
+                                for x and y axis)
         :param use_same_LUTs: Should the ranges from the first image
                                 in each chanel be applied to all images
-        :param show_focus_in: "row" or "column" - allows to fix
-                                in which dimension the focus will be shown
         :param replace_nan_with: float, Replace nan in images with value
         :param cmaps: string or list of strings corresponding to matplotlib
                         colormaps; each entry in list corresponds to one channel
                         in same order
+        :param composite_cmaps: list of strings corresponding to matplotlib
+                                colors for composite channel (only if composite
+                                is defined in 'channels'). Order of cmaps
+                                corresponds to order of channels in ImageJ,
+                                changes in order in the 'channels' parameter
+                                do not change the order of composite_cmaps.
+                                 Will create cmap for each channel from
+                                 black/white (depending on 
+                                 'black_composite_background' parameter to 
+                                 color.)
+        :param black_composite_background: Whether the background (image below
+                                            image range) of the composite should
+                                            be black, if False, background is
+                                            white
+        :param replace_nan_with: With what values to replace nan values with
+        :param sub_padding_factor: Multiple of figure_panel padding that is
+                                    used for padding in image grid
+
+
         """
         # differentiate between the case when there is data and when images
         # (combination of both or multiple data files in same panel not possible
@@ -392,7 +459,7 @@ class FigurePanel():
 
         print("DISPLAYING IMAGES FOR PANEL {}.............".format(self.letter))
 
-        self.initiate_show_images_variables()
+        self._initiate_show_images_variables()
 
         self.interpolate_images = interpolate_images
 
@@ -420,7 +487,7 @@ class FigurePanel():
 
         # auto_sorting panels into sub_images by a defined name criteria
         if type(auto_image_sub_param) != type(None):
-            images = self.group_images_by_sub_param(auto_image_sub_param)
+            images = self._group_images_by_sub_param(auto_image_sub_param)
 
         self.display_mode = self._set_max_row_and_col()
 
@@ -456,7 +523,7 @@ class FigurePanel():
             #  (frame, channels, etc) should be sorted
             # only add something if it differs from standard ascending value sorting
             sorters = {}
-            sorters["channels"] = self.sort_category_vals_key
+            sorters["channels"] = self._sort_category_vals_key
 
             extract_info = self._check_if_images_should_be_extracted_from_tif()
             if extract_info:
@@ -466,13 +533,13 @@ class FigurePanel():
                 #  give basic_map object to function to exclude zoom and image_sub
                 (all_images_by_pre_identity,
                  img_ranges,
-                 pre_identity_val_map) = self._extract_images_from_tiff(self.get_basic_map(),
+                 pre_identity_val_map) = self._extract_images_from_tiff(self._get_basic_map(),
                                                                category_vals["channels"],
                                                                category_vals["slices"],
                                                                category_vals["frames"])
             else:
                 (all_images_by_pre_identity,
-                 img_ranges) = self.get_img_dict_by_pre_identity(self.inv_map)
+                 img_ranges) = self._get_img_dict_by_pre_identity(self.inv_map)
                 pre_identity_val_map = {}
 
             # add categories to pre_identity before
@@ -482,40 +549,40 @@ class FigurePanel():
             #  therefore the initial mapping (inv_sorting_identity_map)
             #  will not be correct anymore!
             #  (won't even work since identities have too few values)
-            all_images_by_pre_identity = self.add_categories_to_pre_identities(all_images_by_pre_identity,
+            all_images_by_pre_identity = self._add_categories_to_pre_identities(all_images_by_pre_identity,
                                                                              self.sub_category_map)
 
 
-            self.dim_val_maps = self.get_category_maps(all_images_by_pre_identity,
+            self.dim_val_maps = self._get_category_maps(all_images_by_pre_identity,
                                                         self.inv_map, sorters,
                                                         self.reassign_new_categories,
                                                         pre_identity_val_map)
             
-            all_images_by_identity = self.finalize_pre_identity_dicts(all_images_by_pre_identity,
+            all_images_by_identity = self._finalize_pre_identity_dicts(all_images_by_pre_identity,
                                                                       self.inv_map, self.dim_val_maps)
 
             (all_images_by_identity,
-             identity_to_add_zoom_mark_to) = self.add_zoom_images(all_images_by_identity,
+             identity_to_add_zoom_mark_to) = self._add_zoom_images(all_images_by_identity,
                                                                 show_only_zoom,
                                                                 channels_to_show_first_nonzoomed_timeframe,
                                                                 force_show_non_zoom_channels,
                                                                 show_non_zoom_channels)
 
             (reposition_dict,
-             remapped_categories) = self.get_reposition_dict_for_mapping(all_images_by_identity,
+             remapped_categories) = self._get_reposition_dict_for_mapping(all_images_by_identity,
                                                                         repositioning_map,
                                                                         simple_remapping)
 
-            all_images_by_identity = self.apply_mapping(all_images_by_identity,
+            all_images_by_identity = self._apply_mapping(all_images_by_identity,
                                                         reposition_dict)
 
             self.inv_reposition_dict = {v:k for k,v in reposition_dict.items()}
 
-            identity_remap_correction = self.get_identity_remapping_correction_map(
+            identity_remap_correction = self._get_identity_remapping_correction_map(
                 remapped_categories, all_images_by_identity)
 
             #  apply remapping
-            all_images_by_identity = self.apply_mapping(all_images_by_identity,
+            all_images_by_identity = self._apply_mapping(all_images_by_identity,
                                                         identity_remap_correction)
 
             self.inv_identity_remap_correction = {v: k for k, v in
@@ -526,7 +593,7 @@ class FigurePanel():
             # if some were supplied use those supplied in that order first
             # then add remaining categories afterwards in specific order
 
-            cats_similar_for_all_images = self.get_similar_categories_of_identities(all_images_by_identity.keys())
+            cats_similar_for_all_images = self._get_similar_categories_of_identities(all_images_by_identity.keys())
 
             flexible_order_first = []
             flexible_order_second = []
@@ -568,10 +635,10 @@ class FigurePanel():
                 #  with dimensions being image, frame, zoom etc.
                 #  for each position (image) in array get number
                 #  of dimension with neighbors
-                neighbors, identity_array = self.get_nb_neighbors_from_identities(all_images_by_identity)
+                neighbors, identity_array = self._get_nb_neighbors_from_identities(all_images_by_identity)
 
                 #  get images to be enlarged from neigbors
-                images_enlarge = self.get_images_to_be_enlarged(neighbors, 
+                images_enlarge = self._get_images_to_be_enlarged(neighbors, 
                                                                 identity_array)
 
             if len(images_enlarge) > 0:
@@ -581,14 +648,14 @@ class FigurePanel():
                                                                           order_of_categories,
                                                                           cats_similar_for_all_images)
 
-                if self.is_none(show_focus_in):
+                if self._is_none(show_focus_in):
                     all_show_focus_in = ["rows", "cols"]
                 elif type(show_focus_in) not in self.itertypes:
                     all_show_focus_in = [show_focus_in]
                 else:
                     all_show_focus_in = show_focus_in
 
-                if self.is_none(enlarged_image_site):
+                if self._is_none(enlarged_image_site):
                     enlarged_image_sites = ["top", "left"]
                 elif type(enlarged_image_site) not in self.itertypes:
                     enlarged_image_sites = [enlarged_image_site]
@@ -616,7 +683,7 @@ class FigurePanel():
                                                                                                 show_focus_in,
                                                                                                 enlarged_image_site)
 
-                        order_of_categories_tmp = self.resort_order_of_categories_from_primer([first_dimension, second_dimension],
+                        order_of_categories_tmp = self._resort_order_of_categories_from_primer([first_dimension, second_dimension],
                                                                                               order_of_categories)
 
                         # size increase dim is the category that determines
@@ -638,22 +705,22 @@ class FigurePanel():
                         # that some images should be enlarged
                         # since enlarging is not possible, don't use combination
 
-                        if self.is_none(all_images_by_identity_tmp):
+                        if self._is_none(all_images_by_identity_tmp):
                             continue
 
-                        width_imgs, height_imgs = self.get_width_height_matrices_of_categories(
+                        width_imgs, height_imgs = self._get_width_height_matrices_of_categories(
                                                         self.inv_map,
                                                         all_images_by_identity_tmp)
 
                         (column_categories,
-                         row_categories) = self.get_dimension_categories(first_dimension,
+                         row_categories) = self._get_dimension_categories(first_dimension,
                                                                          second_dimension,
                                                                          size_increase_cat_is_focus,
                                                                          size_increase_dim_nb,
                                                                          order_of_categories_tmp,
                                                                          show_focus_in)
 
-                        grid_fit_score = self.get_image_category_grid_fit_score(column_categories,
+                        grid_fit_score = self._get_image_category_grid_fit_score(column_categories,
                                                                            row_categories,
                                                                            all_images_by_identity_tmp,
                                                                            width_imgs, height_imgs,
@@ -689,7 +756,7 @@ class FigurePanel():
                                                             show_focus_in,
                                                             enlarged_image_site)
 
-                order_of_categories = self.resort_order_of_categories_from_primer([first_dimension, second_dimension],
+                order_of_categories = self._resort_order_of_categories_from_primer([first_dimension, second_dimension],
                                                                                       order_of_categories)
 
                 (all_images_by_identity,
@@ -706,7 +773,7 @@ class FigurePanel():
                                                                 show_focus_in)
 
                 (width_imgs,
-                 height_imgs) = self.get_width_height_matrices_of_categories(
+                 height_imgs) = self._get_width_height_matrices_of_categories(
                                                                             self.inv_map,
                                                                             all_images_by_identity)
 
@@ -723,13 +790,13 @@ class FigurePanel():
                 # images will not be scaled according to their pix values
                 # instead the ratio of width to height matters
                 (width_imgs,
-                 height_imgs) = self.get_width_height_matrices_of_categories(self.inv_map,
+                 height_imgs) = self._get_width_height_matrices_of_categories(self.inv_map,
                                                                             all_images_by_identity)
 
                 # write function to find how many different values there are for the dimension
                 # extract number of different values for additional_padding and use this to calculate width/height to find best permutation
 
-                permutation_differences = self.get_differences_of_permutations(
+                permutation_differences = self._get_differences_of_permutations(
                                                                 order_of_categories,
                                                                 self.map, width_imgs,
                                                                 height_imgs, focus,
@@ -737,10 +804,10 @@ class FigurePanel():
                                                                 all_images_by_identity,
                                                                 show_focus_in)
 
-                best_permutation, _ = self.get_best_permutation_of_cats_for_axes(
+                best_permutation, _ = self._get_best_permutation_of_cats_for_axes(
                                                             permutation_differences)
 
-            self.set_max_row_and_col_in_auto_mode(best_permutation, width_imgs)
+            self._set_max_row_and_col_in_auto_mode(best_permutation, width_imgs)
 
             self._create_image_dict_by_position_auto_mode(all_images_by_identity,
                                                          best_permutation,
@@ -752,11 +819,11 @@ class FigurePanel():
             img_ranges = self._create_image_dict_by_position()
 
 
-        self.initiate_label_matrices()
-        self.initiate_label_dicts()
+        self._initiate_label_matrices()
+        self._initiate_label_dicts()
 
         (self.image_widths,
-         self.image_heights) = self.plot_images_without_setting_position(img_ranges,
+         self.image_heights) = self._plot_images_without_setting_position(img_ranges,
                                                                           use_same_LUTs,
                                                                           cmaps,
                                                                          composite_cmaps,
@@ -766,20 +833,20 @@ class FigurePanel():
                                                                          black_composite_background)
 
 
-        width_columns, height_rows = self.get_width_columns_and_height_rows(self.image_widths,
+        width_columns, height_rows = self._get_width_columns_and_height_rows(self.image_widths,
                                                                             self.image_heights,
                                                                             dimension_equal,
                                                                             scale_images)
 
-        self.set_additional_padding_matrices(additional_padding)
+        self._set_additional_padding_matrices(additional_padding)
 
         # get inner border and width and height
         #  to use as coordinates relative to figure size
-        inner_border, width_to_use, height_to_use = self.get_centered_inner_border(width_columns,
+        inner_border, width_to_use, height_to_use = self._get_centered_inner_border(width_columns,
                                                                                    height_rows)
 
         # position plots in inner border
-        self.set_position_of_plots(width_to_use, height_to_use, width_columns,
+        self._set_position_of_plots(width_to_use, height_to_use, width_columns,
                                    height_rows, inner_border)
 
         # make size of images equal in one dimension (row or column)
@@ -788,13 +855,13 @@ class FigurePanel():
         #  for position, ax in self.all_images_by_position.items():
 
 
-        self.remove_xy_axes(show_axis_grid)
+        self._remove_xy_axes(show_axis_grid)
 
-        self.create_img_position_matrix()
+        self._create_img_position_matrix()
 
         if "zooms" in self.map:
 
-            self.add_zoom_marks_to_overview_images(identity_to_add_zoom_mark_to,
+            self._add_zoom_marks_to_overview_images(identity_to_add_zoom_mark_to,
                                                    line_width_zoom_rectangle,
                                                    zoom_nb_font_size_overview,
                                                    zoom_nb_padding,
@@ -802,7 +869,7 @@ class FigurePanel():
                                                    show_single_zoom_numbers)
 
             if show_zoom_number_in_image:
-                self.add_zoom_number_to_zoomed_images(position_zoom_nb,
+                self._add_zoom_number_to_zoomed_images(position_zoom_nb,
                                                      zoom_nb_frames,
                                                      zoom_nb_rows,
                                                       zoom_nb_columns,
@@ -811,7 +878,7 @@ class FigurePanel():
                                                       zoom_nb_padding,
                                                       show_single_zoom_numbers)
 
-    def initiate_show_images_variables(self):
+    def _initiate_show_images_variables(self):
         self.y_space = 0
         self.x_space = 0
         self.all_images_by_position = {}
@@ -849,7 +916,6 @@ class FigurePanel():
         # initialize map of cmap names to channel ints
         self.cmap_to_channels = {}
 
-
         #  dict that saves how much space there is
         #  on each site already for labels
         #  this space is created by adding labels on that site
@@ -868,7 +934,7 @@ class FigurePanel():
         Return lower version of string.
         If string is None, prevent error and just return None.
         """
-        if self.is_none(string):
+        if self._is_none(string):
             return string
         else:
             return string.lower()
@@ -926,7 +992,7 @@ class FigurePanel():
                                     the colorbar be shown
         """
 
-        self.add_colorbars_to_axs(site,
+        self._add_colorbars_to_axs(site,
                                   channels,
                                   self.image_heights,
                                   tick_labels,
@@ -940,7 +1006,7 @@ class FigurePanel():
                                   only_show_in_columns)
 
 
-    def group_images_by_sub_param(self, auto_image_sub_param):
+    def _group_images_by_sub_param(self, auto_image_sub_param):
         image_sub_param_name = str(auto_image_sub_param)
         # create a dict where each sub_group is one key
         # and the value is a list
@@ -983,7 +1049,7 @@ class FigurePanel():
         #  a different value in a new category
         additional_categories = {}
         for category, values in category_vals.items():
-            if self.is_none(values):
+            if self._is_none(values):
                 continue
 
             for value in values:
@@ -1008,7 +1074,7 @@ class FigurePanel():
 
     def _get_map_of_categories(self, allowed_categories, order_of_categories):
 
-        if self.is_none(order_of_categories):
+        if self._is_none(order_of_categories):
             order_of_categories = []
 
         for category in order_of_categories:
@@ -1080,7 +1146,7 @@ class FigurePanel():
         return extract_info
 
 
-    def extract_img_ranges_from_file(self, file_path):
+    def _extract_img_ranges_from_file(self, file_path):
         ranges = []
         if file_path.find(".tif") == -1:
             return ranges
@@ -1110,7 +1176,7 @@ class FigurePanel():
 
         return ranges
 
-    def get_image_properties(self, file_path):
+    def _get_image_properties(self, file_path):
         """
         Extracts order of dimensions of imageJ image and image width and height
         """
@@ -1140,7 +1206,7 @@ class FigurePanel():
         return data_dict, img_width, img_height
 
 
-    def move_xy_axes_in_img_to_last_dimensions(self, img, img_width,
+    def _move_xy_axes_in_img_to_last_dimensions(self, img, img_width,
                                                img_height):
         """
         Move x and y axes of all images in stack (img)
@@ -1204,11 +1270,11 @@ class FigurePanel():
                                 "if a single file is provided "
                                 "for the panel.".format(file_name))
 
-            data_dict, img_width, img_height = self.get_image_properties(file_path)
+            data_dict, img_width, img_height = self._get_image_properties(file_path)
 
             raw_img = self.all_panel_imgs[img_nb]
 
-            raw_img = self.move_xy_axes_in_img_to_last_dimensions(raw_img,
+            raw_img = self._move_xy_axes_in_img_to_last_dimensions(raw_img,
                                                               img_width,
                                                               img_height)
 
@@ -1288,7 +1354,7 @@ class FigurePanel():
                     else:
                         identity_val = 0
                     pre_identity[dim] = identity_val
-                raw_img = self.expand_img_dimensions(raw_img)
+                raw_img = self._expand_img_dimensions(raw_img)
                 raw_img = np.expand_dims(raw_img, 0)
                 all_images_by_pre_identity[tuple(pre_identity)] = raw_img
             else:
@@ -1300,7 +1366,7 @@ class FigurePanel():
                 dimension_nb = 0
 
                 (all_images_by_pre_identity,
-                 identity_val_map) = self.get_images_from_dimension(raw_img,
+                 identity_val_map) = self._get_images_from_dimension(raw_img,
                                                                 all_images_by_pre_identity,
                                                                 dimension_nb,
                                                                 current_dimension,
@@ -1313,13 +1379,13 @@ class FigurePanel():
                                                                 basic_map,
                                                                 img_nb)
 
-            ranges = self.extract_img_ranges_from_file(file_path)
+            ranges = self._extract_img_ranges_from_file(file_path)
             img_ranges[img_nb] = ranges
 
         return all_images_by_pre_identity, img_ranges, identity_val_map
 
 
-    def get_images_from_dimension(self, raw_multi_dimension_img,
+    def _get_images_from_dimension(self, raw_multi_dimension_img,
                                   images_by_pre_identity,
                                   dimension_nb, current_dimension,
                                     current_identity,
@@ -1331,19 +1397,6 @@ class FigurePanel():
         """
         Recursively go through all dimensions and get image at respective
         position in image stack (raw_multi_dimension_img).
-        :param raw_multi_dimension_img:
-        :param images_by_pre_identity:
-        :param dimension_nb:
-        :param current_dimension:
-        :param current_identity:
-        :param identity_val_map:
-        :param dimensions:
-        :param dimension_dict:
-        :param dimension_order_in_props:
-        :param dimensions_vals_to_include:
-        :param basic_map:
-        :param img_nb:
-        :return:
         """
         dimension = dimension_order_in_props[dimension_nb]
         # iterate through each dimension
@@ -1394,7 +1447,7 @@ class FigurePanel():
             if dimension_nb < ( len(dimension_order_in_props) - 1):
                 new_dimension_nb = dimension_nb +  1
                 (images_by_pre_identity,
-                 identity_val_map) = self.get_images_from_dimension(raw_multi_dimension_img,
+                 identity_val_map) = self._get_images_from_dimension(raw_multi_dimension_img,
                                                                  images_by_pre_identity,
                                                                  new_dimension_nb,
                                                                  current_dimension,
@@ -1506,7 +1559,7 @@ class FigurePanel():
                     # fill dimension up to 3 to have unified dimensions
                     # also with RGB images
                     # this makes referencing the correct dimension easier
-                    img = self.expand_img_dimensions(img, target_dim=3)
+                    img = self._expand_img_dimensions(img, target_dim=3)
                     # add first dimension as dimension on which to concatanate
                     img = np.expand_dims(img,0)
                     all_imgs.append(img)
@@ -1523,7 +1576,7 @@ class FigurePanel():
 
 
 
-    def get_img_dict_by_pre_identity(self, inv_map):
+    def _get_img_dict_by_pre_identity(self, inv_map):
 
         # think about defining factory function for each category
         # and then cycle through factory functions to get all details of image
@@ -1601,19 +1654,19 @@ class FigurePanel():
 
             # increase dimensionality of non-RGB or 2D image
             # to 2D RGB image by adding dimensions
-            image = self.expand_img_dimensions(image)
+            image = self._expand_img_dimensions(image)
 
             # add dimension for composite as first dimension
             image = np.expand_dims(image, axis=0)
 
             all_images_by_pre_identity[pre_identity] = image
 
-            ranges = self.extract_img_ranges_from_file(file_path)
+            ranges = self._extract_img_ranges_from_file(file_path)
             img_ranges[img_nb] = ranges
 
         return all_images_by_pre_identity, img_ranges
 
-    def get_basic_map(self):
+    def _get_basic_map(self):
         """
         Get basic map without sub categories and zoom.
         """
@@ -1623,44 +1676,7 @@ class FigurePanel():
                 map_no_sub[cat] = len(map_no_sub)
         return map_no_sub
 
-
-    def add_categories_to_identity_mapping(self, identity_map,
-                                           sub_category_map):
-        """
-        Add categories of _sub and zoom to initial mapping of categories
-        This mapping takes into account a different order of category values
-        """
-
-        map_no_sub = self.get_basic_map()
-        new_identity_map = {}
-        for from_identity, to_identity in identity_map.items():
-            (new_from_identity,
-             pos_unchanged_categories) = self.add_categories_to_identity(
-                                                                from_identity,
-                                                                map_no_sub,
-                                                                sub_category_map
-                                                                )
-            # get new to identity from new_from_identity
-            # with positions that were not added
-            # while positions are different before categories are added
-            #  and after they are added
-            positions_before = pos_unchanged_categories["before"]
-            positions_after = pos_unchanged_categories["after"]
-
-            # convert to numpy array to make changes in list of indices possible
-            new_to_identity = np.array(new_from_identity)
-            to_identity = np.array(to_identity)
-            new_to_identity[positions_after] = to_identity[positions_before]
-            # add changed pair of identities to new map
-            new_identity_map[tuple(new_from_identity)] = tuple(new_to_identity)
-
-        return new_identity_map
-
-
-
-
-
-    def add_categories_to_pre_identities(self, all_images_by_pre_identity,
+    def _add_categories_to_pre_identities(self, all_images_by_pre_identity,
                                        sub_category_map):
         # remap pre_identity of images by adding values of respective
         #  category to the identity
@@ -1670,11 +1686,11 @@ class FigurePanel():
         #  will have the real order of categories in pre_identity
         # _sub categories were left out before since they are not
         #  infered from the image itself
-        map_no_sub = self.get_basic_map()
+        map_no_sub = self._get_basic_map()
 
         new_all_images_by_pre_identity = {}
         for pre_identity, image in all_images_by_pre_identity.items():
-            new_pre_identity, _ = self.add_categories_to_identity(pre_identity,
+            new_pre_identity, _ = self._add_categories_to_identity(pre_identity,
                                                                map_no_sub,
                                                                sub_category_map)
 
@@ -1684,7 +1700,7 @@ class FigurePanel():
         return new_all_images_by_pre_identity
 
 
-    def add_categories_to_identity(self, identity,
+    def _add_categories_to_identity(self, identity,
                                    map_no_sub,
                                    sub_category_map):
         """
@@ -1729,7 +1745,7 @@ class FigurePanel():
         return new_identity, pos_unchanged_categories
 
 
-    def get_category_maps(self, all_images_by_pre_identity,
+    def _get_category_maps(self, all_images_by_pre_identity,
                            inv_map, sorters, reassign_new_categories,
                            pre_identity_val_map):
         """
@@ -1741,7 +1757,7 @@ class FigurePanel():
         and therefore the frame and channel in nb in the file name
         """
         all_identities = all_images_by_pre_identity.keys()
-        pre_identity_value_lists = self.get_all_category_vals(all_identities,
+        pre_identity_value_lists = self._get_all_category_vals(all_identities,
                                                               inv_map)
 
         # sort lists of each category
@@ -1783,7 +1799,7 @@ class FigurePanel():
 
         return maps
 
-    def sort_category_vals_key(self, value):
+    def _sort_category_vals_key(self, value):
         if type(value) in self.itertypes:
             return max(value) + 0.5
         elif type(value) == str:
@@ -1793,7 +1809,7 @@ class FigurePanel():
         else:
             return value
 
-    def get_all_category_vals(self, all_identities, inv_map):
+    def _get_all_category_vals(self, all_identities, inv_map):
         """
         get list of all values in each category
         :param all_identities: list of all identities (tuples)
@@ -1815,11 +1831,11 @@ class FigurePanel():
             identity_value_lists[category] = list(set(cat_vals))
             # with key make sure that composites are also sorted
             # they are sorted based on their highest number
-            identity_value_lists[category].sort(key=self.sort_category_vals_key)
+            identity_value_lists[category].sort(key=self._sort_category_vals_key)
 
         return identity_value_lists
 
-    def iterable_to_dict(self, iterable):
+    def _iterable_to_dict(self, iterable):
         """
         zip iterable so that every value at an odd position will be a key and
         every value at an even position will be a value
@@ -1833,32 +1849,32 @@ class FigurePanel():
             id += 2
         return dict(zip(keys, values))
 
-    def get_identities_matching_dict_criteria(self, identity_array, dict,
+    def _get_identities_matching_dict_criteria(self, identity_array, dict,
                                               group_identity = None,
                                               pre_identity_transform=True):
         matching = []
         for identity in identity_array:
             if pre_identity_transform:
-                pre_identity = self.get_pre_identity(identity)
+                pre_identity = self._get_pre_identity(identity)
             else:
                 pre_identity = identity
-            matches = self.check_if_identity_matches_dict_criteria(pre_identity,
+            matches = self._check_if_identity_matches_dict_criteria(pre_identity,
                                                                    dict,
                                                                    group_identity)
             if matches:
                 matching.append(identity)
         return matching
 
-    def get_similar_categories_of_identities(self, identity_list):
+    def _get_similar_categories_of_identities(self, identity_list):
         # get all values of each identity
-        grouped_cat_values = self.get_grouped_cat_values_from_identity_list(identity_list)
+        grouped_cat_values = self._get_grouped_cat_values_from_identity_list(identity_list)
         # get categories which only have one value (categories similar between all images)
         similar_cats = set([cat_nb
                             for cat_nb, cat_values in enumerate(grouped_cat_values)
                             if (len(cat_values) == 1)])
         return similar_cats
 
-    def get_group_identity(self, identity):
+    def _get_group_identity(self, identity):
         image_nb = identity[self.map["images"]]
         if "images_sub" in self.map:
             image_sub_nb = identity[self.map["images_sub"]]
@@ -1872,12 +1888,12 @@ class FigurePanel():
         return (image_nb, image_sub_nb, frame_sub_nb)
 
 
-    def check_if_identity_matches_dict_criteria(self, identity, criteria,
+    def _check_if_identity_matches_dict_criteria(self, identity, criteria,
                                                 group_identity = None):
         matches = True
         if group_identity != None:
 
-            new_group_identity = self.get_group_identity(identity)
+            new_group_identity = self._get_group_identity(identity)
             if new_group_identity != group_identity:
                 return False
         if criteria is None:
@@ -1896,7 +1912,7 @@ class FigurePanel():
         return matches
 
 
-    def identity_sorter(self, identity):
+    def _identity_sorter(self, identity):
         """
         create value to incrementally sort a list of identities.
         Sort by incrementing the numbers at the different positions,
@@ -1909,7 +1925,7 @@ class FigurePanel():
         return evaluated
 
 
-    def get_categories_different_in_list_of_identities(self, identities):
+    def _get_categories_different_in_list_of_identities(self, identities):
         """
         Return cat that is different or empty list if none is different
         """
@@ -1920,7 +1936,7 @@ class FigurePanel():
             if prev_identity == None:
                 prev_identity = identity
             else:
-                diff_cats = self.check_for_diff_in_identities(identity,
+                diff_cats = self._check_for_diff_in_identities(identity,
                                                               prev_identity)
                 for diff_cat in diff_cats:
                     if diff_cat not in different_categories:
@@ -1928,14 +1944,14 @@ class FigurePanel():
         return different_categories
 
 
-    def check_for_diff_in_identities(self, identity1, identity2):
+    def _check_for_diff_in_identities(self, identity1, identity2):
         diffs = []
         for nb in range(len(identity1)):
             if identity1[nb] != identity2[nb]:
                 diffs.append(nb)
         return diffs
 
-    def get_reposition_dict_for_mapping(self, all_images_by_identity,
+    def _get_reposition_dict_for_mapping(self, all_images_by_identity,
                                         repositioning_map, simple_remapping):
         # How to remap images into rectangle
         #  if multidimensional identity matrices
@@ -1962,10 +1978,10 @@ class FigurePanel():
         for target, goal in repositioning_map.items():
             # create dictionary from tuples looking like:
             # ("channel",1,"zoom",0), use string as key, nb as value
-            target_dict = self.iterable_to_dict(target)
-            goal_dict = self.iterable_to_dict(goal)
+            target_dict = self._iterable_to_dict(target)
+            goal_dict = self._iterable_to_dict(goal)
 
-            targets = self.get_identities_matching_dict_criteria(all_images_by_identity.keys(),
+            targets = self._get_identities_matching_dict_criteria(all_images_by_identity.keys(),
                                                                  target_dict,
                                                                  pre_identity_transform=False)
 
@@ -1977,7 +1993,7 @@ class FigurePanel():
 
                 for target in targets:
 
-                    group_identity = self.get_group_identity(target)
+                    group_identity = self._get_group_identity(target)
 
                     if group_identity not in grouped_targets:
                         grouped_targets[group_identity] = []
@@ -1985,7 +2001,7 @@ class FigurePanel():
 
             for group_identity, targets in grouped_targets.items():
 
-                goals = self.get_identities_matching_dict_criteria(all_images_by_identity.keys(),
+                goals = self._get_identities_matching_dict_criteria(all_images_by_identity.keys(),
                                                                    goal_dict,
                                                                    group_identity,
                                                                    pre_identity_transform=False)
@@ -1999,14 +2015,14 @@ class FigurePanel():
                     # if it didnt work while using the group_identity,
                     #  try again without group identitiy
                     # this will lead to more matches
-                    goals = self.get_identities_matching_dict_criteria(all_images_by_identity.keys(),
+                    goals = self._get_identities_matching_dict_criteria(all_images_by_identity.keys(),
                                                                        goal_dict,
                                                                        None,
                                                                        pre_identity_transform=False)
 
                 # check which is the category for all goals that is different
                 # this category will be used to position the targets with them
-                categories_different_in_goals = self.get_categories_different_in_list_of_identities(goals)
+                categories_different_in_goals = self._get_categories_different_in_list_of_identities(goals)
 
                 if len(categories_different_in_goals) > 1:
                     raise ValueError("The defined categories {} for the target "
@@ -2022,7 +2038,7 @@ class FigurePanel():
 
                 # create map of targets to new_targets
                 # in which the category different will be changed into incrementing values starting at 0
-                targets.sort(key=self.identity_sorter)
+                targets.sort(key=self._identity_sorter)
 
                 for target_nb, target in enumerate(targets):
                     # baseline new target is like any identity in goals
@@ -2065,7 +2081,7 @@ class FigurePanel():
         # if focus is not defined, use first value of "fixed" map of categories
         # if there is no fixed part, try ALL category not similar for all images
         # if ALL categories are the same for all images, use ANY category
-        if not self.is_none(focus):
+        if not self._is_none(focus):
             first_dimensions = [focus]
         elif len(order_of_categories["fixed"]) > 0:
             first_dimensions = [order_of_categories["fixed"][0]]
@@ -2131,13 +2147,13 @@ class FigurePanel():
                 size_increase_cat_is_focus = True
 
         else:
-            if not self.is_none(enlarged_image_site):
+            if not self._is_none(enlarged_image_site):
                 raise ValueError("Parameter 'show_focus_in' can only"
                                  "be 'rows' or contain 'col'.")
 
         return size_increase_dim_nb, size_increase_cat_is_focus
 
-    def resort_order_of_categories_from_primer(self, order_primer,
+    def _resort_order_of_categories_from_primer(self, order_primer,
                                                order_of_categories):
         new_order_of_categories = order_primer
         for category in [*order_of_categories["fixed"],
@@ -2172,7 +2188,7 @@ class FigurePanel():
         new_order_of_categories = [second_dimension]
         #  if more than one order of categories was supplied
         #  append the remaining order to the new order to try out
-        if not self.is_none(order_of_categories):
+        if not self._is_none(order_of_categories):
             if len(order_of_categories) > 1:
                 new_order_of_categories.extend(order_of_categories[1:])
 
@@ -2238,7 +2254,7 @@ class FigurePanel():
                                                                             all_images_by_identity)
 
         #  apply mapping right away to allow the next mapping to be based on that
-        all_images_by_identity = self.apply_mapping(all_images_by_identity,
+        all_images_by_identity = self._apply_mapping(all_images_by_identity,
                                                     increase_size_map)
 
         inv_increase_size_map = {v: k for k, v in increase_size_map.items()}
@@ -2336,7 +2352,7 @@ class FigurePanel():
         # based on which the size was increase
         for identity in all_images_by_identity.keys():
 
-            same = self.check_if_identities_are_the_same_except_categories(
+            same = self._check_if_identities_are_the_same_except_categories(
                 identity,
                 image_to_be_enlarged,
                 [])
@@ -2348,7 +2364,7 @@ class FigurePanel():
             #  has similar category values except in
             #  size_increase_cat and other_dim
             cats_can_be_different = [size_increase_cat, other_dim]
-            similar = self.check_if_identities_are_the_same_except_categories(
+            similar = self._check_if_identities_are_the_same_except_categories(
                 identity,
                 image_to_be_enlarged,
                 cats_can_be_different)
@@ -2375,7 +2391,7 @@ class FigurePanel():
             for category in included_order_of_categories:
                 test_cats_different = copy.copy(cats_can_be_different)
                 test_cats_different.append(category)
-                similar = self.check_if_identities_are_the_same_except_categories(
+                similar = self._check_if_identities_are_the_same_except_categories(
                     identity,
                     image_to_be_enlarged,
                     test_cats_different)
@@ -2447,7 +2463,7 @@ class FigurePanel():
             image_to_enlarge = tuple(image_to_enlarge)
             #  new_increase_size_map = {}
 
-            image_to_enlarge_pre_identity = self.get_pre_identity(image_to_enlarge)
+            image_to_enlarge_pre_identity = self._get_pre_identity(image_to_enlarge)
             # save information on how much an image with a specific identity was enlarged
             size_factors_for_identities[image_to_enlarge_pre_identity] = size_factor
 
@@ -2460,7 +2476,7 @@ class FigurePanel():
                 dims_allowed_different = [size_increase_cat,
                                           other_dim,
                                           category_change]
-                add_identity = self.check_if_identities_are_the_same_except_categories(identity,
+                add_identity = self._check_if_identities_are_the_same_except_categories(identity,
                                                                         image_to_enlarge,
                                                                         dims_allowed_different)
 
@@ -2515,7 +2531,7 @@ class FigurePanel():
             # go through all place_holder identities
             # and map them to the pre_identity
             # of the corresponding enlarged image
-            enlarged_image_pre_identity = self.get_pre_identity(image_to_enlarge)
+            enlarged_image_pre_identity = self._get_pre_identity(image_to_enlarge)
             for place_holder_identity in all_place_holder_identities:
                 place_holder_identity_map[place_holder_identity] = enlarged_image_pre_identity
 
@@ -2572,12 +2588,12 @@ class FigurePanel():
         return lower_left_pos
 
 
-    def get_nb_neighbors_from_identities(self, all_images_by_identity):
+    def _get_nb_neighbors_from_identities(self, all_images_by_identity):
         # plot images in N-dimensional array
         #  with dimensions being image, frame, zoom etc.
         # get maximum nb of values for each dimension first to create array
 
-        max_vals_of_dimension = self.get_max_values_of_dimensions(all_images_by_identity)
+        max_vals_of_dimension = self._get_max_values_of_dimensions(all_images_by_identity)
         # output of function is dictionary
         #  with names of cats as keys and max values as values
         max_vals_of_dimension = np.array([max_val + 1
@@ -2679,7 +2695,7 @@ class FigurePanel():
 
 
 
-    def get_images_to_be_enlarged(self, neighbors, identity_array):
+    def _get_images_to_be_enlarged(self, neighbors, identity_array):
         #  take maximum and minimum of array
         max_neighbors = np.max(neighbors)
         # set neighbor values at positions without image to max
@@ -2694,13 +2710,13 @@ class FigurePanel():
             # as images that should be enlarged
             # get all imags
             images_idx_enlarge = np.where((neighbors == min_neighbors))
-            images_enlarge = np.array([tuple(idx) 
+            images_enlarge = np.array([tuple(idx)
                                        for idx in images_idx_enlarge]).T
         return images_enlarge
 
 
 
-    def get_identity_remapping_correction_map(self, remapped_categories, 
+    def _get_identity_remapping_correction_map(self, remapped_categories,
                                               all_images_by_identity):
         # correct for alignment errors of matrices
         # that were caused by remapping only some parts of the identities
@@ -2711,7 +2727,7 @@ class FigurePanel():
         # create 0 matrix of all identities by using max value of each category
         # of each identity as size of each dimension
 
-        cat_values = self.get_grouped_cat_values_from_identity_list(all_images_by_identity.keys())
+        cat_values = self._get_grouped_cat_values_from_identity_list(all_images_by_identity.keys())
 
         cat_max_values = np.array([max(x) for x in cat_values])
         identity_matrix = np.zeros(tuple(cat_max_values +1))
@@ -2734,7 +2750,7 @@ class FigurePanel():
                 #  is in the cat_values for the identities
                 # if not, dont consider this identity since it is outside
                 # of the rectangle
-                identity_in_rectangle = self.check_if_identity_vals_are_in_array(empty_identity,
+                identity_in_rectangle = self._check_if_identity_vals_are_in_array(empty_identity,
                                                                                  cat_values)
                 if not identity_in_rectangle:
                     continue
@@ -2748,7 +2764,7 @@ class FigurePanel():
                 # differing in categories other than the remapped category
                 add_empty_identities = []
                 for add_empty_identity in empty_identities:
-                    empty_identity_is_in_same_dim = self.check_if_identities_are_the_same_except_categories(empty_identity,
+                    empty_identity_is_in_same_dim = self._check_if_identities_are_the_same_except_categories(empty_identity,
                                                                                                           add_empty_identity,
                                                                                                           cat_nb)
                     if empty_identity_is_in_same_dim:
@@ -2756,7 +2772,7 @@ class FigurePanel():
                 nb_empty_pos_in_same_dim = len(add_empty_identities)
 
                 for identity in all_images_by_identity.keys():
-                    is_target = self.check_if_identities_are_the_same_except_categories(empty_identity,
+                    is_target = self._check_if_identities_are_the_same_except_categories(empty_identity,
                                                                                       identity,
                                                                                       cat_nb)
                     if not is_target:
@@ -2767,7 +2783,7 @@ class FigurePanel():
         return identity_remap_correction
 
 
-    def get_grouped_cat_values_from_identity_list(self, identity_list):
+    def _get_grouped_cat_values_from_identity_list(self, identity_list):
         cat_values = [set() for x in range(len(self.map))]
         for identity in identity_list:
             for cat_nb, cat_value in enumerate(identity):
@@ -2775,7 +2791,7 @@ class FigurePanel():
         return cat_values
 
 
-    def check_if_identity_vals_are_in_array(self, identity, array):
+    def _check_if_identity_vals_are_in_array(self, identity, array):
         identity_in_rectangle = True
         for cat_nb_empty, cat_val_empty in enumerate(identity):
             if cat_val_empty not in array[cat_nb_empty]:
@@ -2784,24 +2800,7 @@ class FigurePanel():
         return identity_in_rectangle
 
 
-    # def check_if_identities_are_the_same_except_categories(self, identity1,
-    #                                                        identity2,
-    #                                                        categories):
-    #     identites_similar = True
-    #     for cat_nb, cat_val in enumerate(identity1):
-    #         if (cat_val != identity2[cat_nb]):
-    #             different_category = True
-    #             for category in categories:
-    #                 if cat_nb == category:
-    #                     different_category = False
-    #                     break
-    #             if different_category:
-    #                 identites_similar = False
-    #                 break
-    #     return identites_similar
-
-
-    def check_if_identities_are_the_same_except_categories(self, identity1,
+    def _check_if_identities_are_the_same_except_categories(self, identity1,
                                                          identity2, categories):
         identites_similar = True
         if (type(categories) not in self.itertypes):
@@ -2814,7 +2813,7 @@ class FigurePanel():
         return identites_similar
 
 
-    def apply_mapping(self, all_images_by_identity, mapping_dict):
+    def _apply_mapping(self, all_images_by_identity, mapping_dict):
         # remap identities in all_images_by_identity according to reposition_dict
         all_images_by_identity_new = {}
         for identity, image in all_images_by_identity.items():
@@ -2826,20 +2825,7 @@ class FigurePanel():
 
         return all_images_by_identity_new
 
-
-    def adapt_zoom_identities_for_repositioning(self,
-                                                identity_to_add_zoom_mark_to,
-                                                reposition_dict):
-        new_identity_to_add_zoom_mark_to = {}
-        for identity, zooms in identity_to_add_zoom_mark_to.items():
-            if identity in reposition_dict:
-                new_identity_to_add_zoom_mark_to[reposition_dict[identity]] = zooms
-            else:
-                new_identity_to_add_zoom_mark_to[identity] = zooms
-        return new_identity_to_add_zoom_mark_to
-
-
-    def get_image_min_max_dict(self, all_images_by_position):
+    def _get_image_min_max_dict(self, all_images_by_position):
         # create nested dict with image_nb as key and
         # dict as value, where channel is the key and
         # image_min and max values as value
@@ -2867,7 +2853,7 @@ class FigurePanel():
                 image_min_max[image_nb][channel] = [min_val, max_val]
         return image_min_max
 
-    def get_range_of_image(self, img_ranges, pre_identity,
+    def _get_range_of_image(self, img_ranges, pre_identity,
                            images_min_max, use_same_LUTs,
                            image_nb_composite = 0):
         """
@@ -2928,7 +2914,7 @@ class FigurePanel():
                             # if range is tuple, only use position in tuple
                             # corresponding to the current composite
                             if type(ranges) in self.itertypes:
-                                ranges = self.get_range_from_min_max(ranges,
+                                ranges = self._get_range_from_min_max(ranges,
                                                                     image_nb_composite)
                             else:
                                 ranges = ranges[channel]
@@ -2947,9 +2933,9 @@ class FigurePanel():
             if len(img_ranges) > image_nb:
                 if len(img_ranges[image_nb]) > channel:
                     return img_ranges[image_nb][channel]
-            return self.get_range_from_min_max(image_min_max, image_nb_composite)
+            return self._get_range_from_min_max(image_min_max, image_nb_composite)
 
-    def get_range_from_min_max(self, image_min_max, image_nb_composite):
+    def _get_range_from_min_max(self, image_min_max, image_nb_composite):
         # if there is no composite with different ranges,
         # the minimum min value and the maximum max value
         # will be used (indicated by image_nb_composite
@@ -2961,7 +2947,7 @@ class FigurePanel():
             range = image_min_max[image_nb_composite]
         return range
 
-    def get_max_values_of_dimensions(self, all_images_by_identity):
+    def _get_max_values_of_dimensions(self, all_images_by_identity):
         max_values = {}
         for dimension, dimension_nb in self.map.items():
             max_values[dimension] = 0
@@ -2973,7 +2959,7 @@ class FigurePanel():
         return max_values
 
 
-    def finalize_pre_identity_dicts(self, all_images_by_pre_identity, 
+    def _finalize_pre_identity_dicts(self, all_images_by_pre_identity, 
                                     inv_map, maps):
         """
         Convert pre_identities in panel_file dict
@@ -2995,9 +2981,9 @@ class FigurePanel():
 
         return all_images_by_identity
 
-    def get_zoom_params_for_identity(self, identity, is_pre_identity = True):
+    def _get_zoom_params_for_identity(self, identity, is_pre_identity = True):
         if not is_pre_identity:
-            identity = self.get_pre_identity(identity)
+            identity = self._get_pre_identity(identity)
         identifier = identity[self.map["images"]]
         #  if "image_sub" in self.map:
         #      identifier = tuple([identifier, identity[self.map["image_sub"]]])
@@ -3009,7 +2995,7 @@ class FigurePanel():
         return zoom_params_this_image
 
 
-    def add_zoom_images(self, all_images_by_identity, show_only_zoom,
+    def _add_zoom_images(self, all_images_by_identity, show_only_zoom,
                         channels_to_show_first_nonzoomed_timeframe,
                         force_show_non_zoom_channels,
                         show_non_zoom_channels):
@@ -3025,14 +3011,14 @@ class FigurePanel():
             return all_images_by_identity, identity_to_add_zoom_mark_to
 
         for identity, image in all_images_by_identity.items():
-            pre_identity = self.get_pre_identity(identity)
+            pre_identity = self._get_pre_identity(identity)
 
             image_nb = pre_identity[self.map["images"]]
             channel = pre_identity[self.map["channels"]]
             frame = pre_identity[self.map["frames"]]
             # get list of zooms in dict zoom_params with key of image_nb
             # for this remap image_nb to pre_identity image_nb
-            zoom_params_this_image = self.get_zoom_params_for_identity(pre_identity)
+            zoom_params_this_image = self._get_zoom_params_for_identity(pre_identity)
 
             for zoom_nb, zoom_param in enumerate(zoom_params_this_image):
                 channel_correct = True
@@ -3100,7 +3086,7 @@ class FigurePanel():
                 (x1,
                  x2,
                  y1,
-                 y2) = self.get_rectangle_position_from_zoom_param(zoom_param)
+                 y2) = self._get_rectangle_position_from_zoom_param(zoom_param)
                 zoom_image = image[:, y1:y2,x1:x2]
                 images_to_add[tuple(zoom_identity)] = zoom_image
                 if not show_only_zoom:
@@ -3122,7 +3108,7 @@ class FigurePanel():
         return all_images_by_identity, identity_to_add_zoom_mark_to
 
 
-    def get_rectangle_position_from_zoom_param(self, zoom_param):
+    def _get_rectangle_position_from_zoom_param(self, zoom_param):
         height = zoom_param["height"]
         width = zoom_param["width"]
         x1 = zoom_param["xy"][0] - int(np.round(height/2,0))
@@ -3133,14 +3119,14 @@ class FigurePanel():
         return x1, x2, y1, y2
 
 
-    def get_width_height_matrices_of_categories(self, inv_map,
+    def _get_width_height_matrices_of_categories(self, inv_map,
                                                 all_images_by_identity):
         """
         create matrix with all widths and heights of all images
         """
         # create dimensions dynamically from maximum values in each category
 
-        max_values = self.get_max_values_of_dimensions(all_images_by_identity)
+        max_values = self._get_max_values_of_dimensions(all_images_by_identity)
 
         dimensions = []
         for one_category in inv_map.values():
@@ -3158,7 +3144,7 @@ class FigurePanel():
         return width_imgs, height_imgs
 
 
-    def get_differences_of_permutations(self, order_of_categories,
+    def _get_differences_of_permutations(self, order_of_categories,
                                         map, width_imgs,
                                        height_imgs, focus,
                                        additional_padding,
@@ -3177,7 +3163,7 @@ class FigurePanel():
         allowed_focus_vals = map.keys()
         possible_focus_vals = []
 
-        if not self.is_none(focus):
+        if not self._is_none(focus):
             if focus not in allowed_focus_vals:
                 raise ValueError("The supplied focus '{}' is not valid. "
                                  "Only the following focus values are allowed:"
@@ -3230,7 +3216,7 @@ class FigurePanel():
             if type(row_categories) not in self.itertypes:
                 row_categories = [row_categories]
 
-            grid_fit_score = self.get_image_category_grid_fit_score(column_categories,
+            grid_fit_score = self._get_image_category_grid_fit_score(column_categories,
                                                                     row_categories,
                                                                     all_images_by_identity,
                                                                     width_imgs, height_imgs,
@@ -3243,7 +3229,7 @@ class FigurePanel():
         return permutation_differences
 
 
-    def get_image_category_grid_fit_score(self, column_categories,
+    def _get_image_category_grid_fit_score(self, column_categories,
                                           row_categories,
                                           all_images_by_identity,
                                           width_imgs, height_imgs,
@@ -3252,20 +3238,6 @@ class FigurePanel():
         """
         Get fit of image grid determined by categories shown in
         columns and categories shown in rows.
-
-        :param column_categories:
-        :type column_categories: list
-        :param row_categories:
-        :type row_categories: list
-        :param all_images_by_identity:
-        :type all_images_by_identity: dict
-        :param width_imgs:
-        :type width_imgs: numpy array
-        :param height_imgs:
-        :type height_imgs: numpy array
-        :param additional_padding:
-        :return: fit score
-        :rtype: float
         """
         # calculate sub padding which is the padding
         #  that will be introduced between the images
@@ -3292,7 +3264,7 @@ class FigurePanel():
             cat_str = self.inv_map[column_cat]
             if cat_str not in additional_padding:
                 continue
-            nb_cat_vals = self.get_number_of_vals_for_cat(column_cat,
+            nb_cat_vals = self._get_number_of_vals_for_cat(column_cat,
                                                           all_images_by_identity.keys())
             # subtract 1 from nb cat vals since padding
             #  is added BETWEEN the vals
@@ -3306,7 +3278,7 @@ class FigurePanel():
             cat_str = self.inv_map[row_cat]
             if cat_str not in additional_padding:
                 continue
-            nb_cat_vals = self.get_number_of_vals_for_cat(row_cat,
+            nb_cat_vals = self._get_number_of_vals_for_cat(row_cat,
                                                           all_images_by_identity.keys())
             add_y_padding += ((nb_cat_vals - 1) *
                               (additional_padding[cat_str] - 1))
@@ -3330,8 +3302,9 @@ class FigurePanel():
                    permutation_ratio/available_ratio)
         return fit_score
 
-    def get_dimension_categories(self, first_dimension, second_dimension,
-                                 size_increase_cat_is_focus, size_increase_dim_nb,
+    def _get_dimension_categories(self, first_dimension, second_dimension,
+                                 size_increase_cat_is_focus,
+                                 size_increase_dim_nb,
                                  order_of_categories, show_focus_in):
         # get row and column categories
         if size_increase_cat_is_focus:
@@ -3361,7 +3334,7 @@ class FigurePanel():
 
         return column_categories, row_categories
 
-    def get_best_permutation_of_cats_for_axes(self, permutation_differences, 
+    def _get_best_permutation_of_cats_for_axes(self, permutation_differences, 
                                               enforce_rectangle = False):
         """
         focus value refers to dimension which will be spread on one axis alone
@@ -3391,7 +3364,7 @@ class FigurePanel():
         return best_permutation, min_difference
 
 
-    def get_number_of_vals_for_cat(self, category, all_identities):
+    def _get_number_of_vals_for_cat(self, category, all_identities):
         if type(category) == str:
             category = self.map[category]
         all_cat_vals = set()
@@ -3400,7 +3373,7 @@ class FigurePanel():
         return len(all_cat_vals)
 
 
-    def set_max_row_and_col_in_auto_mode(self, best_permutation, width_imgs):
+    def _set_max_row_and_col_in_auto_mode(self, best_permutation, width_imgs):
             # get max row and max column
             max_values = []
             for cat_nb, categories in enumerate(best_permutation):
@@ -3411,11 +3384,6 @@ class FigurePanel():
 
             self.max_row = max_values[1] - 1
             self.max_col = max_values[0] - 1
-
-    def create_image_dict_by_position_grid_mode(self, all_images_by_identity,
-                                                grid, grid_order, width_imgs):
-        pass
-
 
     def _create_image_dict_by_position_auto_mode(self, all_images_by_identity,
                                                 best_permutation, width_imgs,
@@ -3433,11 +3401,11 @@ class FigurePanel():
         #get number of category vals
         #do not use maximum values since some values might not be used
         #due to automatic remapping after enlarging images
-        nb_cat_vals = [self.get_number_of_vals_for_cat(cat ,all_identities)
+        nb_cat_vals = [self._get_number_of_vals_for_cat(cat ,all_identities)
                         for cat in self.map.values()]
         nb_cat_vals = np.array(nb_cat_vals)
 
-        all_cat_vals = self.get_all_category_vals(all_identities,
+        all_cat_vals = self._get_all_category_vals(all_identities,
                                                               inv_map)
 
         new_identity_to_add_zoom_mark_to = {}
@@ -3548,7 +3516,7 @@ class FigurePanel():
 
             self.all_images_by_position[position[1], position[0]] = image
 
-            pre_identity = self.get_pre_identity(identity)
+            pre_identity = self._get_pre_identity(identity)
 
             # map of position original identitiy (including actual frames etc.)
             self.pos_to_pre_identity_map[position[1],
@@ -3620,22 +3588,8 @@ class FigurePanel():
                                                                                           [max_row, max_col] ]
 
 
-    def get_position_of_cat_val(self, cat_val, category, all_cat_vals, inv_map):
-        """
-        Get position of category value compared to all other values of that
-        category.
-        :param cat_val: int, category value
-        :param category: int, number of category
-        :param all_cat_vals: dict with name of category as key and
-                             list of values as values
-        :param inv_map: dict mapping number of category to name of category
-        """
-        cat_vals = np.array(all_cat_vals[inv_map[category]])
-        cat_position = np.where(cat_vals == cat_val)[0][0]
-        return cat_position
 
-
-    def get_pre_identity(self, identity):
+    def _get_pre_identity(self, identity):
         # convert identity to pre_identity
         pre_identity = []
         remapped_identity = copy.copy(identity)
@@ -3701,6 +3655,9 @@ class FigurePanel():
         """
         Create dictionary with one dictionary entry per rows that should
         be deleted.
+        :param rows: list of rows (integers) that should be deleted
+        :param images: list of images (integeres) in which rows should be
+                        deleted
         :param only_in_grid_rows: List of rows in image grid
                                     in which rows should be deleted
                                     in the image array
@@ -3813,7 +3770,7 @@ class FigurePanel():
                     self.zoom_params[image] = []
                 self.zoom_params[image].append(new_zoom_param)
 
-    def check_if_positions_match(self, row_pos, column_pos, 
+    def _check_if_positions_match(self, row_pos, column_pos,
                                  row_ref, column_ref):
         """
         check if two positions (with row and col) are the same.
@@ -3842,13 +3799,24 @@ class FigurePanel():
     def add_border(self, left=False, right=False, top=False,
                    bottom=False, row = None, column = None,
                    color="black", line_width = 2):
+        """
+        Add border to images
+        :param left: Whether to add left border
+        :param right: Whether to add right border
+        :param top: Whether to add top border
+        :param bottom: Whether to add bottom border
+        :param row: row (integer) in which borders should be added
+        :param column: column (integer) in which borders should be added
+        :param color: Color of added border
+        :param line_width: Line width in pt of added border
+        """
 
         line_width *= self.size_factor
         for position, ax in self.all_axs.items():
             row_pos = position[0]
             column_pos = position[1]
 
-            position_correct = self.check_if_positions_match(row_pos,
+            position_correct = self._check_if_positions_match(row_pos,
                                                              column_pos,
                                                              row, column)
 
@@ -3888,7 +3856,7 @@ class FigurePanel():
         display_mode = "default"
         for file_path in self.panel_file_paths:
             file_name = os.path.basename(file_path)
-            col_pos, row_pos = self.get_col_and_row_from_name(file_name)
+            col_pos, row_pos = self._get_col_and_row_from_name(file_name)
             if col_pos != None:
                 self.max_col = max(col_pos,self.max_col)
                 self.max_row = max(row_pos,self.max_row)
@@ -3909,8 +3877,7 @@ class FigurePanel():
 
         return display_mode
 
-
-    def initiate_label_matrices(self):
+    def _initiate_label_matrices(self):
             # initiate matrices to keep track of labels already present
             self.label_matrices = {}
             self.label_matrices['left'] = np.full((self.max_row+1,
@@ -3922,8 +3889,7 @@ class FigurePanel():
             self.label_matrices['top'] = np.full((self.max_row+1,
                                                   self.max_col+1), - np.inf)
 
-
-    def initiate_label_dicts(self):
+    def _initiate_label_dicts(self):
 
             # initiate dict for label_axs
             self.label_axs = {}
@@ -3950,7 +3916,7 @@ class FigurePanel():
             self.label_lines_ploted["top"] = []
             self.label_lines_ploted["bottom"] = []
 
-    def expand_img_dimensions(self, img, target_dim = 3):
+    def _expand_img_dimensions(self, img, target_dim = 3):
         while len(img.shape) < target_dim:
             img = np.expand_dims(img, axis=-1)
         return img
@@ -3968,18 +3934,18 @@ class FigurePanel():
                 raise Exception("Data file can only be used "
                                 "if a single file is provided for the panel.")
 
-            column, row = self.get_col_and_row_from_name(file_name)
+            column, row = self._get_col_and_row_from_name(file_name)
 
             image = self.all_panel_imgs[nb]
 
             # increase dimensionality of non-RGB or 2D image
             # to 2D RGB image by adding dimensions
-            image = self.expand_img_dimensions(image)
+            image = self._expand_img_dimensions(image)
 
             # create 4th dimension for composite images, to standarize dimensions
             image = np.expand_dims(image, axis=0)
 
-            ranges = self.extract_img_ranges_from_file(file_path)
+            ranges = self._extract_img_ranges_from_file(file_path)
 
             self.all_images_by_position[(row, column)] = image
 
@@ -4010,7 +3976,7 @@ class FigurePanel():
         return img_ranges
 
 
-    def add_px_to_image_dimension(self, image, row, column,
+    def _add_px_to_image_dimension(self, image, row, column,
                                   parameters, max_widths_px, max_heights_px):
         if len(parameters) == 3:
             value_to_add = parameters[2]
@@ -4075,7 +4041,7 @@ class FigurePanel():
         return all_pre_identities, is_composite
 
 
-    def plot_images_without_setting_position(self, img_ranges, use_same_LUTs,
+    def _plot_images_without_setting_position(self, img_ranges, use_same_LUTs,
                                              cmaps, composite_cmaps,
                                              make_image_size_equal,
                                              replace_nan_with, scale_images,
@@ -4091,11 +4057,11 @@ class FigurePanel():
             row = position[0]
             column = position[1]
             # crop images according to crop_params
-            image = self.delete_rows(image, row, column)
-            image = self.crop_image(image, row, column)
+            image = self._delete_rows(image, row, column)
+            image = self._crop_image(image, row, column)
             self.all_images_by_position[position] = image
 
-        images_min_max = self.get_image_min_max_dict(self.all_images_by_position)
+        images_min_max = self._get_image_min_max_dict(self.all_images_by_position)
 
         heights_px = np.zeros((self.max_row + 1, self.max_col + 1))
         widths_px = np.zeros((self.max_row + 1, self.max_col + 1))
@@ -4116,13 +4082,13 @@ class FigurePanel():
                 # allow for adding px with multiple settings
                 if type(make_image_size_equal[0]) in self.itertypes:
                     for one_make_image_size_equal in make_image_size_equal:
-                        image = self.add_px_to_image_dimension(image, row,
+                        image = self._add_px_to_image_dimension(image, row,
                                                                column,
                                                                one_make_image_size_equal,
                                                                max_widths_px,
                                                                max_heights_px)
                 else:
-                    image = self.add_px_to_image_dimension(image, row, column,
+                    image = self._add_px_to_image_dimension(image, row, column,
                                                    make_image_size_equal,
                                                    max_widths_px, 
                                                            max_heights_px)
@@ -4145,7 +4111,7 @@ class FigurePanel():
             # pre_identity is now a LIST of pre_identities
 
             # for composites use composite_cmaps if they are defined
-            if is_composite & (not (self.is_none(composite_cmaps))):
+            if is_composite & (not (self._is_none(composite_cmaps))):
                 cmaps_to_use = composite_cmaps
             else:
                 cmaps_to_use = cmaps
@@ -4156,7 +4122,7 @@ class FigurePanel():
                 # dont search for img_range for placeholder images
                 if pre_identity[0] != -1:
 
-                    img_range = self.get_range_of_image(img_ranges,
+                    img_range = self._get_range_of_image(img_ranges,
                                                         pre_identity,
                                                          images_min_max, 
                                                         use_same_LUTs,
@@ -4210,11 +4176,6 @@ class FigurePanel():
                     start_color = "black"
                 else:
                     start_color = "white"
-                # self.cmaps_for_position[position] = [sb.dark_palette(cmap,
-                #                                                      reverse=False,
-                #                                                      as_cmap=True,
-                #                                                      input='rgb')
-                #                                      for cmap in cmaps_for_img]
                 self.cmaps_for_position[position] = [LinearSegmentedColormap.from_list("dark",
                                                                                        [start_color,
                                                                                         cmap])
@@ -4269,7 +4230,7 @@ class FigurePanel():
         return widths, heights
 
 
-    def check_if_pos_is_in_row_col_list(self, row, column,
+    def _check_if_pos_is_in_row_col_list(self, row, column,
                                         show_axes_in_rows,
                                         show_axes_in_columns):
         row_correct = True
@@ -4297,7 +4258,7 @@ class FigurePanel():
             return False
 
 
-    def delete_rows(self, image, row, col):
+    def _delete_rows(self, image, row, col):
 
         image_without_rows = image
 
@@ -4321,7 +4282,7 @@ class FigurePanel():
                 if pre_identity[self.map["images"]] not in rows_to_delete["images"]:
                     image_correct = False
 
-            position_correct = self.check_if_pos_is_in_row_col_list(row, col,
+            position_correct = self._check_if_pos_is_in_row_col_list(row, col,
                                                              rows_to_delete["only_in_grid_rows"],
                                                              rows_to_delete["only_in_grid_cols"])
 
@@ -4332,7 +4293,7 @@ class FigurePanel():
         return image_without_rows
 
 
-    def crop_image(self, image, row, col):
+    def _crop_image(self, image, row, col):
 
         image_cropped = image
 
@@ -4356,7 +4317,7 @@ class FigurePanel():
                 if pre_identity[self.map["images"]] not in crop_param["images"]:
                     image_correct = False
 
-            position_correct = self.check_if_pos_is_in_row_col_list(row, col,
+            position_correct = self._check_if_pos_is_in_row_col_list(row, col,
                                                                     crop_param["row"],
                                                                     crop_param["col"])
 
@@ -4404,7 +4365,7 @@ class FigurePanel():
         return image_cropped
 
 
-    def correct_xy_for_cropping_and_zoom(self, x, y, row, col):
+    def _correct_xy_for_cropping_and_zoom(self, x, y, row, col):
         position = (row, col)
         # check if image is zoomed
         identity = self.pos_to_pre_identity_map[(row, col)]
@@ -4413,7 +4374,7 @@ class FigurePanel():
         else:
             zoom_nb = 0
         if zoom_nb > 0:
-            zoom_params_this_image = self.get_zoom_params_for_identity(identity,
+            zoom_params_this_image = self._get_zoom_params_for_identity(identity,
                                                                        is_pre_identity = True)
             zoom_param = zoom_params_this_image[zoom_nb - 1]
             zoom_origin_x = zoom_param["xy"][0] - zoom_param["height"] / 2
@@ -4437,7 +4398,7 @@ class FigurePanel():
         return x, y
 
 
-    def calculate_outer_border_ax_grid(self):
+    def _calculate_outer_border_ax_grid(self):
         """
         Calculate border coordinates for whole ax_grid
         Includes border at outside of figure
@@ -4495,7 +4456,7 @@ class FigurePanel():
         #                        ])
 
 
-    def even_out_heights(self, heights, widths, height_rows):
+    def _even_out_heights(self, heights, widths, height_rows):
         height_diff_to_max = height_rows / np.transpose(heights)
         heights *= np.transpose(height_diff_to_max)
         widths *= np.transpose(height_diff_to_max)
@@ -4510,7 +4471,7 @@ class FigurePanel():
         return heights, widths, height_rows, width_columns
 
 
-    def even_out_widths(self, heights, widths, width_columns):
+    def _even_out_widths(self, heights, widths, width_columns):
         width_diff_to_max = width_columns / widths
         widths *= width_diff_to_max
         heights *= width_diff_to_max
@@ -4525,7 +4486,7 @@ class FigurePanel():
         return heights, widths, height_rows, width_columns
 
 
-    def get_width_columns_and_height_rows(self, widths, heights,
+    def _get_width_columns_and_height_rows(self, widths, heights,
                                           dimension_equal, scale_images):
 
         # fix for multiplications that are not allowed does not work!!!
@@ -4542,22 +4503,22 @@ class FigurePanel():
         if scale_images:
             if dimension_equal == "heights":
                 # first even out width then even out height afterwards
-                new_values = self.even_out_widths(heights, widths, width_columns)
+                new_values = self._even_out_widths(heights, widths, width_columns)
                 heights, widths, height_rows, width_columns = new_values
-                new_values = self.even_out_heights(heights, widths, height_rows)
+                new_values = self._even_out_heights(heights, widths, height_rows)
                 heights, widths, height_rows, width_columns = new_values
 
             elif dimension_equal == "widths":
                 # first even out heights then even out widths afterwards
-                new_values = self.even_out_heights(heights, widths, height_rows)
+                new_values = self._even_out_heights(heights, widths, height_rows)
                 heights, widths, height_rows, width_columns = new_values
-                new_values = self.even_out_widths(heights, widths, width_columns)
+                new_values = self._even_out_widths(heights, widths, width_columns)
                 heights, widths, height_rows, width_columns = new_values
 
 
         return width_columns, height_rows
 
-    def get_vals_without_nan_and_values(self, matrix, values_to_exclude=None):
+    def _get_vals_without_nan_and_values(self, matrix, values_to_exclude=None):
         matrix = matrix[~np.isnan(matrix)]
         if type(values_to_exclude) != type(None):
             if (type(values_to_exclude) not in self.itertypes):
@@ -4567,7 +4528,7 @@ class FigurePanel():
         return matrix
 
 
-    def set_additional_padding_matrices(self, additional_padding):
+    def _set_additional_padding_matrices(self, additional_padding):
         # check for additional_padding which positions should have added padding
         additional_padding_pos = {}
         for category, factor in additional_padding.items():
@@ -4583,14 +4544,14 @@ class FigurePanel():
             unique_in_cols = []
             for row in range(cat_val_matrix.shape[0]):
                 row_vals = cat_val_matrix[row,:]
-                row_vals = self.get_vals_without_nan_and_values(row_vals, -1)
+                row_vals = self._get_vals_without_nan_and_values(row_vals, -1)
                 nb_unique_vals = len(np.unique(row_vals))
                 if nb_unique_vals == 0:
                     nb_unique_vals = -1
                 unique_in_rows.append(nb_unique_vals)
             for col in range(cat_val_matrix.shape[1]):
                 col_vals = cat_val_matrix[:,col]
-                col_vals = self.get_vals_without_nan_and_values(col_vals, -1)
+                col_vals = self._get_vals_without_nan_and_values(col_vals, -1)
                 nb_unique_vals = len(np.unique(col_vals))
                 if nb_unique_vals == 0:
                     nb_unique_vals = -1
@@ -4628,7 +4589,7 @@ class FigurePanel():
                         all_values_for_separating[value_nb-1]):
                     additional_padding_pos[category][cat_dimension].append(value_nb)
 
-        self.initialize_padding_factor_matrices()
+        self._initialize_padding_factor_matrices()
 
         for category, cat_dict in additional_padding_pos.items():
             for cat_dimension, dim_values in cat_dict.items():
@@ -4638,13 +4599,13 @@ class FigurePanel():
                     elif cat_dimension == "columns":
                         self.y_padding_factors[:dim_value,:] += additional_padding[category] - 1
 
-    def initialize_padding_factor_matrices(self):
+    def _initialize_padding_factor_matrices(self):
         # create array for each position with total factor
         #  of increased padding up to that point
         self.x_padding_factors = np.full((self.max_row+1, self.max_col+1),0)
         self.y_padding_factors = np.full((self.max_row+1, self.max_col+1),0)
 
-    def get_centered_inner_border(self, width_columns, height_rows):
+    def _get_centered_inner_border(self, width_columns, height_rows):
         # calculate total additional padding in x and in y
         total_additional_x_padding = np.max(self.x_padding_factors)
         total_additional_y_padding = np.max(self.y_padding_factors)
@@ -4745,27 +4706,36 @@ class FigurePanel():
         return inner_border, width_to_use, height_to_use
 
 
-    def set_position_of_plots(self, width_to_use, height_to_use,
+    def _set_position_of_plots(self, width_to_use, height_to_use,
                               width_cols, height_rows, inner_border):
             total_add_x_padding = np.max(self.x_padding_factors)
             total_add_y_padding = np.max(self.y_padding_factors)
 
             fig = plt.gcf()
             fig_size = fig.get_size_inches()
-            # place each image in the grid, keeping 1/4 of the padding space between them
-            self.sub_padding_x = ( self.fig_padding[0] * self.sub_padding_factor ) / fig_size[0]
-            self.sub_padding_y = ( self.fig_padding[1] * self.sub_padding_factor ) / fig_size[1]
+            # place each image in the grid,
+            # keeping 1/4 of the padding space between them
+            self.sub_padding_x = (( self.fig_padding[0] *
+                                    self.sub_padding_factor ) / fig_size[0])
+            self.sub_padding_y = (( self.fig_padding[1] *
+                                    self.sub_padding_factor ) / fig_size[1])
 
-            width_for_plots = width_to_use - (self.max_col + total_add_x_padding) * self.sub_padding_x
-            height_for_plots = height_to_use - (self.max_row + total_add_y_padding) * self.sub_padding_y
+            width_for_plots = (width_to_use -
+                               (self.max_col + total_add_x_padding) *
+                               self.sub_padding_x)
+            height_for_plots = (height_to_use -
+                                (self.max_row + total_add_y_padding) *
+                                self.sub_padding_y)
             width_for_plots_px = width_for_plots * fig_size[0] * fig.dpi
             height_for_plots_px = height_for_plots * fig_size[1] * fig.dpi
             width_row_ref = np.sum(width_cols)
             height_col_ref = np.sum(height_rows)
 
-            # get list of positions in which the positions are sorted by row and column position:
+            # get list of positions in which the positions
+            # are sorted by row and column position:
             all_positions = list(self.all_axs.keys())
             all_positions.sort(key=lambda x: x[0] * 100 + x[1])
+            get_shift = self._get_shift_by_padding_for_position
 
 
             for position in all_positions:
@@ -4780,7 +4750,8 @@ class FigurePanel():
                 base_height = (height_rows[row] /
                                height_col_ref * height_for_plots)
 
-                x_shift_by_padding, y_shift_by_padding = self.get_shift_by_padding_for_position(position)
+                (x_shift_by_padding, 
+                 y_shift_by_padding) = get_shift(position)
 
                 if pre_identity in self.size_factors_for_identities:
                     size_factor = self.size_factors_for_identities[pre_identity]
@@ -4811,10 +4782,11 @@ class FigurePanel():
                     last_pos_x[1] -= size_factor - 1
                     last_pos_y = list(position)
                     last_pos_y[0] -= size_factor - 1
-                    _, add_y_shift_by_padding = self.get_shift_by_padding_for_position(tuple(last_pos_y))
+
+                    _, add_y_shift_by_padding = get_shift(tuple(last_pos_y))
                     add_height_by_padding = abs(add_y_shift_by_padding -
                                                 y_shift_by_padding)
-                    add_x_shift_by_padding, _ = self.get_shift_by_padding_for_position(tuple(last_pos_x))
+                    add_x_shift_by_padding, _ = get_shift(tuple(last_pos_x))
                     add_width_by_padding = abs(add_x_shift_by_padding -
                                                x_shift_by_padding)
                 else:
@@ -4887,33 +4859,49 @@ class FigurePanel():
 
 
     def add_x_axis(self, axis_title="", site="bottom",
-                        show_in_rows=None, show_in_columns=None,
+                   show_in_rows=None, show_in_columns=None,
                    show_title_in_rows=None, show_title_in_columns=None,
-                        axis_padding=0, show_tick_labels=True,
-                                      always_show_all_tick_values=False,
-                        tick_values=None, tick_color="black", tick_width = 0.4,
-                        tick_length=5, shift=True,
-                   direction="in"):
+                   axis_padding=0, show_tick_labels=True,
+                   always_show_all_tick_values=False,
+                   tick_values=None, tick_color="black", tick_width = 0.4,
+                   tick_length=5, shift=True, direction="in"):
         """
         Add x axis to images in image grid
+        :param axis_title: String of axis title
+        :param site: Site of axis
+        :param show_in_rows: List of rows in image grid in which to add x axis
+        :param show_in_columns: List of columns in image grid in which to add
+                                x axis
+        :param show_title_in_rows: List of rows in image grid in which to
+                                    show title
+        :param show_title_in_columns: List of columns in image grid in which to
+                                    show title
+        :param axis_padding: padding of axis ticks
+        :param show_tick_labels: Whether to show tick labels
+        :param always_show_all_tick_values: Show all tick values, even those
+                                            outside of the range of the image
         :param tick_values: list, manually define x tick values to be shown on
                             the inside of the image
                             values provided must be after
                             scaling with set_image_scaling
         :param tick_color: string, color of x ticks
+        :param tick_width: tick width in pt
+        :param tick_length: tick length in pt
+        :param shift: whether to shift images after adding axis
+        :param direction: direction of ticks ("in" or "out" of image)
         """
         for position, ax in self.all_axs.items():
             row = position[0]
             column = position[1]
 
-            show_axes_here = self.check_if_pos_is_in_row_col_list(row, column,
+            show_axes_here = self._check_if_pos_is_in_row_col_list(row, column,
                                                                   show_in_rows,
                                                                   show_in_columns)
 
             if not show_axes_here:
                 continue
 
-            show_title_here = self.check_if_pos_is_in_row_col_list(row,
+            show_title_here = self._check_if_pos_is_in_row_col_list(row,
                                                                   column,
                                                                   show_title_in_rows,
                                                                   show_title_in_columns)
@@ -4936,7 +4924,7 @@ class FigurePanel():
                     tick_values_in_range = tick_values
                 else:
                     (x_tick_values_in_range,
-                     tick_values_in_range) = self.get_ticks_in_range(ax.get_xlim(),
+                     tick_values_in_range) = self._get_ticks_in_range(ax.get_xlim(),
                                                                      x_tick_values,
                                                                      tick_values)
                 ax.set_xticks(ticks=x_tick_values_in_range)
@@ -4954,10 +4942,10 @@ class FigurePanel():
                                                             ax.get_position().y0)
 
             if shift:
-                self.shift_and_transform_axs(site, None, x_axis_height_px)
+                self._shift_and_transform_axs(site, None, x_axis_height_px)
 
 
-    def get_ticks_in_range(self, range, tick_values, tick_labels):
+    def _get_ticks_in_range(self, range, tick_values, tick_labels):
         range = [min(range), max(range)]
         tick_values_in_range = []
         tick_labels_in_range = []
@@ -4969,39 +4957,50 @@ class FigurePanel():
         return tick_values_in_range, tick_labels_in_range
 
     def add_y_axis(self, axis_title="", site="left",
-                        show_in_rows=None, show_in_columns=None,
+                   show_in_rows=None, show_in_columns=None,
                    show_title_in_rows=None, show_title_in_columns=None,
-                        axis_padding=0, show_tick_labels=True,
-                                      always_show_all_tick_values=False,
-                        tick_values=None, tick_color="black", tick_width = 0.4,
-                        tick_length=5, shift=True):
+                   axis_padding=0, show_tick_labels=True,
+                   always_show_all_tick_values=False,
+                   tick_values=None, tick_color="black", tick_width = 0.4,
+                   tick_length=5, shift=True, direction="in"):
         """
         Add y axis to images in image grid
+        :param axis_title: String of axis title
+        :param site: Site of axis
+        :param show_in_rows: List of rows in image grid in which to add y axis
+        :param show_in_columns: List of columns in image grid in which to add
+                                y axis
+        :param show_title_in_rows: List of rows in image grid in which to
+                                    show title
+        :param show_title_in_columns: List of columns in image grid in which to
+                                    show title
+        :param axis_padding: padding of axis ticks
+        :param show_tick_labels: Whether to show tick labels
+        :param always_show_all_tick_values: Show all tick values, even those
+                                            outside of the range of the image
         :param tick_values: list, manually define y tick values to be shown
                                 on the inside of the image
                                 values provided must be after scaling
                                 with set_image_scaling
-        :param always_show_all_tick_values: Show tick values also if out of 
-                                            axis dimensions
-        :param x_tick_values: list, manually define x tick values to be shown
-                                on the inside of the image
-                                values provided must be after scaling
-                                with set_image_scaling
         :param tick_color: string, color of y ticks
+        :param tick_width: tick width in pt
+        :param tick_length: tick length in pt
+        :param shift: whether to shift images after adding axis
+        :param direction: direction of ticks ("in" or "out" of image)
         """
 
         for position, ax in self.all_axs.items():
             row = position[0]
             column = position[1]
 
-            show_axes_here = self.check_if_pos_is_in_row_col_list(row, column,
+            show_axes_here = self._check_if_pos_is_in_row_col_list(row, column,
                                                                   show_in_rows,
                                                                   show_in_columns)
 
             if not show_axes_here:
                 continue
 
-            show_title_here = self.check_if_pos_is_in_row_col_list(row,
+            show_title_here = self._check_if_pos_is_in_row_col_list(row,
                                                                   column,
                                                                   show_title_in_rows,
                                                                   show_title_in_columns)
@@ -5022,7 +5021,7 @@ class FigurePanel():
                     tick_values_in_range = tick_values
                 else:
                     (y_tick_values_in_range,
-                     tick_values_in_range) = self.get_ticks_in_range(ax.get_ylim(),
+                     tick_values_in_range) = self._get_ticks_in_range(ax.get_ylim(),
                                                                      y_tick_values,
                                                                      tick_values)
 
@@ -5032,7 +5031,7 @@ class FigurePanel():
             ax.tick_params(axis="y", which="both",
                            pad=axis_padding,
                                length =tick_length, width=tick_width,
-                               direction="in", color=tick_color)
+                               direction=direction, color=tick_color)
 
             if not show_tick_labels:
                 ax.set_yticklabels([])
@@ -5046,10 +5045,10 @@ class FigurePanel():
                 ax.yaxis.set_label_position("right")
 
             if shift:
-                self.shift_and_transform_axs(site, y_axis_width_px, None )
+                self._shift_and_transform_axs(site, y_axis_width_px, None )
 
 
-    def remove_xy_axes(self, show_axis_grid):
+    def _remove_xy_axes(self, show_axis_grid):
         for position, ax in self.all_axs.items():
 
             if not show_axis_grid:
@@ -5066,8 +5065,7 @@ class FigurePanel():
             hide_x_axis = False
             hide_y_axis = False
 
-
-    def create_img_position_matrix(self):
+    def _create_img_position_matrix(self):
             # create position_matrix in shape of grid in which images
             #  are plotted
             # with zeros at positions where no image is and
@@ -5084,7 +5082,7 @@ class FigurePanel():
             for position in self.all_axs:
                 self.position_matrix[position] = 1
 
-    def get_shift_by_padding_for_position(self, position):
+    def _get_shift_by_padding_for_position(self, position):
         add_x_padding = self.x_padding_factors[position]
         add_y_padding = self.y_padding_factors[position]
 
@@ -5094,7 +5092,7 @@ class FigurePanel():
 
         return x_shift_by_padding, y_shift_by_padding
 
-    def add_colorbars_to_axs(self, show_colorbar_at,
+    def _add_colorbars_to_axs(self, show_colorbar_at,
                              show_colorbar_for_channels,
                              heights, tick_labels,
                                  size, colorbar_tick_distance_from_edge,
@@ -5128,7 +5126,7 @@ class FigurePanel():
             # check if cannel of current cmap should be used to show colorbar
             # if one channel for colormap should be used to show colorbar
             # use all channels for colormap
-            if not self.is_none(show_colorbar_for_channels):
+            if not self._is_none(show_colorbar_for_channels):
                 for channel in channels:
                     if channel in show_colorbar_for_channels:
                         plot_colorbar = True
@@ -5165,7 +5163,7 @@ class FigurePanel():
                     if col == 0:
                         show_colorbar = True
 
-                grid_position_correct = self.check_if_pos_is_in_row_col_list(row, col,
+                grid_position_correct = self._check_if_pos_is_in_row_col_list(row, col,
                                                                              only_show_in_rows,
                                                                              only_show_in_columns)
 
@@ -5239,7 +5237,7 @@ class FigurePanel():
 
                 # if tick_labels are defined, set first and second tick labels
                 # as string tick labels defined in that list
-                if not self.is_none(tick_labels):
+                if not self._is_none(tick_labels):
                     first_tick_label, second_tick_label = tuple(tick_labels)
                 else:
                     # otherwise set tick labels as normalized float
@@ -5291,7 +5289,7 @@ class FigurePanel():
         # which will also be the number that needs the most space
 
         # then measure width
-        txt_width, txt_height = FigurePanel.get_dimension_of_text(max_label_value,
+        txt_width, txt_height = FigurePanel._get_dimension_of_text(max_label_value,
                                                                   colorbar_font_size,
                                                                   cax)
         fig_size = fig.get_size_inches() * fig.dpi
@@ -5317,16 +5315,15 @@ class FigurePanel():
             y_shift = (colorbar_height_px + txt_height + tick_length +
                        label_padding_px + padding_of_colorbar)
 
-        self.shift_and_transform_axs(show_colorbar_at,
+        self._shift_and_transform_axs(show_colorbar_at,
                                      x_shift, y_shift)
 
-    def get_img_from_axis(self, ax, img_nb = 0):
+    def _get_img_from_axis(self, ax, img_nb = 0):
         image = ax.images[img_nb]._A
-        image = self.expand_img_dimensions(image)
+        image = self._expand_img_dimensions(image)
         return image
 
-
-    def add_zoom_marks_to_overview_images(self, identity_to_add_zoom_mark_to,
+    def _add_zoom_marks_to_overview_images(self, identity_to_add_zoom_mark_to,
                                           line_width_zoom_rectangle,
                                           zoom_nb_font_size_overview,
                                           zoom_nb_padding, zoom_nb_color,
@@ -5348,29 +5345,29 @@ class FigurePanel():
 
                 #  image = self.all_images_by_position[position]
                 ax = self.all_axs[position]
-                image = self.get_img_from_axis(ax)
+                image = self._get_img_from_axis(ax)
 
                 ax_coords = ax.get_position()
                 # get which zooms were applied to the current image
                 for zoom_nb in zoom_nbs:
 
-                    zoom_params_this_image = self.get_zoom_params_for_identity(identity)
+                    zoom_params_this_image = self._get_zoom_params_for_identity(identity)
                     zoom_param = zoom_params_this_image[zoom_nb]
-                    x0, x1, y0, y1 = self.get_rectangle_position_from_zoom_param(zoom_param)
-                    x0, y0 = self.correct_xy_for_cropping_and_zoom(x0, y0,
+                    x0, x1, y0, y1 = self._get_rectangle_position_from_zoom_param(zoom_param)
+                    x0, y0 = self._correct_xy_for_cropping_and_zoom(x0, y0,
                                                                    position[0],
                                                                    position[1])
-                    x1, y1 = self.correct_xy_for_cropping_and_zoom(x1, y1,
+                    x1, y1 = self._correct_xy_for_cropping_and_zoom(x1, y1,
                                                                    position[0],
                                                                    position[1])
 
                     label_position = zoom_param["label_position_overview"]
                     rect_label = "___label_position"
                     # draw rectangle on image
-                    x0_ax, y0_ax = self.transform_coords_from_data_to_axes(x0,
+                    x0_ax, y0_ax = self._transform_coords_from_data_to_axes(x0,
                                                                            y0,
                                                                            ax)
-                    x1_ax, y1_ax = self.transform_coords_from_data_to_axes(x1,
+                    x1_ax, y1_ax = self._transform_coords_from_data_to_axes(x1,
                                                                            y1,
                                                                            ax)
 
@@ -5395,7 +5392,7 @@ class FigurePanel():
                     if zoom_nb_font_size_overview == None:
                         zoom_nb_font_size_overview = self.font_size
                     nb_str = str(zoom_nb + 1)
-                    str_width, str_height = FigurePanel.get_dimension_of_text(nb_str,
+                    str_width, str_height = FigurePanel._get_dimension_of_text(nb_str,
                                                                               zoom_nb_font_size_overview,
                                                                               ax)
 
@@ -5475,7 +5472,7 @@ class FigurePanel():
                                 va="bottom", ha="left")
 
 
-    def add_zoom_number_to_zoomed_images(self, position_zoom_nb,
+    def _add_zoom_number_to_zoomed_images(self, position_zoom_nb,
                                          show_in_frames,
                                          zoom_nb_rows, zoom_nb_columns,
                                          zoom_nb_font_size,
@@ -5484,7 +5481,7 @@ class FigurePanel():
         # add number of zoom on zoomed images
         iterable_types = [list, tuple]
         if ((type(show_in_frames) not in iterable_types) &
-                (not self.is_none(show_in_frames))):
+                (not self._is_none(show_in_frames))):
             show_in_frames = [show_in_frames]
         # for each zoom number get a sorted list of frames
         # then use "show in frames" as indices for that list
@@ -5519,11 +5516,11 @@ class FigurePanel():
             zoom_nb = pre_identity[self.map["zooms"]]
             # check if current identity is a zoomed image
             if zoom_nb > 0:
-                position_allowed = self.check_if_positions_match(position[0],
+                position_allowed = self._check_if_positions_match(position[0],
                                                                  position[1],
                                                                  zoom_nb_rows,
                                                                  zoom_nb_columns)
-                if not self.is_none(show_in_frames):
+                if not self._is_none(show_in_frames):
                     identity = self.pos_to_pre_identity_map[position]
                     frame = identity[self.map["frames"]]
                     frames_to_match = [zoom_nb_frame_dict[zoom_nb][frame]
@@ -5545,7 +5542,7 @@ class FigurePanel():
                                                 label="label_zoom")
 
 
-    def add_letter_subplot(self,letter):
+    def _add_letter_subplot(self,letter):
             fig = plt.gcf()
             fig_size = fig.get_size_inches()
             padding_size_x = self.xpadding / fig_size[0]
@@ -5569,12 +5566,6 @@ class FigurePanel():
             ax_letter_height_px = ax_letter_coords.height * fig.get_size_inches()[1] * fig.dpi
             # move about half into ax
             fraction_of_fontsize_lowered = 2
-            #  if self.panel_y == 0:
-            #      # move letter fully into ax
-            #      fraction_of_fontsize_lowered = 2
-            #  else:
-            #      # move letter to about half height
-            #      fraction_of_fontsize_lowered = 2# 10
 
             y_position_letter = 1 - ( ( self.letter_fontsize /
                                         fraction_of_fontsize_lowered *
@@ -5589,6 +5580,29 @@ class FigurePanel():
     def label_category(self, category, texts, site=None, font_size=None,
                        padding=2, font_size_factor = None,
                        label_orientation = None, **kwargs):
+        """
+        Label a category (images, channels, frames or slices; also _subs)
+        :param category: String of category that should be labeled
+                            ("images", "channels", "frames" or "slices")
+        :param texts: Text that should be used as labels; should match the
+                            number of different values in the defined category
+                            Same labels that are adjacent are only labeled
+                            once across all affected images
+        :param site: String of site at image grid at which labels should be
+                    adde ("top", "bottom", "left" or "right"). Depending on the
+                    dimension (columns or rows) in which the category is,
+                    top/bottom (for columns) might is better for left/right
+                    (for rows).
+        :param font_size: font_size of labels; if None default for figure_panel
+                            will be used
+        :param padding: Padding in pt of labels from images
+        :param font_size_factor: Factor by which the default font_size should be
+                                 scaled to obtain font size for labels
+        :param label_orientation:  "hor" or "vert"
+                                    default is horizontal for "top" and "bottom"
+                                    site and vertical for "left" and "right"
+                                    site
+        """
         label_cat = category
         self._label_category(label_cat, texts, site = site, font_size=font_size,
                              padding=padding,
@@ -5602,10 +5616,34 @@ class FigurePanel():
         """
         Label images in panel.
         If no texts are supplied, images will be labeled with incrementing numbers.
+        :param texts: Text that should be used as labels; should match the
+                            number of different values in the defined category
+                            Same labels that are adjacent are only labeled
+                            once across all affected images
+        :param text_prefix: If texts is None, what text should be added in front
+                            of incrementing numbers
+        :param site: String of site at image grid at which labels should be
+                    adde ("top", "bottom", "left" or "right"). Depending on the
+                    dimension (columns or rows) in which the category is,
+                    top/bottom (for columns) might is better for left/right
+                    (for rows).
+        :param label_sub_remapped: Whether the new image numbers after remapped
+                                    accoding to defined _sub categories should
+                                    be used (if True) or whether original image
+                                    numbers should be used (if False)
+        :param font_size: font_size of labels; if None default for figure_panel
+                            will be used
+        :param padding: Padding in pt of labels from images
+        :param font_size_factor: Factor by which the default font_size should be
+                                 scaled to obtain font size for labels
+        :param label_orientation:  "hor" or "vert"
+                                    default is horizontal for "top" and "bottom"
+                                    site and vertical for "left" and "right"
+                                    site
         """
 
         label_cat = "images"
-        if type(texts) == type(None):
+        if texts is None:
             max_image_nb = np.max(list(self.reassign_new_categories["images"].values()))
             texts = []
             for image_nb in range(1,max_image_nb + 2):
@@ -5626,7 +5664,32 @@ class FigurePanel():
                        default_composite_label=None, font_size=None,
                        padding=2, font_size_factor = None,
                        label_orientation = None, **kwargs):
-
+        """
+        Label a category (images, channels, frames or slices; also _subs)
+        :param texts: Text that should be used as labels; should match the
+                            number of different values in the defined category
+                            Same labels that are adjacent are only labeled
+                            once across all affected images
+        :param site: String of site at image grid at which labels should be
+                    adde ("top", "bottom", "left" or "right"). Depending on the
+                    dimension (columns or rows) in which the category is,
+                    top/bottom (for columns) might is better for left/right
+                    (for rows).
+        :param label_composites: Whether to label composite channels
+        :param font_size: font_size of labels; if None default for figure_panel
+                            will be used
+        :param default_composite_label: Default composite label to use,
+                                        otherwise composites will be labeled
+                                        as a combination of the channel names
+                                        which are composited together
+        :param padding: Padding in pt of labels from images
+        :param font_size_factor: Factor by which the default font_size should be
+                                 scaled to obtain font size for labels
+        :param label_orientation:  "hor" or "vert"
+                                    default is horizontal for "top" and "bottom"
+                                    site and vertical for "left" and "right"
+                                    site
+        """
         label_cat = "channels"
 
         self._label_category(label_cat, texts, site = site,
@@ -5643,13 +5706,64 @@ class FigurePanel():
                     start_time = 0, time_per_frame="1m", format="hh:mm",
                      show_unit=True, first_time_difference=1, frame_jumps=None,
                      long_unit_names = True, all_units_shown = False, **kwargs):
+        """
+        Label a category (images, channels, frames or slices; also _subs)
+        :param texts: Text that should be used as labels; should match the
+                            number of different values in the defined category
+                            Same labels that are adjacent are only labeled
+                            once across all affected images
+        :param site: String of site at image grid at which labels should be
+                    adde ("top", "bottom", "left" or "right"). Depending on the
+                    dimension (columns or rows) in which the category is,
+                    top/bottom (for columns) might is better for left/right
+                    (for rows).
+        :param label_sub_remapped: Whether the new image numbers after remapped
+                                    accoding to defined _sub categories should
+                                    be used (if True) or whether original image
+                                    numbers should be used (if False)
+        :param font_size: font_size of labels; if None default for figure_panel
+                            will be used
+        :param padding: Padding in pt of labels from images
+        :param font_size_factor: Factor by which the default font_size should be
+                                 scaled to obtain font size for labels
+        :param label_orientation: "hor" or "vert"
+                                    default is horizontal for "top" and "bottom"
+                                    site and vertical for "left" and "right"
+                                    site
+        :param start_time: number of first timeframe
+        :param time_per_frame: string of number and unit ("m" for min,
+                                "h" for hour, or "s" for second) for
+                                time difference between frames
+        :param format: format of how time should be displayed.
+                        The number of letter indicates the number of digits
+                        in that category. Possible categories are "s" for
+                        seconds, "m" for minutes or "h" for hours.
+        :param show_unit: Whether to show unit name in the label of the time
+        :param first_time_difference: Difference of timesteps
+                                        from first to second frame
+                                        (helpful if after a first frame there
+                                        was an imaging break, longer than the
+                                        normal time between frames)
+        :param frame_jumps: Dictionary with keys being timepoint before which
+                            timejumps happened and values being number of frames
+                            that the jump was long (e.g. {4: 2, 10:20} for a
+                            timejump of 2 timeframes before timeframe 5 and a
+                            timejump of 20 timeframes before timeframe 11)
+        :param long_unit_names: Whether to use long unit names ("min" instead of
+                                "m", "hour" instead of "h" and "sec" instead of
+                                "s").
+        :param all_units_shown: Whether to show the unit name of the
+                                first unit in the format (e.g. "h" for "hh:mm)
+                                (if False) or both unit names separated by ":"
+                                (if True)
+        """
         label_cat = "frames"
         # get frame to annotate automatically
         if texts == None:
             texts = []
             frame_points = self.category_vals["frames"]
             for frame_point in frame_points:
-                text = self.get_frame_string(frame_point, start_time,
+                text = self._get_frame_string(frame_point, start_time,
                                              time_per_frame, format, show_unit,
                                             first_time_difference, frame_jumps,
                                             long_unit_names, all_units_shown)
@@ -5678,29 +5792,29 @@ class FigurePanel():
 
         positions_for_cat_vals = self.default_label_positions[label_cat]
 
-        positions_for_cat_vals = self.remap_image_for_sub_cat(positions_for_cat_vals,
+        positions_for_cat_vals = self._remap_image_for_sub_cat(positions_for_cat_vals,
                                                               label_cat,
                                                               label_sub_remapped)
 
         all_cat_vals = list(positions_for_cat_vals.keys())
-        all_cat_vals.sort(key=self.sort_category_vals_key)
+        all_cat_vals.sort(key=self._sort_category_vals_key)
 
         # find first site that actually works without overlapping labels
         if site == None:
-            site = self.find_site_without_overlapping_labels(all_cat_vals,
+            site = self._find_site_without_overlapping_labels(all_cat_vals,
                                                              positions_for_cat_vals)
 
         # check if plot_line should be switched to False
         # since no label has more than one row
-        if self.is_none(plot_line):
+        if self._is_none(plot_line):
             plot_line = False
-            plot_line = self.check_if_label_has_multiple_rows(all_cat_vals,
+            plot_line = self._check_if_label_has_multiple_rows(all_cat_vals,
                                                               positions_for_cat_vals,
                                                               site)
 
         (positions_for_cat_vals,
          all_cat_vals,
-         label_vals) = self.pool_adjacent_similar_labels(label_vals, all_cat_vals,
+         label_vals) = self._pool_adjacent_similar_labels(label_vals, all_cat_vals,
                                                          positions_for_cat_vals,
                                                          label_cat)
         # initiate counter for multiple categories (composite channels)
@@ -5750,21 +5864,24 @@ class FigurePanel():
                             plot_line=plot_line, **kwargs)
 
 
-    def remap_image_for_sub_cat(self,positions_for_cat_vals, label_cat,
+    def _remap_image_for_sub_cat(self,positions_for_cat_vals, label_cat,
                                 label_sub_remapped):
         # allow to label sub_remapped images
         # if the _sub category is defined for the current label_cat
         # for that remap the positions_for_cat_vals dict
-        if (label_cat+"_sub" in self.sub_category_map) & label_sub_remapped:
-            new_positions_for_cat_vals = {}
-            for image_nb, value in  positions_for_cat_vals.items():
-                image_nb_remapped = self.reassign_new_categories["images"][image_nb]
-                if image_nb_remapped not in new_positions_for_cat_vals:
-                    new_positions_for_cat_vals[image_nb_remapped] = value
-            positions_for_cat_vals = new_positions_for_cat_vals
+        if not ((label_cat+"_sub" in self.sub_category_map) & 
+                label_sub_remapped:)
+            return positions_for_cat_vals
+        new_positions_for_cat_vals = {}
+        for image_nb, value in  positions_for_cat_vals.items():
+            image_nb_remapped = self.reassign_new_categories["images"][image_nb]
+            if image_nb_remapped not in new_positions_for_cat_vals:
+                new_positions_for_cat_vals[image_nb_remapped] = value
+        positions_for_cat_vals = new_positions_for_cat_vals
         return positions_for_cat_vals
 
-    def find_site_without_overlapping_labels(self, all_cat_vals, positions_for_cat_vals):
+    def _find_site_without_overlapping_labels(self, all_cat_vals,
+                                             positions_for_cat_vals):
         all_sites = positions_for_cat_vals[list(positions_for_cat_vals)[0]].keys()
         for site in all_sites:
             last_label_positions = None
@@ -5780,7 +5897,7 @@ class FigurePanel():
             if site_works:
                 return site
 
-    def check_if_label_has_multiple_rows(self, all_cat_vals,
+    def _check_if_label_has_multiple_rows(self, all_cat_vals,
                                          positions_for_cat_vals, site):
         for cat_val in all_cat_vals:
             site_positions =  positions_for_cat_vals[cat_val]
@@ -5789,7 +5906,7 @@ class FigurePanel():
                 return True
         return False
 
-    def pool_adjacent_similar_labels(self, label_vals, all_cat_vals,
+    def _pool_adjacent_similar_labels(self, label_vals, all_cat_vals,
                                      positions_for_cat_vals, label_cat):
         # pool positions for same labels together
         # if labels appear directly after one another
@@ -5866,10 +5983,25 @@ class FigurePanel():
 
     def label(self, text, position=None, span=None, site = "left",
               font_size=None, padding=2, label_orientation=None, **kwargs):
+        """
+        Label specific positions in image grid directly.
+        :param text: Text to use as label
+        :param position: Position (integer) in image grid to label
+        :param span: Number of images that should be spanned by label
+        :param site: site at which the label should be added
+                        ("top","bottom", "left" or "right")
+        :param font_size: font size of label added
+        :param padding: Padding from images in pt of label
+        :param label_orientation: Orientation of labels ("hor" or "vert")
+                                    default is horizontal for "top" and "bottom"
+                                    site and vertical for "left" and "right"
+                                    site
+
+        """
         # this is when labelling by position and not by category
         # DO NOT ALLOW in between rows or column labels
         (row_start, row_end,
-         col_start,  col_end) = self.validate_and_set_site_defaults(site,
+         col_start,  col_end) = self._validate_and_set_site_defaults(site,
                                                                      position,
                                                                      span)
         self._add_label(text, row_start, row_end, col_start, col_end, site,
@@ -5923,7 +6055,7 @@ class FigurePanel():
 
         font_size_pt = FontProperties(size=font_size).get_size_in_points()
 
-        rotation_degrees = self.get_rotation_degrees(label_orientation, site)
+        rotation_degrees = self._get_rotation_degrees(label_orientation, site)
 
         # reduce padding if lower part of text is in direction of images
         # if its not multi_image (no line will be drawn) and
@@ -5978,7 +6110,7 @@ class FigurePanel():
         # check if text objects fused together are wider than image
         # if so, add \n after each time that the text is wider than the image
 
-        total_x_shift, total_y_shift, label_size = self.set_shift_values(site,
+        total_x_shift, total_y_shift, label_size = self._set_shift_values(site,
                                                                          font_size_pt,
                                                                          padding_px_for_shift,
                                                                          ax_label,
@@ -5994,7 +6126,7 @@ class FigurePanel():
             # are not aligned in rows with similar heights and columns with similar widths
             # COMMENT: probably those asymmetrical figures will not be generated
             # but in case this will be implemented, the current code should support labels for those as well
-            self.shift_and_transform_axs(site, total_x_shift,
+            self._shift_and_transform_axs(site, total_x_shift,
                                          total_y_shift, padding_px)
 
 
@@ -6002,12 +6134,12 @@ class FigurePanel():
         # if there is one, no shifting was done by shift_values,
         # retrieve start position of last label to annotate label
         # DOES NOT SUPPORT LABELS IN BETWEEN ROWS AND COLUMNS!
-        x0, x1, y0, y1 = self.get_label_position_from_present_label(site)
+        x0, x1, y0, y1 = self._get_label_position_from_present_label(site)
         # annotate text at correct position
 
         (x0, y0,
          label_width, 
-         label_height) = self.get_final_label_position_and_dimension(row_start,
+         label_height) = self._get_final_label_position_and_dimension(row_start,
                                                                     row_end,
                                                                     col_start,
                                                                     col_end,
@@ -6021,15 +6153,15 @@ class FigurePanel():
         ax_label.set_position((x0,y0,label_width,label_height))
 
         if (plot_line & multi_image) | plot_line_for_all:
-            self.plot_line_for_image_label(ax_label, site, line_end_padding,
+            self._plot_line_for_image_label(ax_label, site, line_end_padding,
                                            line_width, line_color)
 
-        x_text, y_text = self.get_position_of_text(ax_label, text, site,
+        x_text, y_text = self._get_position_of_text(ax_label, text, site,
                                                    font_size_pt,
                                                    rotation_degrees, padding_px,
                                                    plot_line)
 
-        ha, va = self.get_label_alignment(rotation_degrees, site)
+        ha, va = self._get_label_alignment(rotation_degrees, site)
 
         label = ax_label.annotate(
             text, xy=(x_text, y_text),
@@ -6049,7 +6181,7 @@ class FigurePanel():
         self.label_matrices[site][row_start:row_end+1,
                                   col_start:col_end+1] = max(np.max(self.label_matrices[site]) + 1, 0)
 
-    def get_rotation_degrees(self, label_orientation, site):
+    def _get_rotation_degrees(self, label_orientation, site):
 
         if label_orientation == "hor":
             rotation_degrees = 0
@@ -6063,7 +6195,7 @@ class FigurePanel():
                 rotation_degrees = 90
         return rotation_degrees
 
-    def plot_line_for_image_label(self, ax_label, site, line_end_padding,
+    def _plot_line_for_image_label(self, ax_label, site, line_end_padding,
                                   line_width, line_color):
         """
         Plot line with padding for one image label.
@@ -6102,7 +6234,7 @@ class FigurePanel():
         return None
 
 
-    def get_label_alignment(self, rotation_degrees, site):
+    def _get_label_alignment(self, rotation_degrees, site):
         """
         Get alignment of a label depending on rotation degrees
         :param rotation_degrees: rotation of label in degrees
@@ -6124,11 +6256,11 @@ class FigurePanel():
         return ha, va
 
     @staticmethod
-    def is_none(object):
-        return type(object) == type(None)
+    def _is_none(object):
+        return object is None
 
 
-    def validate_and_set_site_defaults(self, site, position, span):
+    def _validate_and_set_site_defaults(self, site, position, span):
 
         valid_sites = ["left","right","bottom","top"]
         if site not in valid_sites:
@@ -6138,7 +6270,7 @@ class FigurePanel():
 
         start = position
 
-        if (not FigurePanel.is_none(start)) & (not FigurePanel.is_none(span)):
+        if (not FigurePanel._is_none(start)) & (not FigurePanel._is_none(span)):
             end = start + span
         else:
             end = span
@@ -6148,14 +6280,14 @@ class FigurePanel():
         #  in case this will be implemented later...
         # if label is left or right, dont allow to choose the column
         if (site == "left") | (site == "right"):
-            if FigurePanel.is_none(start):
+            if FigurePanel._is_none(start):
                 # if none, start at first row
                 row_start = 0
             else:
                 row_start = start
-            if FigurePanel.is_none(end):
+            if FigurePanel._is_none(end):
                 # if both are None, label should go from first to last row
-                if FigurePanel.is_none(start):
+                if FigurePanel._is_none(start):
                     row_end = self.max_row
                 else:
                     # if only end is none, stop label where it started
@@ -6170,12 +6302,12 @@ class FigurePanel():
                 col_end = self.max_col
         elif (site == "top") | (site == "bottom"):
             # set standard values (very left for start and very right for end)
-            if FigurePanel.is_none(start):
+            if FigurePanel._is_none(start):
                 col_start = 0
             else:
                 col_start = start
-            if FigurePanel.is_none(end):
-                if FigurePanel.is_none(start):
+            if FigurePanel._is_none(end):
+                if FigurePanel._is_none(start):
                     # if both are None, label should go from first to last column
                     col_end = self.max_col
                 else:
@@ -6193,13 +6325,11 @@ class FigurePanel():
         return row_start, row_end, col_start, col_end
 
 
-    def set_shift_values(self, site, font_size_pt, padding_px, ax, text,
+    def _set_shift_values(self, site, font_size_pt, padding_px, ax, text,
                          rotation_degrees):
-        label_size = self.get_label_size_depending_on_rotation_and_site(ax,
-                                                                        text,
-                                                                        font_size_pt,
-                                                                        site,
-                                                                        rotation_degrees)
+        get_label_size = self._get_label_size_depending_on_rotation_and_site
+        label_size = get_label_size(ax, text, font_size_pt, site,
+                                    rotation_degrees)
         if site == "left":
             total_x_shift = label_size + padding_px
             total_y_shift = None
@@ -6215,7 +6345,7 @@ class FigurePanel():
         return total_x_shift, total_y_shift, label_size
 
 
-    def create_attribute_matrices_for_axs(self):
+    def _create_attribute_matrices_for_axs(self):
         # create one matrix with heights, one with widths,
         #  one with x0 and one with y0 of all axs
         fig = plt.gcf()
@@ -6239,7 +6369,7 @@ class FigurePanel():
         return widths, heights, x0s, y0s
 
 
-    def get_label_position_from_present_label(self,site):
+    def _get_label_position_from_present_label(self,site):
         x0 = None
         x1 = None
         y0 = None
@@ -6264,16 +6394,16 @@ class FigurePanel():
         return x0, x1, y0, y1
 
 
-    def get_final_label_position_and_dimension(self, row_start, row_end,
+    def _get_final_label_position_and_dimension(self, row_start, row_end,
                                                 col_start, col_end, site, 
                                                padding_px,
                                                 x0 = None, x1 = None, 
                                                y0 = None, y1 = None):
         fig = plt.gcf()
         fig_size_px = fig.get_size_inches() * fig.dpi
-        first_x_coords, last_y_coords = self.get_axs_to_define_x_and_y_coords_for_position((row_start,
+        first_x_coords, last_y_coords = self._get_axs_to_define_x_and_y_coords_for_position((row_start,
                                                                                             col_start))
-        last_x_coords, first_y_coords = self.get_axs_to_define_x_and_y_coords_for_position((row_end,
+        last_x_coords, first_y_coords = self._get_axs_to_define_x_and_y_coords_for_position((row_end,
                                                                                             col_end))
 
         # test whether first is really first, otherwise switch first and last
@@ -6321,7 +6451,7 @@ class FigurePanel():
 
 
 
-    def get_position_of_text(self, ax_label, text, site, font_size_pt,
+    def _get_position_of_text(self, ax_label, text, site, font_size_pt,
                              rotation_degrees, padding_px = None,
                              plot_line=False):
         ax_label_coords = ax_label.get_position()
@@ -6331,7 +6461,7 @@ class FigurePanel():
         fig = plt.gcf()
         fig_size_px = fig.get_size_inches() * fig.dpi
 
-        label_size = self.get_label_size_depending_on_rotation_and_site(ax_label,
+        label_size = self._get_label_size_depending_on_rotation_and_site(ax_label,
                                                                         text,
                                                                         font_size_pt,
                                                                         site,
@@ -6389,14 +6519,12 @@ class FigurePanel():
         return x_text,y_text
 
 
-    def get_label_size_depending_on_rotation_and_site(self, ax, text,
+    def _get_label_size_depending_on_rotation_and_site(self, ax, text,
                                                       font_size_pt, site,
                                                       rotation_degrees):
-
-        label_width, label_height = FigurePanel.get_dimension_of_text(text,
-                                                                      font_size_pt,
-                                                                      ax,
-                                                                      rotation_degrees)
+        get_text_dimension = FigurePanel._get_dimension_of_text
+        label_width, label_height = get_text_dimension(text, font_size_pt,
+                                                       ax, rotation_degrees)
         if (site == "left") | (site == "right"):
             label_size = label_width
         elif (site == "top") | (site == "bottom"):
@@ -6405,7 +6533,7 @@ class FigurePanel():
         return label_size
 
     @staticmethod
-    def get_direct_shift_and_remaining_space(site,total_shift,space):
+    def _get_direct_shift_and_remaining_space(site,total_shift,space):
         # compare space to shift that would need to be done
         # reduce total shift by available space that already happened
 
@@ -6440,7 +6568,7 @@ class FigurePanel():
         return total_shift, direct_shift, space
 
 
-    def process_and_use_available_space(self, site,
+    def _process_and_use_available_space(self, site,
                                         total_x_shift, total_y_shift):
         fig = plt.gcf()
         fig_size_px = fig.get_size_inches() * fig.dpi
@@ -6449,7 +6577,7 @@ class FigurePanel():
         # check for current space and compare to shift necessary
         # get direct shift from space and possibly have remainder
         #  of total shift to do (that will include changing size of ax)
-        if not self.is_none(total_y_shift):
+        if not self._is_none(total_y_shift):
             # if there is more y space than y shift
             # set y shift as 0
             if abs(total_y_shift) < self.space_for_labels[site]:
@@ -6468,13 +6596,13 @@ class FigurePanel():
 
             (total_y_shift,
              direct_y_shift_px,
-             self.y_space) = self.get_direct_shift_and_remaining_space(site,
+             self.y_space) = self._get_direct_shift_and_remaining_space(site,
                                                                        total_y_shift,
                                                                        self.y_space)
 
             direct_y_shift = direct_y_shift_px / fig_size_px[1]
 
-        elif not self.is_none(total_x_shift) > 0:
+        elif not self._is_none(total_x_shift) > 0:
             # if there is more space than x shift
             # set y shift as 0
             if abs(total_x_shift) < self.space_for_labels[site]:
@@ -6492,7 +6620,7 @@ class FigurePanel():
 
             (total_x_shift,
              direct_x_shift_px,
-             self.x_space) = self.get_direct_shift_and_remaining_space(site,
+             self.x_space) = self._get_direct_shift_and_remaining_space(site,
                                                                        total_x_shift,
                                                                        self.x_space)
 
@@ -6532,7 +6660,7 @@ class FigurePanel():
             # unchanged direct shifts are for center alignment
             # for left and right  / top and bottom must be changed
 
-            self.shift_labels_parallel_to_shift(direct_x_shift,direct_y_shift)
+            self._shift_labels_parallel_to_shift(direct_x_shift,direct_y_shift)
 
             # shift all ax directly by the necessary of current 0 point
             #  to 0 point it should be (space for label)
@@ -6546,7 +6674,7 @@ class FigurePanel():
         return total_x_shift, total_y_shift
 
 
-    def shift_labels_parallel_to_shift(self,direct_x_shift,direct_y_shift):
+    def _shift_labels_parallel_to_shift(self,direct_x_shift,direct_y_shift):
         # shift labels parallel to shift direction
         if direct_x_shift != 0:
             sites_to_shift = ["top","bottom"]
@@ -6562,7 +6690,7 @@ class FigurePanel():
 
 
 
-    def create_dimension_reduction_matrices(self, total_y_shift,
+    def _create_dimension_reduction_matrices(self, total_y_shift,
                                             total_x_shift, heights, widths):
         fig = plt.gcf()
         # create matrix with width_reductions and
@@ -6576,8 +6704,8 @@ class FigurePanel():
         # therefore, larger images might get an unproportionally higher share
         #  of the height reduction
         # (really?)
-        col_height, _ = self.get_col_height(heights)
-        row_width, _ = self.get_row_width(widths)
+        col_height, _ = self._get_col_height(heights)
+        row_width, _ = self._get_row_width(widths)
         # get missing shift (x or y)
         for ax_pos, ax in self.all_axs.items():
             row = ax_pos[0]
@@ -6606,8 +6734,7 @@ class FigurePanel():
         return width_reductions, height_reductions
 
 
-
-    def shift_and_transform_axs(self, site, total_x_shift, 
+    def _shift_and_transform_axs(self, site, total_x_shift,
                                 total_y_shift, padding_px = 0):
         """
         Shift all images away from "site" by px
@@ -6617,7 +6744,7 @@ class FigurePanel():
         """
         #  create one matrix with heights, one with widths,
         #  one with x0 and one with y0 of all axs
-        widths, heights, x0s, y0s = self.create_attribute_matrices_for_axs()
+        widths, heights, x0s, y0s = self._create_attribute_matrices_for_axs()
 
         #  set widths and heights for positions
         #  with increased widths or heights to max
@@ -6628,13 +6755,13 @@ class FigurePanel():
             widths[position] = size[0]
             heights[position] = size[1]
 
-        total_x_shift, total_y_shift = self.process_and_use_available_space(site,
+        total_x_shift, total_y_shift = self._process_and_use_available_space(site,
                                                                             total_x_shift,
                                                                             total_y_shift)
         #  process remaining difference with normal code
         #  create matrix with width_reductions and
         #  one with height_reductions for all axs
-        width_reductions, height_reductions = self.create_dimension_reduction_matrices(total_y_shift,
+        width_reductions, height_reductions = self._create_dimension_reduction_matrices(total_y_shift,
                                                                                        total_x_shift,
                                                                                        heights, widths)
 
@@ -6650,8 +6777,8 @@ class FigurePanel():
         all_new_x_spaces = []
 
 
-        _, width_reductions_columns = self.get_row_width(width_reductions)
-        _, height_reductions_rows = self.get_col_height(height_reductions)
+        _, width_reductions_columns = self._get_row_width(width_reductions)
+        _, height_reductions_rows = self._get_col_height(height_reductions)
 
         for ax_pos, ax in self.all_axs.items():
 
@@ -6683,7 +6810,7 @@ class FigurePanel():
                 x_shift = np.sum(width_reductions_columns[col:])
                 x_position = ax_coords.x0 + x_shift / fig_size_px[0]
                 (y_position, 
-                 new_y_space_ax) = self.get_vert_aligned_y_position_after_height_reduction(new_height,
+                 new_y_space_ax) = self._get_vert_aligned_y_position_after_height_reduction(new_height,
                                                                                            row, col,
                                                                                            heights,
                                                                                            new_heights,
@@ -6694,7 +6821,7 @@ class FigurePanel():
                 x_shift = - np.sum(width_reductions_columns[:col])
                 x_position = ax_coords.x0 + x_shift / fig_size_px[0]
                 (y_position,
-                 new_y_space_ax) = self.get_vert_aligned_y_position_after_height_reduction(new_height,
+                 new_y_space_ax) = self._get_vert_aligned_y_position_after_height_reduction(new_height,
                                                                                            row, col,
                                                                                            heights,
                                                                                            new_heights,
@@ -6705,7 +6832,7 @@ class FigurePanel():
                 y_shift = np.sum(height_reductions_rows[:row+1])
                 y_position = ax_coords.y0 + y_shift / fig_size_px[1]
                 (x_position,
-                 new_x_space_ax) = self.get_hor_aligned_x_position_after_width_reduction(new_width,
+                 new_x_space_ax) = self._get_hor_aligned_x_position_after_width_reduction(new_width,
                                                                                          row, col,
                                                                                          widths,
                                                                                          new_widths,
@@ -6716,7 +6843,7 @@ class FigurePanel():
                 y_shift = - np.sum(height_reductions_rows[row+1:])
                 y_position = ax_coords.y0 + y_shift / fig_size_px[1]
                 (x_position,
-                 new_x_space_ax) = self.get_hor_aligned_x_position_after_width_reduction(new_width,
+                 new_x_space_ax) = self._get_hor_aligned_x_position_after_width_reduction(new_width,
                                                                                        row,
                                                                                        col,
                                                                                        widths,
@@ -6735,9 +6862,9 @@ class FigurePanel():
                     continue
 
                 child_bbox = child.get_tightbbox(fig.canvas.get_renderer())
-                child_coords = self.bbox_to_list(child_bbox)
+                child_coords = self._bbox_to_list(child_bbox)
 
-                ax_coords_px = self.bbox_to_list(ax_coords)
+                ax_coords_px = self._bbox_to_list(ax_coords)
                 # get ax coords
 
                 ax_coords_px[0] *= fig_size_px[0]
@@ -6809,7 +6936,7 @@ class FigurePanel():
             self._shift_colorbars(ax_pos, x_position, y_position,
                                   new_width, new_height)
 
-        self.shift_labels(padding_px)
+        self._shift_labels(padding_px)
 
         new_x_space = np.min(all_new_x_spaces)
         new_y_space = np.min(all_new_y_spaces)
@@ -6862,18 +6989,18 @@ class FigurePanel():
                                   colorbar_width, colorbar_height])
 
 
-    def bbox_to_list(self, bbox):
+    def _bbox_to_list(self, bbox):
         return [bbox.x0, bbox.y0, bbox.x1, bbox.y1]
 
 
-    def get_hor_aligned_x_position_after_width_reduction(self, new_width, row,
+    def _get_hor_aligned_x_position_after_width_reduction(self, new_width, row,
                                                          col, widths,
                                                          new_widths, x0s,
                                                          fig_size):
         fig = plt.gcf()
-        row_width,_ = self.get_row_width(widths)
-        new_row_width, new_column_widths = self.get_row_width(new_widths)
-        x_shift_by_padding, _ = self.get_shift_by_padding_for_position((row, col))
+        row_width,_ = self._get_row_width(widths)
+        new_row_width, new_column_widths = self._get_row_width(new_widths)
+        x_shift_by_padding, _ = self._get_shift_by_padding_for_position((row, col))
         width_left_of_plot = (np.sum(new_column_widths[:col]) +
                               x_shift_by_padding *
                               fig.get_size_inches()[0] * fig.dpi)
@@ -6928,23 +7055,23 @@ class FigurePanel():
 
         # get new x_position as start of plot from the left
         # for that the size_before_plot will be used as the size LEFT of the plot
-        x_position = self.get_aligned_position_after_size_reduction(new_space = new_x_space_tmp,
+        x_position = self._get_aligned_position_after_size_reduction(new_space = new_x_space_tmp,
                                                                      size_before_plot = width_left_of_plot,
                                                                      origin = origin_x,
                                                                      fig_size = fig_width)
         return x_position, new_x_space
 
-    def get_col_height(self, heights):
+    def _get_col_height(self, heights):
         row_heights = np.max(heights,axis=1)
         col_height = np.sum(row_heights)
         return col_height, row_heights
 
-    def get_row_width(self, widths):
+    def _get_row_width(self, widths):
         column_widths = np.max(widths, axis=0)
         row_width = np.sum(column_widths)
         return row_width, column_widths
 
-    def get_height_below_plot(self, row, new_row_heights,
+    def _get_height_below_plot(self, row, new_row_heights,
                               y_shift_by_padding, fig):
 
         fig_height_px = fig.get_size_inches()[1] * fig.dpi
@@ -6953,16 +7080,16 @@ class FigurePanel():
                 y_shift_by_padding * fig_height_px)
 
 
-    def get_vert_aligned_y_position_after_height_reduction(self, new_height,
+    def _get_vert_aligned_y_position_after_height_reduction(self, new_height,
                                                            row, col,
                                                             heights,
                                                            new_heights, y0s,
                                                            fig_size):
         fig = plt.gcf()
-        col_height,_ = self.get_col_height(heights)
-        new_col_height, new_row_heights = self.get_col_height(new_heights)
-        _ , y_shift_by_padding = self.get_shift_by_padding_for_position((row, col))
-        height_below_plot = self.get_height_below_plot(row, new_row_heights,
+        col_height,_ = self._get_col_height(heights)
+        new_col_height, new_row_heights = self._get_col_height(new_heights)
+        _ , y_shift_by_padding = self._get_shift_by_padding_for_position((row, col))
+        height_below_plot = self._get_height_below_plot(row, new_row_heights,
                                                        y_shift_by_padding, fig)
 
         # 0 position indicate no image at that position
@@ -7010,13 +7137,13 @@ class FigurePanel():
             # dont move further since plots already are at the bottom
             # since height reduction is done from the top
             new_y_space = 0
-        y_position = self.get_aligned_position_after_size_reduction(new_space = new_y_space,
+        y_position = self._get_aligned_position_after_size_reduction(new_space = new_y_space,
                                                                      size_before_plot = height_below_plot,
                                                                      origin = origin_y,
                                                                      fig_size = fig_height)
         return y_position, new_y_space
 
-    def get_aligned_position_after_size_reduction(self, new_space,
+    def _get_aligned_position_after_size_reduction(self, new_space,
                                                   size_before_plot, origin,
                                                   fig_size):
         # size before plot
@@ -7030,7 +7157,7 @@ class FigurePanel():
         position = (origin + shift_from_origin) / fig_size
         return position
 
-    def shift_labels(self, padding_px):
+    def _shift_labels(self, padding_px):
         fig = plt.gcf()
         fig_size_px = fig.get_size_inches() * fig.dpi
         # shift labels
@@ -7060,7 +7187,7 @@ class FigurePanel():
                 padding_px = self.label_padding_px[site][int(label_nb)]
                 (x0, y0,
                  label_width,
-                 label_height) = self.get_final_label_position_and_dimension(first_position[0],
+                 label_height) = self._get_final_label_position_and_dimension(first_position[0],
                                                                              last_position[0],
                                                                              first_position[1],
                                                                             last_position[1],
@@ -7079,7 +7206,7 @@ class FigurePanel():
                 plot_line = self.label_lines_ploted[site][int(label_nb)]
 
                 (x_text,
-                 y_text) = self.get_position_of_text(ax_label,
+                 y_text) = self._get_position_of_text(ax_label,
                                                    text, site,
                                                    font_size_pt,
                                                    rotation_degrees=rotation_degrees,
@@ -7091,7 +7218,7 @@ class FigurePanel():
 
 
 
-    def get_axs_to_define_x_and_y_coords_for_position(self, position):
+    def _get_axs_to_define_x_and_y_coords_for_position(self, position):
 
         if position in self.all_axs:
             identity = self.pos_to_identity_map[position]
@@ -7125,7 +7252,7 @@ class FigurePanel():
 
 
     @staticmethod
-    def get_col_and_row_from_name(file_name):
+    def _get_col_and_row_from_name(file_name):
         # extract position from file __position-row-column__
         position_finder = re.compile("__pos-([\d]+)-*([\d]*)")
         position = position_finder.search(file_name)
@@ -7143,26 +7270,14 @@ class FigurePanel():
                 col = int(position[2]) - 1
         return (col,row)
 
-    def get_col_and_row_span(self, nb_rows, nb_cols):
-        if nb_rows > 1:
-            col_span = 1
-            row_span = (nb_rows)/len(self.panel_file_paths)
-        elif nb_cols > 1:
-            col_span = (nb_cols)/len(self.panel_file_paths)
-            row_span = 1
-        else:
-            col_span = 1
-            row_span = 1
-        return int(col_span), int(row_span)
-
-    def validate_data_file(self):
+    def _validate_data_file(self):
         if len(self.panel_file_paths) != 1:
             raise Exception("Only showing data from a single data file "
                             "is supported.")
         if self.panel_file_paths[0].find(".csv") == -1:
             raise Exception("Only showing data from a csv file is supported.")
 
-    def remove_unpaired_data(self, data, pair_unit_columns,
+    def _remove_unpaired_data(self, data, pair_unit_columns,
                              col, x, hue):
         
         def get_paired_data(data, pair_level_column, pair_unit_columns):
@@ -7212,7 +7327,11 @@ class FigurePanel():
         return paired_data
 
     def show_data_columns(self, nb_vals = 10):
-        self.validate_data_file()
+        """
+        Show type and some values for all columns of the data file.
+        :param nb_vals: number of values for column to show
+        """
+        self._validate_data_file()
 
         data = self.data
 
@@ -7239,7 +7358,7 @@ class FigurePanel():
         self.data_transformations.append(function)
 
     @staticmethod
-    def get_rows_matching_criteria(data, inclusion_criteria_dict,
+    def _get_rows_matching_criteria(data, inclusion_criteria_dict,
                                    excluded_keys = None):
         """
         in a dataframe, get all rows for which values of certain columns match
@@ -7281,10 +7400,10 @@ class FigurePanel():
         return new_included_data
 
 
-    def exclude_data(self, data, inclusion_criteria):
+    def _exclude_data(self, data, inclusion_criteria):
         included_data = None
         for inclusion_criteria_dict in inclusion_criteria:
-            get_matching_rows = FigurePanel.get_rows_matching_criteria
+            get_matching_rows = FigurePanel._get_rows_matching_criteria
             new_included_data = get_matching_rows(data,
                                                   inclusion_criteria_dict)
 
@@ -7298,8 +7417,7 @@ class FigurePanel():
         return data
 
 
-
-    def normalize_data(self, data, y, norm_cats, hue, col, row,
+    def _normalize_data(self, data, y, norm_cats, hue, col, row,
                        normalize_by="mean"):
         if normalize_by.lower() == "mean":
             normalize_func = lambda x: (x / x.mean())
@@ -7313,26 +7431,26 @@ class FigurePanel():
             raise ValueError(f"The normalization method {normalize_by} "
                              "is not implemented.")
             
-        data_normalized = self.transform_y_data(data, y, normalize_func,
+        data_normalized = self._transform_y_data(data, y, normalize_func,
                                                 norm_cats, hue, col, row)
         return data_normalized
 
 
-    def group_and_average_data(self, average_columns, data):
+    def _group_and_average_data(self, average_columns, data):
         # create new data by averaging units
         if type(average_columns) == type(None):
             return data
         # add x, hue, col and row so that these columns are
         # not dropped
         for new_average_column in [self.x, self.hue, self.col, self.row]:
-            if not self.is_none(new_average_column):
+            if not self._is_none(new_average_column):
                 if new_average_column not in average_columns:
                     average_columns.append(new_average_column)
         data = data.groupby(average_columns).mean().reset_index()
         return data
 
 
-    def exclude_data_with_column_vals_not_in_all_groups(self,
+    def _exclude_data_with_column_vals_not_in_all_groups(self,
                                                         columns_same_in_groups,
                                                         data,
                                                         x, hue, col):
@@ -7369,7 +7487,7 @@ class FigurePanel():
         data = data.set_index(columns_same_in_groups).loc[units_to_keep]
         return data
 
-    def smoothen_data(self, data, y, smoothen_cats, smoothing_rad,
+    def _smoothen_data(self, data, y, smoothen_cats, smoothing_rad,
                       hue, col, row):
 
         # smoothing_rad
@@ -7377,11 +7495,11 @@ class FigurePanel():
             return data[y]
         data.reset_index(inplace=True)
         smoothen_func = lambda x: x.rolling(smoothing_rad).mean()
-        data_normalized = self.transform_y_data(data, y, smoothen_func,
+        data_normalized = self._transform_y_data(data, y, smoothen_func,
                                                 smoothen_cats, hue, col, row)
         return data_normalized
 
-    def transform_y_data(self, data, y, transform_func, 
+    def _transform_y_data(self, data, y, transform_func,
                          cats, hue, col, row):
         if type(cats) == type(None):
             cats = []
@@ -7403,29 +7521,29 @@ class FigurePanel():
         return data_transformed
 
     @staticmethod
-    def default_in_function(function_object, arg_name):
+    def _default_in_function(function_object, arg_name):
         signature = inspect.signature(function_object)
         default_value = signature.parameters[arg_name].default
         return default_value
 
     @staticmethod
-    def default_in_statannot(arg_name):
+    def _default_in_statannot(arg_name):
         target_function = statannot.plot_and_add_stat_annotation
         signature = inspect.signature(target_function)
         default_value = signature.parameters[arg_name].default
         return default_value
 
     @staticmethod
-    def from_kwargs_or_statannot_default(keyword_args, arg_name):
-        default_val = FigurePanel.default_in_statannot(arg_name)
+    def _from_kwargs_or_statannot_default(keyword_args, arg_name):
+        default_val = FigurePanel._default_in_statannot(arg_name)
         return keyword_args.get(arg_name, default_val)
 
-    def get_row_label_width(self, row_value, ax, padding_keyword, **kwargs):
+    def _get_row_label_width(self, row_value, ax, padding_keyword, **kwargs):
         # default for row label orientation in vert
         row_label_orientation = kwargs.get("row_label_orientation",
                                                  "vert")
         # get defined or default value of borderaxespad_
-        borderaxespad_def = FigurePanel.default_in_statannot(padding_keyword)
+        borderaxespad_def = FigurePanel._default_in_statannot(padding_keyword)
         borderaxespad_ = kwargs.get(padding_keyword, borderaxespad_def)
         borderaxespad_px = 10 * borderaxespad_ * plt.gcf().dpi / 72
         row_label = statannot.add_row_label(row_value, self.font_size,
@@ -7437,13 +7555,25 @@ class FigurePanel():
         return label_width
 
     def set_data_params(self, x=None, y=None, hue=None, col=None, row=None):
+        """
+        Set data parameters for showing data.
+        :param x: Column name of data to be used for x axis
+        :param y: Column name or list of column names
+                    of data to be used for y axis. Multiple y values will be
+                    plotted as several rows.
+        :param hue: column name of data to be used for hue
+        :param col: column name of data used for plots in different columns
+                    (generating a row of plots)
+        :param row: column of data used for plots in different rows
+                    (generating a columns of plots)
+        """
         self.x = x
         self.y = y
         self.hue = hue
         self.col = col
         self.row = row
 
-    def count_by_criteria(self, data, criteria):
+    def _count_by_criteria(self, data, criteria):
         for column, query in criteria.items():
             final_query = column + query
             data = data.query(final_query)
@@ -7470,7 +7600,7 @@ class FigurePanel():
         group_columns = []
         possible_columns = [self.x, self.hue, self.col, self.row]
         for column in possible_columns:
-            if not self.is_none(column):
+            if not self._is_none(column):
                 group_columns.append(column)
 
         data = self.data.dropna(subset=[self.y])
@@ -7484,14 +7614,14 @@ class FigurePanel():
         fraction_data = pd.DataFrame()
         # then for each dict count in each group how many rows match the criteria
         for name, criteria in group_criteria.items():
-            counts = grouped_data.apply(self.count_by_criteria,
+            counts = grouped_data.apply(self._count_by_criteria,
                                         criteria)[self.y]
             fraction = pd.DataFrame(counts / total_counts)
             fraction[new_group_name] = name
             fraction_data = pd.concat([fraction_data, pd.DataFrame(fraction)])
         self.data = fraction_data.reset_index()
 
-    def remove_outliers(self, data, y, nb_stds_outliers):
+    def _remove_outliers(self, data, y, nb_stds_outliers):
         std = data[y].std()
         mean = data[y].mean()
         max_data_val = mean + std * nb_stds_outliers
@@ -7504,18 +7634,20 @@ class FigurePanel():
     def show_data(self, x=None, y=None, x_labels=[], hue=None, hue_labels=[],
                   col=None, col_labels=[], row=None, row_labels=[],
                   x_order=None, col_order=None, hue_order=None,
-                  inclusion_criteria= None,
+                  inclusion_criteria= None,show_legend=None,
+                  pair_unit_columns=None,
                   remove_outliers=False, nb_stds_outliers=4,
                     scale_columns=None, norm_cats=None, normalize_by="mean",
                     smoothing_rad = None,
                   average_columns = None,
                   normalize=False, baseline=0, columns_same_in_groups=None,
-                  renaming_dicts = None, increase_padding_above = True,
+                  renaming_dicts = None,
                   width_y_axis = 0, col_labels_every_row = False,
                   sub_padding_y_factor = 0.25, show_y_label_in_all_rows = None,
-                  for_measuring = False, normalize_after_data_exclusion=True,
-                  video_frame=None, show_legend=None, pair_unit_columns=None,
-                  use_same_y_ranges=True,
+                  normalize_after_data_exclusion=True,
+                  video_frame=None,
+                  use_same_y_ranges=True, increase_padding_above = True,
+                  for_measuring=False,
                   **kwargs):
         """
         Plot data of file for panel.
@@ -7524,6 +7656,41 @@ class FigurePanel():
         Statistics will be performed automatically and annotated by statannot.
         For parameters that can be set additionally, see statannot package
         "add_stat_annotation" function.
+        :param x: Column name of data to be used for x axis
+        :param y: Column name or list of column names
+                    of data to be used for y axis. Multiple y values will be
+                    plotted as several rows.
+        :param x_labels: list of tuples to change values in x column,
+                        first value in tuple is original name and second value
+                        is what the name should be replaced by
+                        (e.g. [("2", "No axon"), ("3", "With axon")] to replace
+                        "2" and "3" with the respective text)
+        :param hue: column name of data to be used for hue
+        :param hue_labels: list of tuples to change values in hue column,
+                        first value in tuple is original name and second value
+                        is what the name should be replaced by
+                        (e.g. [("2", "No axon"), ("3", "With axon")] to replace
+                        "2" and "3" with the respective text)
+        :param col: column name of data used for plots in different columns
+                    (generating a row of plots)
+        :param col_labels: list of tuples to change values in col column,
+                        first value in tuple is original name and second value
+                        is what the name should be replaced by
+                        (e.g. [("2", "No axon"), ("3", "With axon")] to replace
+                        "2" and "3" with the respective text)
+        :param row: column of data used for plots in different rows
+                    (generating a columns of plots)
+        :param row_labels: list of tuples to change values in row column,
+                        first value in tuple is original name and second value
+                        is what the name should be replaced by
+                        (e.g. [("2", "No axon"), ("3", "With axon")] to replace
+                        "2" and "3" with the respective text)
+        :param x_order: list of x values after applying the changes
+                        of x_labels, determining the order of c values
+        :param col_order: list of col values after applying the changes
+                        of col_labels, determining the order of c values
+        :param hue_order: list of hue values after applying the changes
+                        of hue_labels, determining the order of c values
         :param inclusion_criteria: list of Dictionaries with columns as key
                                     and list of values
                                     or one value that the column should match
@@ -7531,11 +7698,21 @@ class FigurePanel():
                                     will be concatanated
                                     BE CAREFUL NOT TO INTRODUCE
                                     DUPLICATES LIKE THIS!
-        :param col: Column name for facetplot style multi-plots,
-        split in columns
-                    column name in dataframe by which the data should be split
-                    - just like x and hue, as an additional criterion that will
-                    lead to more horizontally-split groups plotted 
+        :param show_legend: Whether to show legend of plot for different values
+                            in hue column (will not be shown if there is only
+                            one hue value)
+        :param pair_unit_columns: list of columns that uniquely identify one
+                            set of dependent datapoints (needed to connect
+                            paired datapoints and also needed as preprocessing
+                            to allow statistics tests for paired data)
+        :param remove_outliers: Whether outliers should be removed from data
+        :param nb_stds_outliers: Number of stds that outliers need to differ
+                                at least from the mean to be excluded
+                                (if remove_outliers = True)
+        :param scale_columns: Dictionary for scaling values, with key
+                                as column name and value the factor by which
+                                values are scaled (e.g. for changing the unit
+                                of the y column)
         :param norm_cats: list of categories / data columns from which the groups
                     will be build (groupby object)
                     within which it should be normalized 
@@ -7547,10 +7724,13 @@ class FigurePanel():
         :param normalize_by: value form the group by which the group will be 
                             normalized; any function name that can be performed
                             on a series works
+        :param smoothing_rad: Radius for smoothing y values
         :param average_columns: List of column names;
-            create new data frame where data will be averages for
-            data rows with same values in average_columns
-            can be used e.g. to average all values of the same neuron
+                                create new data frame where data will be
+                                averages for data rows with same values in
+                                average_columns can be used e.g. to average all
+                                values of the same neuron
+        :param normalize: Whether to normalize y values
         :param baseline: value that will be subtracted from all y-values before
                         normalization, smoothing etc.
                         helpful e.g. for background subtraction
@@ -7563,7 +7743,6 @@ class FigurePanel():
                                         (by hue, col and x) to only include
                                         rows with values in the defined
                                         columns that are present in all groups
-
         :param renaming_dicts: list of dicts,
                         IMPORTANT: renaming is done after replacing strings
                         through _labels (e.g. x_labels, hue_labels) parameters
@@ -7585,61 +7764,71 @@ class FigurePanel():
                                     should be shown in every row
                                     of the facet plot
                                     only matters if row is not None
-        :param norm_before_data_exclusion: Boolean; whether data should
+        :param sub_padding_y_factor: multiple of figure_panel padding for plots
+                                    from multiple y values
+        :param show_y_label_in_all_rows: Whether to show y axis label in all 
+                                        rows (even though they all show the same
+                                        y axis)
+        :param normalize_after_data_exclusion: Boolean; whether data should
                                             be normalized after data exclusion
                                             normalization should usually be done
                                             before exclusion of data
                                             otherwise excluded units would
                                             change normalization depending on
                                             what is shown
-        :param for_measuring: Internal parameter, used to measure parts of the
-                                figure for perfect alignment
         :param video_frame: Int; for animating data in a video; indicates
                             the current frame of the video
                             and thereby the current maximum x value
                             that should be plotted
-        :param pair_unit_columns: list of columns that uniquely identify one
-                            set of dependent datapoints (needed to connect
-                            paired datapoints and also needed as preprocessing
-                            to allow statistics tests for paired data)
+        :param use_same_y_ranges: Use the same y ranges for all plots. Will use
+                                    the range from the lowest y value in all
+                                    groups to the highest y value in all
+                                    groups
+        :param increase_padding_above: Whether to increase padding above plots
+                                        can sometimes be useful to improve
+                                        layout
+        :param for_measuring: INTERNAL PARAMETER, used when plots are plotted
+                                to measure dimensions for perfect alignment,
+                                while the plot is removed afterwards
+                                again
         """
         
-        if self.is_none(self.x) & self.is_none(x):
+        if self._is_none(self.x) & self._is_none(x):
             raise ValueError("A column for 'x' must be supplied "
                              "or set beforehand.")
 
-        if self.is_none(self.y) & self.is_none(y):
+        if self._is_none(self.y) & self._is_none(y):
             raise ValueError("A column for 'y' must be supplied "
                              "or set beforehand.")
 
         if type(inclusion_criteria) == type(None):
             inclusion_criteria = []
 
-        if self.is_none(x):
+        if self._is_none(x):
             x = self.x
         else:
             self.x = x
 
-        if self.is_none(hue):
+        if self._is_none(hue):
             hue = self.hue
         else:
             self.hue = hue
 
         self.col = col
 
-        if self.is_none(row):
+        if self._is_none(row):
             row = self.row
         else:
             self.row = row
 
-        if self.is_none(y):
+        if self._is_none(y):
             y = self.y
         else:
             self.y = y
 
         # get plot_type, needed for get_basic_statistics
         # to know if it is a continuous data plot type
-        plot_type = self.default_in_statannot("plot_type")
+        plot_type = self._default_in_statannot("plot_type")
         self.plot_type = kwargs.get("plot_type", plot_type)
 
         # create copy of inner border
@@ -7674,12 +7863,12 @@ class FigurePanel():
             self.pair_unit_columns = pair_unit_columns
             self.use_same_y_ranges = use_same_y_ranges
         
-        self.validate_data_file()
+        self._validate_data_file()
 
         data = self.data
 
         if normalize_after_data_exclusion:
-            data = self.exclude_data(data, inclusion_criteria)
+            data = self._exclude_data(data, inclusion_criteria)
 
 
         # normalization should usually be done before exclusion of data
@@ -7688,10 +7877,10 @@ class FigurePanel():
         # normalize values to within cateogiry
         # norm_cats is a list of categories for which normalization
         if normalize:
-            data[y] = self.normalize_data(data, y, norm_cats, hue, col, row,
+            data[y] = self._normalize_data(data, y, norm_cats, hue, col, row,
                                           normalize_by)
         if not normalize_after_data_exclusion:
-            data = self.exclude_data(data, inclusion_criteria)
+            data = self._exclude_data(data, inclusion_criteria)
 
 
         if len(data) == 0:
@@ -7699,14 +7888,14 @@ class FigurePanel():
                              "did not match with "
                              "any data.".format(str(inclusion_criteria)))
 
-        if self.animate_panel & (not self.is_none(video_frame)):
+        if self.animate_panel & (not self._is_none(video_frame)):
             data = data.loc[data[x] <= video_frame]
 
         if len(data) == 0:
             return
 
 
-        data = self.group_and_average_data(average_columns, data)
+        data = self._group_and_average_data(average_columns, data)
 
         if remove_outliers:
             data_box_columns = []
@@ -7714,7 +7903,7 @@ class FigurePanel():
                 if data_box_column is not None:
                     data_box_columns.append(data_box_column)
             data = data.groupby(data_box_columns,
-                                as_index = False).apply(self.remove_outliers,
+                                as_index = False).apply(self._remove_outliers,
                                                         y, nb_stds_outliers)
 
         # change data globally
@@ -7739,7 +7928,7 @@ class FigurePanel():
                 data[column] = data[column].apply(str)
 
 
-        data = self.exclude_data_with_column_vals_not_in_all_groups(columns_same_in_groups,
+        data = self._exclude_data_with_column_vals_not_in_all_groups(columns_same_in_groups,
                                                                     data, x,
                                                                     hue, col)
 
@@ -7747,7 +7936,7 @@ class FigurePanel():
         # remove baseline from values before processing numbers further
         data[y] = data[y] - baseline
 
-        data[y] = self.smoothen_data(data, y, ["hue", "col", "row"],
+        data[y] = self._smoothen_data(data, y, ["hue", "col", "row"],
                                      smoothing_rad, hue, col, row)
 
         # only replace row values now
@@ -7757,7 +7946,7 @@ class FigurePanel():
         # and should be the final row label
         strs_to_replace = {}
         strs_to_replace[row] = row_labels
-        data = self.replace_strs_in_data(data, strs_to_replace)
+        data = self._replace_strs_in_data(data, strs_to_replace)
 
 
         #  apply data transformations
@@ -7782,7 +7971,7 @@ class FigurePanel():
             nb_hue = len(self.data[x].drop_duplicates())
             # if x and hue are the same, hue categories are already
             # annotated and don't need to be by using a legend
-            show_x_axis = self.from_kwargs_or_statannot_default(kwargs,
+            show_x_axis = self._from_kwargs_or_statannot_default(kwargs,
                                                                 "show_x_axis")
             if show_legend is None:
                 if (nb_hue_x > nb_x) & show_x_axis:
@@ -7794,7 +7983,7 @@ class FigurePanel():
         #  create facet plot made out of several sub figure panels
         #  within the current figure panel
         #  based on values in the "row" column
-        if ((not FigurePanel.is_none(row)) | multiple_y) & (not for_measuring):
+        if ((not FigurePanel._is_none(row)) | multiple_y) & (not for_measuring):
 
             # set self.data so that normalization will be done correctly
             # in first execution
@@ -7803,7 +7992,7 @@ class FigurePanel():
             # and not for every row
             self.data = data
 
-            self.plot_multi_rows(inner_border,  show_legend, **kwargs)
+            self._plot_multi_rows(inner_border,  show_legend, **kwargs)
             return None
 
 
@@ -7815,9 +8004,9 @@ class FigurePanel():
         strs_to_replace[x] = x_labels
         strs_to_replace[hue] = hue_labels
         strs_to_replace[col] = col_labels
-        data = self.replace_strs_in_data(data, strs_to_replace)
+        data = self._replace_strs_in_data(data, strs_to_replace)
 
-        data = self.rename_column_values(data, renaming_dicts)
+        data = self._rename_column_values(data, renaming_dicts)
 
         # first remove all data defined through the _order variables
         property_names = ["col", "x", "hue"]
@@ -7836,18 +8025,18 @@ class FigurePanel():
         if type(pair_unit_columns) == type(None):
             kwargs["connect_paired_data_points"] = False
         else:
-            data = self.remove_unpaired_data(data, pair_unit_columns,
+            data = self._remove_unpaired_data(data, pair_unit_columns,
                                              col, x, hue)
 
         (axs_by_position,
-         ax_annot) = self.plot_simple_row(data, x, y, hue, col, for_measuring,
+         ax_annot) = self._plot_simple_row(data, x, y, hue, col, for_measuring,
                                           increase_padding_above,
-                                          inner_border, width_y_axis,
+                                          inner_border,
                                           show_legend, **kwargs)
 
         return axs_by_position, ax_annot
 
-    def plot_multi_rows(self, inner_border, show_legend, **kwargs):
+    def _plot_multi_rows(self, inner_border, show_legend, **kwargs):
         """
         Plot mulitple rows with different y values or different values
         in a defined row column (different y and different row values not 
@@ -7863,7 +8052,7 @@ class FigurePanel():
         else:
             all_y = [self.y]
 
-        if FigurePanel.is_none(self.row):
+        if FigurePanel._is_none(self.row):
             row_values = [None]
         else:
             row_values = self.data[self.row].drop_duplicates().values
@@ -7888,7 +8077,7 @@ class FigurePanel():
          max_y_axis_width_px,
          max_x_axis_height_px,
          max_row_label_width,
-         max_col_label_height) = self.measure_max_dimensions_for_multi_row_plots(all_y,
+         max_col_label_height) = self._measure_max_dimensions_for_multi_row_plots(all_y,
                                                                                  row_values,
                                                                                  show_legend,
                                                                                  **kwargs)
@@ -7911,18 +8100,18 @@ class FigurePanel():
         nb_rows *= len(all_y)
 
         (height_sub_panel, 
-         current_y_pos) = self.get_height_and_ypos_of_sub_panel(inner_border, 
+         current_y_pos) = self._get_height_and_ypos_of_sub_panel(inner_border, 
                                                                 height_x_axis,
                                                                 max_col_label_height, 
                                                                 nb_rows)
 
         self.max_row = nb_rows - 1
-        self.set_max_col_for_multi_rows(row_values)
+        self._set_max_col_for_multi_rows(row_values)
 
         x_padding_rel = self.xpadding[0] / fig_size[0]
 
         if type(self.col) != type(None):
-            group_padding = self.from_kwargs_or_statannot_default(kwargs,
+            group_padding = self._from_kwargs_or_statannot_default(kwargs,
                                                                   "group_padding")
         else:
             group_padding = 0
@@ -7938,11 +8127,11 @@ class FigurePanel():
         #  calculate width per col based on widest row
         #  only in that row we know the total width while we also know the
         group_padding_rel = group_padding / fig_size[0]
-        width_per_col = self.get_width_per_col_for_multi_row(max_width_y_axis,
+        width_per_col = self._get_width_per_col_for_multi_row(max_width_y_axis,
                                                              group_padding_rel,
                                                              x_padding_rel)
         # print(group_padding, group_padding_rel)
-        self.initialize_padding_factor_matrices()
+        self._initialize_padding_factor_matrices()
         
         nb_col_vals = 0
         if type(self.col) == type(None):
@@ -7963,7 +8152,7 @@ class FigurePanel():
         if (len(all_y) > 1) & (self.show_y_label_in_all_rows is None):
             self.show_y_label_in_all_rows = True
 
-        show_x_axis = self.from_kwargs_or_statannot_default(kwargs,
+        show_x_axis = self._from_kwargs_or_statannot_default(kwargs,
                                                             "show_x_axis")
 
         if show_x_axis:
@@ -7982,7 +8171,7 @@ class FigurePanel():
             # for each parameter connected to the y axis
             # check whether an iterable was supplied
             # which then needs to be applied to the respective y
-            tmp_kwargs = self.get_y_specific_kwargs(tmp_kwargs, y_nb)
+            tmp_kwargs = self._get_y_specific_kwargs(tmp_kwargs, y_nb)
 
             # y range in tmp kwargs is already a single value
             # if it was an iterable before,
@@ -7997,7 +8186,7 @@ class FigurePanel():
                 y_range = None
 
             (all_axs,
-             height_this_sub_panel) = self.plot_one_row(row_nb, row_value,
+             height_this_sub_panel) = self._plot_one_row(row_nb, row_value,
                                                         nb_rows, width_per_col,
                                                         height_sub_panel,
                                                         nb_col_vals,
@@ -8037,7 +8226,7 @@ class FigurePanel():
             if type(ax_for_measuring.figure) != type(None):
                 ax_for_measuring.remove()
 
-    def measure_max_dimensions_for_multi_row_plots(self, all_y, row_values,
+    def _measure_max_dimensions_for_multi_row_plots(self, all_y, row_values,
                                                    show_legend,
                                                    **kwargs):
         """
@@ -8053,7 +8242,7 @@ class FigurePanel():
                  maimum col label height
         """
 
-        x_range = self.get_x_range(**kwargs)
+        x_range = self._get_x_range(**kwargs)
 
         # set properties to measure maximum dimensions
         tmp_kwargs = copy.deepcopy(kwargs)
@@ -8074,7 +8263,7 @@ class FigurePanel():
         # legend sizes!!! (since legend sizes are not compared!)
         for y_nb, y in enumerate(all_y):
 
-            tmp_kwargs_y = self.get_y_specific_kwargs(tmp_kwargs, y_nb)
+            tmp_kwargs_y = self._get_y_specific_kwargs(tmp_kwargs, y_nb)
 
             all_test_axs, ax_annot = self.show_data(self.x, y,
                                                     x_labels=self.x_labels,
@@ -8088,14 +8277,14 @@ class FigurePanel():
                                                     increase_padding_above=False,
                                                     show_legend=show_legend,
                                                     **tmp_kwargs_y)
-            max_y_axis_width_px = self.get_max_axis_dimension(all_test_axs,
+            max_y_axis_width_px = self._get_max_axis_dimension(all_test_axs,
                                                               "yaxis",
                                                               "width")
-            max_x_axis_height_px = self.get_max_axis_dimension(all_test_axs,
+            max_x_axis_height_px = self._get_max_axis_dimension(all_test_axs,
                                                                "xaxis",
                                                               "height")
 
-            axs_for_measuring = self.delete_all_axes_except_first(all_test_axs,
+            axs_for_measuring = self._delete_all_axes_except_first(all_test_axs,
                                                                    axs_for_measuring,
                                                                    key=y)
 
@@ -8103,12 +8292,12 @@ class FigurePanel():
             #  then get the size of the widest row label
             #  for each row label then calculate the difference
             #  to the largest and subtract that value from its widths
-            max_row_label_width = self.get_max_text_width(row_values,
+            max_row_label_width = self._get_max_text_width(row_values,
                                                           axs_for_measuring[y],
                                                           padding_keyword ="borderaxespad_",
                                                           **tmp_kwargs_y)
 
-            max_col_label_height = self.get_max_col_label_height(axs_for_measuring[y],
+            max_col_label_height = self._get_max_col_label_height(axs_for_measuring[y],
                                                                  row_values,
                                                                  **tmp_kwargs_y)
 
@@ -8120,16 +8309,16 @@ class FigurePanel():
                 max_row_label_width,
                 max_col_label_height)
 
-    def get_x_range(self, **kwargs):
+    def _get_x_range(self, **kwargs):
         x_range = None
-        plot_type = self.from_kwargs_or_statannot_default(kwargs, "plot_type")
+        plot_type = self._from_kwargs_or_statannot_default(kwargs, "plot_type")
         if (plot_type == "line") | (plot_type == "regression"):
             x_values = self.data[self.x].astype(float)
             x_range = [min(x_values), max(x_values)]
             x_range = kwargs.get("x_range", x_range)
         return x_range
 
-    def get_y_specific_kwargs(self, kwargs, y_nb):
+    def _get_y_specific_kwargs(self, kwargs, y_nb):
         """
         for each parameter connected to the y axis
         check whether an iterable was supplied
@@ -8179,7 +8368,7 @@ class FigurePanel():
 
 
 
-    def get_max_axis_dimension(self, all_axs, axis_str, dimension):
+    def _get_max_axis_dimension(self, all_axs, axis_str, dimension):
         """
         Get maximum dimension of list of axes in pixels.
         :param all_axs: list of matplotlib axes
@@ -8210,7 +8399,7 @@ class FigurePanel():
             max_dimension_px = max(max_dimension_px, dimension_px)
         return max_dimension_px
 
-    def delete_all_axes_except_first(self, all_axs, axes_kept, key):
+    def _delete_all_axes_except_first(self, all_axs, axes_kept, key):
         """
         Delete axes in list except the first axis. The first axis is saved
         in a dict (axes_kept) under the defined key.
@@ -8229,7 +8418,7 @@ class FigurePanel():
                 ax.remove()
         return axes_kept
 
-    def get_max_text_width(self, texts, ax_for_measuring,
+    def _get_max_text_width(self, texts, ax_for_measuring,
                            padding_keyword, **kwargs):
         """
         Get maximum width of a list of texts in px.
@@ -8240,42 +8429,43 @@ class FigurePanel():
         max_text_width = 0
         for text in texts:
 
-            if self.is_none(text):
+            if self._is_none(text):
                 continue
 
             # get width of row label or legend
-            text_width = self.get_row_label_width(text,
+            text_width = self._get_row_label_width(text,
                                                   ax_for_measuring,
                                                   padding_keyword=padding_keyword,
                                                   **kwargs)
             max_text_width = max(max_text_width, text_width)
         return max_text_width
 
-    def get_max_col_label_height(self, ax_for_measuring, row_values, **kwargs):
+    def _get_max_col_label_height(self, ax_for_measuring, row_values, **kwargs):
         max_col_label_height = 0
         #  there may not be any row values which need to be measured
         #  if only multiple y values are supplied but no column for rows
         if len(row_values) <= 1:
             return max_col_label_height
         arg_name = "show_col_labels_above"
-        if not FigurePanel.from_kwargs_or_statannot_default(kwargs, arg_name):
+        if not FigurePanel._from_kwargs_or_statannot_default(kwargs, arg_name):
             return max_col_label_height
         #  get max col_val label
         first_row_data = self.data.loc[self.data[self.row] == row_values[0]]
         first_row_col_values = first_row_data[self.col].drop_duplicates()
         #  measure height of col labels
+        get_default_value = FigurePanel._from_kwargs_or_statannot_default
+        add_column_plot_title_above = statannot.add_column_plot_title_above
         for first_row_col_value in first_row_col_values:
-            col_label_padding = FigurePanel.from_kwargs_or_statannot_default(kwargs,
-                                                                             "col_label_padding")
+            col_label_padding = get_default_value(kwargs, "col_label_padding")
 
-            col_label_height = statannot.add_column_plot_title_above(ax_for_measuring,
-                                                                     first_row_col_value,
-                                                                     col_label_padding,
-                                                                     self.font_size)
+            col_label_height = add_column_plot_title_above(ax_for_measuring,
+                                                           first_row_col_value,
+                                                           col_label_padding,
+                                                           self.font_size)
             max_col_label_height = max(max_col_label_height, col_label_height)
         return max_col_label_height
 
-    def get_width_per_col_for_multi_row(self, max_width_y_axis,
+    def _get_width_per_col_for_multi_row(self, max_width_y_axis,
                                         group_padding_rel,
                                         x_padding_rel):
         width_of_widest_col = (self.width * self.fig_width_available -
@@ -8287,7 +8477,7 @@ class FigurePanel():
         width_per_col = width_of_widest_col / (self.max_col + 1)
         return width_per_col
 
-    def get_height_and_ypos_of_sub_panel(self, inner_border, height_x_axis,
+    def _get_height_and_ypos_of_sub_panel(self, inner_border, height_x_axis,
                                          max_col_label_height, nb_rows):
         fig_height = plt.gcf().get_size_inches()[1]
         figure_pad_rel_y = self.fig_padding[1]/fig_height
@@ -8312,7 +8502,7 @@ class FigurePanel():
         return height_sub_panel, current_y_pos
 
 
-    def set_max_col_for_multi_rows(self, row_values):
+    def _set_max_col_for_multi_rows(self, row_values):
         #  self.max_col will be set here when plotting multiple rows
         fig_size = plt.gcf().get_size_inches()
         self.max_col = 0
@@ -8325,10 +8515,10 @@ class FigurePanel():
             else:
                 row_data = self.data.loc[self.data[self.row] == row_value]
 
-            max_col = self.get_max_col_for_data(row_data, self.col)
+            max_col = self._get_max_col_for_data(row_data, self.col)
             self.max_col = max(self.max_col, max_col)
 
-    def plot_one_row(self, row_nb, row_value, nb_rows,
+    def _plot_one_row(self, row_nb, row_value, nb_rows,
                      width_per_col, height_sub_panel,
                      nb_col_vals, current_y_pos, sub_padding,
                      inner_border,
@@ -8341,7 +8531,7 @@ class FigurePanel():
                      show_legend, **kwargs):
 
         show_row_label = kwargs.get("show_row_label",
-                                    self.default_in_statannot("show_row_label"))
+                                    self._default_in_statannot("show_row_label"))
         #  add to each inclusion criteria the row criteria
         # so that in each sub panel only the data from
         # a specific row value is used
@@ -8355,7 +8545,7 @@ class FigurePanel():
             #  measure width of row label
             #  difference of current row label and maximum row label
             #  will be deducted from width of this panel
-            label_width = self.get_row_label_width(row_value,
+            label_width = self._get_row_label_width(row_value,
                                                    ax_for_measuring,
                                                    padding_keyword="borderaxespad_",
                                                    **kwargs)
@@ -8372,7 +8562,7 @@ class FigurePanel():
                                                        "width",
                                                        ax_for_measuring.get_position().x0)
 
-        width_this_panel = self.get_width_of_plot_row(row_value, width_per_col,
+        width_this_panel = self._get_width_of_plot_row(row_value, width_per_col,
                                                       max_width_y_axis,
                                                       x_padding_rel,
                                                       label_width_diff, row_nb,
@@ -8394,7 +8584,7 @@ class FigurePanel():
 
         # set empty y axis label with correct amount of line breaks
         if (row_nb > 0) & ( not self.show_y_label_in_all_rows):
-            kwargs = self.set_empty_y_axis_label_in_kwargs(**kwargs)
+            kwargs = self._set_empty_y_axis_label_in_kwargs(**kwargs)
 
         x_axis_label = kwargs.get("x_axis_label", "")
 
@@ -8474,7 +8664,7 @@ class FigurePanel():
         return all_axs, height_this_sub_panel
 
 
-    def set_empty_y_axis_label_in_kwargs(self, **kwargs):
+    def _set_empty_y_axis_label_in_kwargs(self, **kwargs):
         #  create empty y axis label just containing the line breaks
         #  to get the right shift
         if "y_axis_label" in kwargs:
@@ -8489,7 +8679,7 @@ class FigurePanel():
 
         return kwargs
 
-    def get_width_of_plot_row(self, row_value, width_per_col, max_width_y_axis,
+    def _get_width_of_plot_row(self, row_value, width_per_col, max_width_y_axis,
                               x_padding_rel, label_width_diff, row_nb, nb_rows,
                               nb_col_vals, group_padding_rel,
                               x_tick_overhang_rel):
@@ -8523,7 +8713,7 @@ class FigurePanel():
         return width_this_panel
 
 
-    def get_max_col_for_data(self, data, col):
+    def _get_max_col_for_data(self, data, col):
         if type(col) != type(None):
             nb_columns = len(data[col].drop_duplicates())
         else:
@@ -8544,24 +8734,13 @@ class FigurePanel():
         return 1
 
 
-    def plot_simple_row(self, data, x, y, hue, col,
+    def _plot_simple_row(self, data, x, y, hue, col,
                         for_measuring, increase_padding_above,
-                        inner_border, width_y_axis, show_legend, **kwargs):
+                        inner_border, show_legend, **kwargs):
         """
         Plot a single row of data plots.
-        :param data:
-        :param x:
-        :param hue:
-        :param col:
-        :param for_measuring:
-        :param increase_padding_above:
-        :param inner_border:
-        :param width_y_axis:
-        :param show_legend:
-        :param kwargs:
-        :return:
         """
-        self.max_col = self.get_max_col_for_data(data, col)
+        self.max_col = self._get_max_col_for_data(data, col)
         self.max_row = 0
 
         if increase_padding_above:
@@ -8585,13 +8764,13 @@ class FigurePanel():
 
 
         if increase_padding_below:
-            inner_border = self.do_increase_of_padding_below_plot(inner_border,
+            inner_border = self._do_increase_of_padding_below_plot(inner_border,
                                                                   data, x, col,
                                                                   fig_height,
                                                                   **kwargs)
 
         (axs_by_position,
-         ax_annot) = self.plot_results(data, x, y, inner_border,
+         ax_annot) = self._plot_results(data, x, y, inner_border,
                                        hue=hue, col=col,
                                        for_measuring=for_measuring,
                                        show_legend=show_legend,
@@ -8599,10 +8778,10 @@ class FigurePanel():
 
 
         # initiate label matrices for adding labels by position later
-        self.initiate_label_matrices()
+        self._initiate_label_matrices()
 
         # TODO: Improvde (shorten) function name
-        self.included_data = self.get_data_in_order_params_for_representative_data(data,
+        self.included_data = self._get_data_in_order_params_for_representative_data(data,
                                                                                    x,
                                                                                    hue,
                                                                                    col,
@@ -8617,7 +8796,7 @@ class FigurePanel():
         return axs_by_position, ax_annot
 
 
-    def do_increase_of_padding_below_plot(self, inner_border,
+    def _do_increase_of_padding_below_plot(self, inner_border,
                                           data, x, col, fig_height,
                                           **kwargs):
         if "col_order" in kwargs:
@@ -8649,7 +8828,7 @@ class FigurePanel():
         return inner_border
 
 
-    def get_data_in_order_params_for_representative_data(self, data, x, hue,
+    def _get_data_in_order_params_for_representative_data(self, data, x, hue,
                                                          col, kwargs):
         # preparation for getting representative data?
         # exclude data with values not in order parameter
@@ -8694,6 +8873,36 @@ class FigurePanel():
                             that define one unit that was analyzed
                             (e.g. for a neurite it could be
                             ["date", "neuron", "neurite"]).
+        :param cols_to_show: Columns to show in summary
+        :param nb_of_measurements_matter: Whether representative data should be
+                                            sorted by number of measurements.
+                                            When one unit can have more than
+                                            one datapoint, this means first
+                                            showing the units with the most
+                                            datapoints, independent of their
+                                            deviation from the mean. This can
+                                            be helpful when most units have e.g.
+                                            2 datapoints and only a few 1, then
+                                            you may only want to use units with
+                                            2 datapoints.
+        :param sort_by_relative_difference: Whether to sort by relative
+                                            difference from the mean (if True)
+                                            Otherwise will sort by absolute
+                                            difference. When having more than
+                                            one measure, relative difference
+                                            can help making them comparable
+                                            (keeping the contribution of all
+                                            measures similar). But in that case
+                                            a mean close to 0 might also
+                                            artificially increase the relative
+                                            difference.
+        :param print_results: Whether to print results or just calculate them.
+                                When printing comparisons for multiple plots
+                                later, just calculating can be enough.
+        :param nb_vals_to_show: Number of units to show for each group.
+        :param column_suffix: suffix that should be added for difference columns
+                                this should be something that is not present
+                                in any current column name.
 
         """
         if cols_to_show == None:
@@ -8726,13 +8935,13 @@ class FigurePanel():
             group_stds[values] = grouped_stds[self.y].loc[values]
 
         evaluated_data = copy.copy(self.included_data)
-        evaluated_data.loc[:,'d_mean'] = evaluated_data.apply(self.get_d_mean,
+        evaluated_data.loc[:,'d_mean'] = evaluated_data.apply(self._get_d_mean,
                                                               args=[group_means,
                                                                      group_stds,
                                                                      group_columns],
                                                               axis=1)
         y_diff_column = self.y + column_suffix
-        evaluated_data.loc[:, y_diff_column] = evaluated_data.apply(self.get_difference_to_mean,
+        evaluated_data.loc[:, y_diff_column] = evaluated_data.apply(self._get_difference_to_mean,
                                                                        args=[group_means,
                                                                             group_columns],
                                                                        axis = 1)
@@ -8818,15 +9027,15 @@ class FigurePanel():
                                                         ascending=ascending_vals)
             print(one_group_data.head(nb_vals_to_show)[cols_to_show])
 
-    def get_difference_to_mean(self, row, group_means, group_columns):
-        group_index = self.get_group_index_from_data(row, group_columns)
+    def _get_difference_to_mean(self, row, group_means, group_columns):
+        group_index = self._get_group_index_from_data(row, group_columns)
         group_mean = group_means[group_index]
         return row[self.y] - group_mean
 
-    def get_d_mean(self, row, group_means,
+    def _get_d_mean(self, row, group_means,
                    group_stds, group_columns):
         
-        group_index = self.get_group_index_from_data(row, group_columns)
+        group_index = self._get_group_index_from_data(row, group_columns)
         group_mean = group_means[group_index]
         group_std = group_stds[group_index]
         # # for finding cells good in several measures (from several panels):
@@ -8839,7 +9048,7 @@ class FigurePanel():
         d_mean = ( row[self.y] - group_mean )**2 / group_std**2
         return d_mean
 
-    def get_group_index_from_data(selfrow, row, group_columns):
+    def _get_group_index_from_data(selfrow, row, group_columns):
         # get the index values for the group
         if len(group_columns) == 1:
             group_column = group_columns[0]
@@ -8853,7 +9062,7 @@ class FigurePanel():
 
 
     @staticmethod
-    def replace_strs_in_data(data, strs_to_replace):
+    def _replace_strs_in_data(data, strs_to_replace):
         """
         replace strs in data, taking strings from dict strs_to_replace
         :param strs_to_replace: dict with columns as keys
@@ -8872,7 +9081,7 @@ class FigurePanel():
         return data
 
 
-    def rename_column_values(self, data, renaming_dicts):
+    def _rename_column_values(self, data, renaming_dicts):
         #  renaming dict is a list of dicts
         #  each dict is for one renaming
         #  one key in the dict has to be "__from__" and the value
@@ -8889,7 +9098,7 @@ class FigurePanel():
             excluded_keys = ["__from__", "__to__", "__target-column__"]
             #  get all rows that match the conditions
             #  except in the excluded keys
-            matched_data = FigurePanel.get_rows_matching_criteria(data,
+            matched_data = FigurePanel._get_rows_matching_criteria(data,
                                                                   renaming_dict,
                                                                   excluded_keys)
 
@@ -8904,7 +9113,7 @@ class FigurePanel():
             data.loc[mached_indices, column] = new_column_values
         return data
 
-    def plot_results(self, data, x, y, inner_border, for_measuring, **kwargs):
+    def _plot_results(self, data, x, y, inner_border, for_measuring, **kwargs):
 
         size_factor = self.size_factor * self.increase_size_fac
         # get box dicts of one group and plot data of that group
@@ -8934,12 +9143,21 @@ class FigurePanel():
                              show_stats=False, show_from_ungrouped_data=None,
                              show_from_grouped_data = None):
         """
-
+        Get basic statistics of different datagroups (mean,
+        number of experiments, number of cells, etc)
         :param N_columns: is column or list of columns
-                        in which the number of different values will be calculated
+                        in which the number of different values will
+                        be calculated
         :param n_columns: is a column or list of columns
                             that define the number of n that should be returned
                             if not defined, will count number of measurements
+        :param show_stats: Whether to show statistics test results
+        :param show_from_ungrouped_data: Whether to show basic statistics from
+                                        ungrouped data (particularly important
+                                        for continuous data)
+        :param show_from_grouped_data: Whether to show basic statistics from
+                                        grouped data (when there are any
+                                        data groups)
         """
         if type(N_columns) == str:
             N_columns = [N_columns]
@@ -8955,14 +9173,14 @@ class FigurePanel():
         #for other other plots by default only stats of
         #grouped data
         if self.plot_type in continuous_plot_types:
-            if self.is_none(show_from_ungrouped_data):
+            if self._is_none(show_from_ungrouped_data):
                 show_from_ungrouped_data = True
-            if self.is_none(show_from_grouped_data):
+            if self._is_none(show_from_grouped_data):
                 show_from_grouped_data = False
         else:
-            if self.is_none(show_from_ungrouped_data):
+            if self._is_none(show_from_ungrouped_data):
                 show_from_ungrouped_data = False
-            if self.is_none(show_from_grouped_data):
+            if self._is_none(show_from_grouped_data):
                 show_from_grouped_data = True
 
         if show_from_ungrouped_data:
@@ -9007,26 +9225,85 @@ class FigurePanel():
                                                                 .drop_duplicates())).reset_index()[0]
         print(statistic_vals)
 
+    def add_text_within_at_coords(self, text, x, y, font_size=7, line_spacing=1,
+                                  hor_align = "left", vert_align="bottom",
+                                  orientation="hor",
+                                  images=None, only_show_in_rows=None,
+                                  only_show_in_columns=None,
+                                  correct_for_cropping=True, color = "white"):
+        """
+        Add text on image at coordinates
+        :param text: String of text to add. Linebreaks can be added with "\n"
+        :param x: x coordinate at which to add the text
+        :param y: y coordinate at which to add the text
+        :param line_spacing: Line spacing when including a line break
+        :param font_size: font size either in pt or as "small", "medium" or
+                            "large"
+        :param hor_align: horizontal alignment of text ("left, "center" and
+                         "right" allowed
+        :param vert_align: Vertical alignment of text ("bottom", "center" and
+                            "top" allowed)
+        :param orientation: Orientation of text ("hor" or "vert" or degrees)
+        :param images: dict that specifies on which images should be drawn
+                       the key is the category and the value
+                       is the allowed value
+        :param only_show_in_rows: List of rows in which to add the text on
+                                  images
+        :param only_show_in_columns: List of columns in which to add the text
+                                        on images
+        :param correct_for_cropping: Correct coordinates for applied cropping
+        :param color: Font color
+        """
 
-    def write_on_image(self, text, coords, only_show_in_rows = None,
-                       only_show_in_columns = None, font_size="medium",
-                       color="white", va="bottom", ha="left"):
-        font_size_pt = FontProperties(size = font_size).get_size_in_points()
         for position, ax in self.all_axs.items():
+            row = position[0]
+            column = position[1]
 
-            position_allowed = self.check_if_pos_is_in_row_col_list(position[0],
-                                                                    position[1],
-                                                                    only_show_in_rows,
-                                                                    only_show_in_columns)
+            pre_identity = self.pos_to_pre_identity_map[position]
+            identity_matches = self._check_if_identity_matches_dict_criteria(pre_identity,
+                                                                            images)
 
-            if position_allowed:
-                corrected_coords = self.correct_xy_for_cropping_and_zoom(coords[0],
-                                                                         coords[1],
-                                                                         position[0],
-                                                                         position[1])
-                ax.annotate(xy=corrected_coords, text=text,
-                            fontsize=font_size_pt, color=color,
-                            xycoords="data", va=va, ha=ha)
+
+            grid_position_correct = False
+            if identity_matches:
+                grid_position_correct = self._check_if_pos_is_in_row_col_list(row, column,
+                                                                         only_show_in_rows,
+                                                                         only_show_in_columns)
+
+            if (not identity_matches) | (not grid_position_correct):
+                continue
+
+            image_dim = self._get_img_from_axis(ax).shape
+            image_width = image_dim[-2]
+            image_height = image_dim[-3]
+
+            # actually the correction for cropping is not needed here!
+            # but positions are already optimized for cropping correction
+            if correct_for_cropping:
+                (x_corrected,
+                 y_corrected) = self._correct_xy_for_cropping_and_zoom(x, y,
+                                                                      position[0],
+                                                                      position[1])
+            else:
+                x_corrected = x
+                y_corrected = y
+
+            x_rel = x_corrected/image_width
+            y_rel = y_corrected/image_height
+
+            if orientation.lower() == "vert":
+                rotation = 90
+            elif orientation.lower() == "hor":
+                rotation = 0
+            else:
+                rotation = orientation
+
+            self._add_text_within_image_at_coords(ax, text, x_rel, 1 - y_rel,
+                                                  0, font_size, color,
+                                                  rotation = rotation,
+                                                  ha=hor_align,
+                                                  va=vert_align,
+                                                  line_spacing=line_spacing)
 
 
     def draw_on_image(self, targets, direction, images = None,
@@ -9037,8 +9314,7 @@ class FigurePanel():
                       arrow_head_length_factor=0.625, **kwargs):
         """
         draw on each of the images specified.
-        :param style: can be "arrow"
-        :param target: target position in form [x,y],
+        :param targets: target position in form [x,y] or list of positions,
                         will determine where the shape ends
         :param direction: direction of object from the target,
                             can be supplied in three different forms:
@@ -9048,22 +9324,24 @@ class FigurePanel():
                             string like "top" or "top-left" or "bottom-right"
                             by default direction starts at head and goes
                             towards tail (see param direction_from_head_to_tail)
+        :param images: dict that specifies on which images should be drawn
+                       the key is the category and the value
+                       is the allowed value
+        :param style: can be "arrow" or "*"
+        :param color: color of drawn shape
+        :param size: size of marker in pt, also scaled for current figure size
+                    to have a good standard value
         :param direction_from_head_to_tail: Bool; Whether direction supplied as
                                             string should be considered
                                             starting from the head going
                                             towards the tail (True) or the
                                             other way around (False)
-        :param images: dict that specifies on which images should be drawn
-                       the key is the category and the value
-                       is the allowed value
-        :param color: color of drawn shape
-        :param size: size of marker in pt, also scaled for current figure size
-                    to have a good standard value
-        kwargs:
-        :param width: width of arrow_tail in axes coords if style == arrow
-        :param head_width: width of arrow head in axes coords if style == arrow
-        :param head_length: length of arrow head in axes coords
-                            if style == arrow
+        :param arrow_width_factor: width of arrow_tail in axes coords
+                                    if style == arrow
+        :param arrow_head_width_factor: width of arrow head in axes coords
+                                        if style == arrow
+        :param arrow_head_length_factor: length of arrow head in axes coords
+                                        if style == arrow
         """
         size *= self.size_factor
 
@@ -9072,7 +9350,7 @@ class FigurePanel():
 
         # if direction was supplied as string, convert to degree first
         if type(direction) == str:
-            direction = self.direction_string_to_degree(direction,
+            direction = self._direction_string_to_degree(direction,
                                                         direction_from_head_to_tail)
 
         # if only one target was provided, convert to array
@@ -9083,7 +9361,7 @@ class FigurePanel():
             #  starting at target
             # 0 degrees is the 12 o'clock direction
             if (type(direction) == int) | (type(direction) == float):
-                direction_pos = self.direction_degree_to_position(direction, 
+                direction_pos = self._direction_degree_to_position(direction, 
                                                                   target)
             else:
                 direction_pos = direction
@@ -9100,19 +9378,19 @@ class FigurePanel():
 
             for position, ax in self.all_axs.items():
                 pre_identity = self.pos_to_pre_identity_map[position]
-                identity_matches = self.check_if_identity_matches_dict_criteria(pre_identity,
+                identity_matches = self._check_if_identity_matches_dict_criteria(pre_identity,
                                                                                 images)
                 if not identity_matches:
                     continue
 
-                image = self.get_img_from_axis(ax)
+                image = self._get_img_from_axis(ax)
 
                 # correct direction and target position for cropping of this image
-                new_direction = self.correct_xy_for_cropping_and_zoom(direction_pos[0],
+                new_direction = self._correct_xy_for_cropping_and_zoom(direction_pos[0],
                                                                       direction_pos[1],
                                                                       position[0],
                                                                       position[1])
-                new_target = self.correct_xy_for_cropping_and_zoom(target[0],
+                new_target = self._correct_xy_for_cropping_and_zoom(target[0],
                                                                    target[1],
                                                                    position[0],
                                                                    position[1])
@@ -9122,7 +9400,7 @@ class FigurePanel():
                         (new_target[1] > 0) & (new_target[1] < image.shape[-3])):
                     continue
 
-                dX_inch, dY_inch = self.get_dX_dY_inch(new_target,
+                dX_inch, dY_inch = self._get_dX_dY_inch(new_target,
                                                        new_direction, size_inch)
 
                 ax_coords = ax.get_position()
@@ -9154,11 +9432,11 @@ class FigurePanel():
                     label += str(arrow_head_width_factor)+ "_"
                     label += str(arrow_head_length_factor)
 
-                    # x0_ax, y0_ax = self.transform_coords_from_data_to_axes(x0_data,
+                    # x0_ax, y0_ax = self._transform_coords_from_data_to_axes(x0_data,
                     #                                                        y0_data,
                     #                                                        ax)
                     #
-                    # dx_ax, dy_ax = self.transform_coords_from_data_to_axes(dX_data,
+                    # dx_ax, dy_ax = self._transform_coords_from_data_to_axes(dX_data,
                     #                                                        dY_data,
                     #                                                        ax)
                     
@@ -9168,12 +9446,12 @@ class FigurePanel():
                     # reverse this step
                     # dy_ax -= 1
 
-                    # width,_ =self.transform_coords_from_data_to_axes(width,0,ax)
+                    # width,_ =self._transform_coords_from_data_to_axes(width,0,ax)
                     #
-                    # head_width,_ =self.transform_coords_from_data_to_axes(head_width,
+                    # head_width,_ =self._transform_coords_from_data_to_axes(head_width,
                     #                                                       0,ax)
                     #
-                    # head_length,_ =self.transform_coords_from_data_to_axes(head_length,
+                    # head_length,_ =self._transform_coords_from_data_to_axes(head_length,
                     #                                                        0,ax)
 
                     ax.arrow(x0_data, y0_data, - dX_data, - dY_data,
@@ -9207,7 +9485,7 @@ class FigurePanel():
                             markersize=size, mew=size/100, c=color)
 
 
-    def get_possible_direction_strings(self, direction_from_head_to_tail):
+    def _get_possible_direction_strings(self, direction_from_head_to_tail):
         possible_direction_strings = {}
         if direction_from_head_to_tail:
             possible_direction_strings["top"] = 180
@@ -9230,11 +9508,11 @@ class FigurePanel():
         return possible_direction_strings
 
 
-    def direction_string_to_degree(self, direction, direction_from_head_to_tail):
+    def _direction_string_to_degree(self, direction, direction_from_head_to_tail):
         """
         # if direction was supplied as string, convert to degree first
         """
-        possible_direction_strings = self.get_possible_direction_strings(direction_from_head_to_tail)
+        possible_direction_strings = self._get_possible_direction_strings(direction_from_head_to_tail)
         if direction not in possible_direction_strings:
             raise ValueError("The supplied string for the label direction '{}' "
                              "is not valid. Only the following strings "
@@ -9246,7 +9524,7 @@ class FigurePanel():
 
 
     @staticmethod
-    def direction_degree_to_position(direction, target):
+    def _direction_degree_to_position(direction, target):
         """
         # if direction was supplied as degrees, convert to position,
         starting at target
@@ -9258,8 +9536,7 @@ class FigurePanel():
         return direction
 
 
-
-    def get_dX_dY_inch(self, new_target, new_direction, size_inch):
+    def _get_dX_dY_inch(self, new_target, new_direction, size_inch):
         # define cases for no x and no y movement
         if (new_direction[0] - new_target[0]) == 0:
             dX_inch = 0
@@ -9284,8 +9561,6 @@ class FigurePanel():
         return dX_inch, dY_inch
 
 
-
-
     def add_scale_bar(self, um_per_px, position=None,
                       only_in_first_image_of_each=None,
                       row=None, column=None,
@@ -9293,16 +9568,26 @@ class FigurePanel():
                       line_width=3, always_draw_scale_bar = False):
         """
         add scale bar to image/s
+        :param um_per_px: how large is one px in um
         :param position: define where the scale bar should be added
                             set as "first_dimension-second dimension"
                             - e.g. "bottom-left" or "top-right"
-        :param um_per_px: how large is one px in um
         :param only_in_first_image_of_each: Defines in which dimension
                                             only the first image should
                                             show scale bar,
                                             if None, all images will show
                                             scale bar
-        :param length_um: list of lengths of scale bar in um, if more than one
+        :param row: row position that the image needs to be in grid
+                            to draw scale bar
+                            if None, any position in that dimension is allowed
+                            can be used to apply different um_per_px settings
+                            to different images
+        :param column: column position that the image needs to be in grid
+                            to draw scale bar
+                            if None, any position in that dimension is allowed
+                            can be used to apply different um_per_px settings
+                            to different images
+        :param lengths_um: list of lengths of scale bar in um, if more than one
                         and more than one scales of images
                         (e.g. with zoom) are there
                         smaller scale bars will be mapped on zooms
@@ -9314,12 +9599,13 @@ class FigurePanel():
                         or can be list of two values,
                         then the first will be for the x
                         and the second for the y axis
-        :param row, column: position that the image needs to be in grid
-                            to draw scale bar
-                            if None, any position in that dimension is allowed
-                            can be used to apply different um_per_px settings
-                            to different images
         :param line_width: line thickness in points
+        :param always_draw_scale_bar: Whether to draw scale bars in every image
+                                        even though they are the same scale.
+                                        Only recommended in very special cases.
+                                        Normally several scale bars for images
+                                        with the same scale look like the scales
+                                        are slightly different.
         """
         scale_bar_widths = np.zeros((self.max_row + 1, self.max_col +1))
 
@@ -9334,7 +9620,7 @@ class FigurePanel():
 
         # create array of um per inch for each image
         for ax_position, ax in self.all_axs.items():
-            image = self.get_img_from_axis(ax)
+            image = self._get_img_from_axis(ax)
             width = image.shape[-2]
             height = image.shape[-3]
 
@@ -9349,7 +9635,10 @@ class FigurePanel():
 
         # get unique values of scale bar widths
         positions_to_draw_scale_bar = []
-        unique_scale_bar_widths = np.unique(scale_bar_widths)
+        if always_draw_scale_bar:
+            unique_scale_bar_widths = scale_bar_widths
+        else:
+            unique_scale_bar_widths = np.unique(scale_bar_widths)
         for unique_scale_bar_width in unique_scale_bar_widths:
 
             if unique_scale_bar_width == 0:
@@ -9425,7 +9714,7 @@ class FigurePanel():
             row_pos = ax_position[0]
             column_pos = ax_position[1]
 
-            position_correct = self.check_if_positions_match(row_pos,
+            position_correct = self._check_if_positions_match(row_pos,
                                                              column_pos,
                                                              row, column)
             if not position_correct:
@@ -9441,7 +9730,7 @@ class FigurePanel():
             if not draw_scale_bar:
                 continue
 
-            image = self.get_img_from_axis(ax)
+            image = self._get_img_from_axis(ax)
             width = image.shape[-2]
             height = image.shape[-3]
 
@@ -9475,7 +9764,7 @@ class FigurePanel():
             if bottom:
                 padding_y += line_width_px
 
-            x0, x1, y0, y1 = FigurePanel.get_xy_from_position(position, length,
+            x0, x1, y0, y1 = FigurePanel._get_xy_from_position(position, length,
                                                               standard_x_position,
                                                               standard_y_position,
                                                               width, height,
@@ -9490,7 +9779,7 @@ class FigurePanel():
             ax.add_line(line)
 
     @staticmethod
-    def get_xy_from_position(position, length, standard_x_position,
+    def _get_xy_from_position(position, length, standard_x_position,
                              standard_y_position, width, height,
                              padding_x, padding_y, obj_height):
         """
@@ -9518,7 +9807,7 @@ class FigurePanel():
         return x0, x1, y0, y1
 
 
-    def get_maximum_font_size(self, extract_text_from_identity,
+    def _get_maximum_font_size(self, extract_text_from_identity,
                               starting_font_size, padding,
                               only_show_in_rows = None,
                               only_show_in_columns = None):
@@ -9529,7 +9818,7 @@ class FigurePanel():
         all_texts = []
         axs_to_plot = []
         for ax_position, ax in self.all_axs.items():
-            position_correct = self.check_if_pos_is_in_row_col_list(ax_position[0],
+            position_correct = self._check_if_pos_is_in_row_col_list(ax_position[0],
                                                                     ax_position[1],
                                                                     only_show_in_rows,
                                                                     only_show_in_columns)
@@ -9564,7 +9853,7 @@ class FigurePanel():
                                               size= -font_size_px)
             max_text_width = 0
             for text in all_texts:
-                text_width,_ = FigurePanel.get_dimension_of_text(text,
+                text_width,_ = FigurePanel._get_dimension_of_text(text,
                                                                  font_size, ax)
                 max_text_width = max(max_text_width, text_width)
 
@@ -9576,68 +9865,14 @@ class FigurePanel():
                 break
         return font_size
 
-    def annotate_within_image(self, text, position, color="white",
-                              only_show_in_rows=None, only_show_in_columns=None,
-                              font_size = None,
-                              padding=0.015, orientation="hor"):
-        """
-        :param text: String of annotation added to images
-        :param only_show_in_row: list of rows in which the labels should
-                                be displayed, if None display in all rows
-        :param only_show_in_column: list of columns in which the labels
-                                    should be displayed, if None display
-                                    in all columns
-        """
-        if font_size == None:
-            font_size = self.font_size
-
-        standard_x_position = "right"
-        standard_y_position = "bottom"
-        font_size_pt = FontProperties(size=font_size).get_size_in_points()
-
-        for ax_position, ax in self.all_axs.items():
-            # check if current row and column should contain the label
-            row = ax_position[0]
-            column = ax_position[1]
-            position_allowed = self.check_if_pos_is_in_row_col_list(row, column,
-                                                                    only_show_in_rows,
-                                                                    only_show_in_columns)
-            if not position_allowed:
-                continue
-
-            if orientation.lower() == "vert":
-                rotation = 90
-            else:
-                rotation = 0
-
-            total_txt_width_px,_ = FigurePanel.get_dimension_of_text(text,
-                                                                     font_size_pt,
-                                                                     ax, rotation)
-
-            x0, y0 = FigurePanel.get_xy_of_text_from_position(text, ax, position,
-                                                              total_txt_width_px,
-                                                              font_size_pt,
-                                                              standard_x_position,
-                                                              standard_y_position,
-                                                              padding, orientation)
-            if orientation == "hor":
-                rotation = 0
-            elif orientation == "vert":
-                rotation= 90
-            self._add_text_within_image_at_coords(ax, text, x0, y0,
-                                                  total_txt_width_px,
-                                                  font_size_pt, color,
-                                                  rotation)
-
-
-    def get_width_of_space(self, font_size_pt, ax):
+    def _get_width_of_space(self, font_size_pt, ax):
         # space by itself is not measured for length when at end of string
         # therefore get length of space by change of string with and without
         # space at the start
-        width_with_space_px = FigurePanel.get_dimension_of_text(" a",
+        width_with_space_px = FigurePanel._get_dimension_of_text(" a",
                                                                 font_size_pt,
                                                                 ax)[0]
-        width_no_space_px = FigurePanel.get_dimension_of_text("a",
+        width_no_space_px = FigurePanel._get_dimension_of_text("a",
                                                               font_size_pt,
                                                               ax)[0]
         width_space_px = width_with_space_px - width_no_space_px
@@ -9664,15 +9899,23 @@ class FigurePanel():
                                 to the channel number in the image filename
                                 if None, defaults for colors to
                                 cmaps used to display channel/s
-        :param only_show_in_row: list of rows in which the labels
+        :param position: define where the timestamp should be added
+                            set as "first_dimension-second dimension"
+                            - e.g. "bottom-left" or "top-right"
+        :param color: Color of label
+        :param images: list of dict or dict
+                        dict  specifies on which images should be drawn
+                       the key is the category and the value
+                       is a list of allowed values
+        :param only_show_in_rows: list of rows in which the labels
                                 should be displayed, if None display in all rows
-        :param only_show_in_column: list of columns in which the labels
+        :param only_show_in_columns: list of columns in which the labels
                                     should be displayed,
                                     if None display in all columns
         :param string_separating_channels: For composites with multiple channels
                                             add this string between channels
                                             maximum one space in a row is allowed
-
+        :param padding: Padding in inches of label from image edges
         """
         # potential feature to add:
         # allow supply of single channel images and plot them as composite
@@ -9684,7 +9927,7 @@ class FigurePanel():
         standard_y_position = "bottom"
         fig = plt.gcf()
         fig_width_px = fig.get_size_inches()[0] * fig.dpi
-        if not self.is_none(channel_colors):
+        if not self._is_none(channel_colors):
             if len(channel_names) != len(channel_colors):
                 raise ValueError("The lists for channel_names and "
                                  "channel_colors "
@@ -9693,12 +9936,12 @@ class FigurePanel():
                                  "{} long.".format(len(channel_names),
                                                    len(channel_colors)))
 
-        func_get_channel_name = functools.partial(self.get_channelname_from_identity,
+        func_get_channel_name = functools.partial(self._get_channelname_from_identity,
                                                   channel_names=channel_names,
                                                   string_separating_channels=
                                                   string_separating_channels)
 
-        font_size = self.get_maximum_font_size(extract_text_from_identity=
+        font_size = self._get_maximum_font_size(extract_text_from_identity=
                                                func_get_channel_name,
                                                starting_font_size=font_size,
                                                padding=padding,
@@ -9717,7 +9960,7 @@ class FigurePanel():
 
         if string_between_with_space:
             ax = list(self.all_axs.values())[0]
-            width_space_px =  self.get_width_of_space(font_size_pt, ax)
+            width_space_px =  self._get_width_of_space(font_size_pt, ax)
 
         # keep track of all channels
         all_channels = []
@@ -9725,7 +9968,7 @@ class FigurePanel():
             # check if current row and column should contain the label
             row = ax_position[0]
             column = ax_position[1]
-            position_allowed = self.check_if_pos_is_in_row_col_list(row,
+            position_allowed = self._check_if_pos_is_in_row_col_list(row,
                                                                     column,
                                                                     only_show_in_rows,
                                                                     only_show_in_columns)
@@ -9742,24 +9985,24 @@ class FigurePanel():
 
             all_channels.append(1)
 
-            if not self.is_none(channel_colors):
-                channel_colors_one_file = self.get_info_for_channel_from_identity(identity,
+            if not self._is_none(channel_colors):
+                channel_colors_one_file = self._get_info_for_channel_from_identity(identity,
                                                                                   channel_colors,
                                                                                   color)
             else:
                 cmaps_for_img = self.cmaps_for_position[ax_position]
                 channel_colors_one_file = [cmap(1.0) for cmap in cmaps_for_img]
 
-            channel_names_one_file = self.get_info_for_channel_from_identity(identity,
+            channel_names_one_file = self._get_info_for_channel_from_identity(identity,
                                                                              channel_names)
-            channel_name  = self.get_channelname_from_identity(identity,
+            channel_name  = self._get_channelname_from_identity(identity,
                                                                channel_names)
 
-            total_txt_width_px,_ = FigurePanel.get_dimension_of_text(channel_name,
+            total_txt_width_px,_ = FigurePanel._get_dimension_of_text(channel_name,
                                                                      font_size_pt,
                                                                      ax)
 
-            x0, y0 = FigurePanel.get_xy_of_text_from_position(channel_name, ax,
+            x0, y0 = FigurePanel._get_xy_of_text_from_position(channel_name, ax,
                                                               position,
                                                               total_txt_width_px,
                                                               font_size_pt,
@@ -9774,7 +10017,7 @@ class FigurePanel():
             x = x0
             string_between = string_separating_channels
 
-            string_between_lengt_rel = (FigurePanel.get_dimension_of_text(string_between,
+            string_between_lengt_rel = (FigurePanel._get_dimension_of_text(string_between,
                                                                          font_size_pt,
                                                                          ax)[0]
                                          / ax_width_px)
@@ -9798,7 +10041,7 @@ class FigurePanel():
                                                       font_size_pt, channel_color,
                                                       label="label_channel"
                                                       )
-                channel_name_length_rel = FigurePanel.get_dimension_of_text(channel_name,
+                channel_name_length_rel = FigurePanel._get_dimension_of_text(channel_name,
                                                                             font_size_pt,
                                                                             ax)[0] / (ax_width_px)
                 x += channel_name_length_rel
@@ -9814,10 +10057,10 @@ class FigurePanel():
                                color, standard_x_position,
                                standard_y_position, padding,
                                ax_position, label=""):
-        txt_width_px, _ = FigurePanel.get_dimension_of_text(text, font_size_pt, 
+        txt_width_px, _ = FigurePanel._get_dimension_of_text(text, font_size_pt,
                                                             ax)
 
-        x0, y0 = FigurePanel.get_xy_of_text_from_position(text, ax, position,
+        x0, y0 = FigurePanel._get_xy_of_text_from_position(text, ax, position,
                                                           txt_width_px,
                                                           font_size_pt,
                                                           standard_x_position,
@@ -9829,7 +10072,7 @@ class FigurePanel():
                                               txt_width_px, font_size_pt, color,
                                               label=label)
 
-    def rel_ax_coords_to_px_coords(self, xy, ax):
+    def _rel_ax_coords_to_px_coords(self, xy, ax):
         xy = list(xy)
         fig = plt.gcf()
         fig_size_inches = fig.get_size_inches()
@@ -9838,7 +10081,7 @@ class FigurePanel():
         xy[1] *= ax_size.height * fig_size_inches[1] * fig.dpi
         return xy
 
-    def px_coords_to_rel_ax_coords(self, xy, ax):
+    def _px_coords_to_rel_ax_coords(self, xy, ax):
         xy = list(xy)
         fig = plt.gcf()
         fig_size_inches = fig.get_size_inches()
@@ -9847,57 +10090,62 @@ class FigurePanel():
         xy[1] *= ax_size.height * fig_size_inches[1] * fig.dpi
         return xy
 
-    def add_text_within_at_coords(self, text,
-                                        x, y, font_size=7,
-                                        line_spacing=1,
-                                        hor_align = "left",
-                                        vert_align="bottom",
-                                        images=None,
-                                        only_show_in_rows=None,
-                                        only_show_in_columns=None,
-                                  correct_for_cropping=True):
 
-        for position, ax in self.all_axs.items():
-            row = position[0]
-            column = position[1]
+    def annotate_within_image(self, text, position, color="white",
+                              only_show_in_rows=None, only_show_in_columns=None,
+                              font_size = None,
+                              padding=0.015, orientation="hor"):
+        """
+        Add text within image at a position.
+        :param text: String of annotation added to images
+        :param only_show_in_rows: list of rows in which the labels should
+                                be displayed, if None display in all rows
+        :param only_show_in_columns: list of columns in which the labels
+                                    should be displayed, if None display
+                                    in all columns
+        """
+        if font_size == None:
+            font_size = self.font_size
 
-            pre_identity = self.pos_to_pre_identity_map[position]
-            identity_matches = self.check_if_identity_matches_dict_criteria(pre_identity,
-                                                                            images)
+        standard_x_position = "right"
+        standard_y_position = "bottom"
+        font_size_pt = FontProperties(size=font_size).get_size_in_points()
 
-
-            grid_position_correct = False
-            if identity_matches:
-                grid_position_correct = self.check_if_pos_is_in_row_col_list(row, column,
-                                                                         only_show_in_rows,
-                                                                         only_show_in_columns)
-
-            if (not identity_matches) | (not grid_position_correct):
+        for ax_position, ax in self.all_axs.items():
+            # check if current row and column should contain the label
+            row = ax_position[0]
+            column = ax_position[1]
+            position_allowed = self._check_if_pos_is_in_row_col_list(row, column,
+                                                                    only_show_in_rows,
+                                                                    only_show_in_columns)
+            if not position_allowed:
                 continue
 
-            image_dim = self.get_img_from_axis(ax).shape
-            image_width = image_dim[-2]
-            image_height = image_dim[-3]
-
-            # actually the correction for cropping is not needed here!
-            # but positions are already optimized for cropping correction
-            if correct_for_cropping:
-                (x_corrected,
-                 y_corrected) = self.correct_xy_for_cropping_and_zoom(x, y,
-                                                                      position[0],
-                                                                      position[1])
+            if orientation.lower() == "vert":
+                rotation = 90
             else:
-                x_corrected = x
-                y_corrected = y
+                rotation = 0
 
-            x_rel = x_corrected/image_width
-            y_rel = y_corrected/image_height
+            total_txt_width_px,_ = FigurePanel._get_dimension_of_text(text,
+                                                                     font_size_pt,
+                                                                     ax, rotation)
 
-            self._add_text_within_image_at_coords(ax, text, x_rel, 1 - y_rel,
-                                                  0, font_size, "white",
-                                                  ha=hor_align,
-                                                  va=vert_align,
-                                                  line_spacing=line_spacing)
+            x0, y0 = FigurePanel._get_xy_of_text_from_position(text, ax, position,
+                                                              total_txt_width_px,
+                                                              font_size_pt,
+                                                              standard_x_position,
+                                                              standard_y_position,
+                                                              padding, orientation)
+            if orientation == "hor":
+                rotation = 0
+            elif orientation == "vert":
+                rotation= 90
+            self._add_text_within_image_at_coords(ax, text, x0, y0,
+                                                  total_txt_width_px,
+                                                  font_size_pt, color,
+                                                  rotation)
+
+
 
 
     def _add_text_within_image_at_coords(self, ax, text, x, y,
@@ -9911,7 +10159,7 @@ class FigurePanel():
                     linespacing=line_spacing)
 
     @staticmethod
-    def get_dimension_of_text(text, font_size_pt, ax, rotation_degrees = 0):
+    def _get_dimension_of_text(text, font_size_pt, ax, rotation_degrees = 0):
         fig = plt.gcf()
         # get size of text by drawing it and then removing it again
         txt_width_measure = ax.annotate(xy=(0,0),text=text,
@@ -9926,7 +10174,7 @@ class FigurePanel():
         txt_width_measure.remove()
         return txt_width_px, txt_height_px
 
-    def get_info_for_channel_from_identity(self, identity,
+    def _get_info_for_channel_from_identity(self, identity,
                                            info_array, standard_value = None):
         """
         Extract info of one identity from info_array for all channels.
@@ -9956,12 +10204,12 @@ class FigurePanel():
         return info_one_image
 
 
-    def get_channelname_from_identity(self, identity, channel_names,
+    def _get_channelname_from_identity(self, identity, channel_names,
                                       string_separating_channels = " / "):
         """
         Get full name of the channel from the identity.
         """
-        channel_names_one_file = self.get_info_for_channel_from_identity(identity,
+        channel_names_one_file = self._get_info_for_channel_from_identity(identity,
                                                                          channel_names)
         for channel_nb, one_channel_name in enumerate(channel_names_one_file):
             # add string that will be added in between channel names,
@@ -9975,7 +10223,7 @@ class FigurePanel():
         return channel_name
 
 
-    def find_and_validate_unit_of_timestamp_freq(self, time_per_frame, allowed_units):
+    def _find_and_validate_unit_of_timestamp_freq(self, time_per_frame, allowed_units):
         unit_finder = re.compile("[a-zA-Z]+")
         number_finder = re.compile("[\d]+")
         # extract unit of frame and number of units
@@ -9995,7 +10243,7 @@ class FigurePanel():
         return unit, number_units
 
 
-    def validate_timestamp_format(self, format, format_units_allowed):
+    def _validate_timestamp_format(self, format, format_units_allowed):
         format_units_allowed = ["s","m","h"]
         format_units_not_used = copy.copy(format_units_allowed)
         format_steps = format.split(":")
@@ -10028,7 +10276,7 @@ class FigurePanel():
                                  "letter.".format(format_step))
 
 
-    def get_number_of_units_from_seconds(self, frame_sec, unit):
+    def _get_number_of_units_from_seconds(self, frame_sec, unit):
         if unit == "s":
             unit_number = frame_sec
             frame_sec -= unit_number
@@ -10042,7 +10290,7 @@ class FigurePanel():
         return unit_number, frame_sec
 
 
-    def get_frame_string(self, frame, start_time,
+    def _get_frame_string(self, frame, start_time,
                          time_per_frame, format, show_unit,
                         first_time_difference, frame_jumps,
                          long_unit_names, all_units_shown):
@@ -10056,10 +10304,10 @@ class FigurePanel():
         allowed_units = [*sec_units,*min_units,*h_units]
 
         (unit,
-         number_units) = self.find_and_validate_unit_of_timestamp_freq(time_per_frame,
+         number_units) = self._find_and_validate_unit_of_timestamp_freq(time_per_frame,
                                                                         allowed_units)
 
-        self.validate_timestamp_format(format,allowed_units)
+        self._validate_timestamp_format(format,allowed_units)
 
         add_frame_diff = 0
         #  adjust actual frame by framejumps
@@ -10098,7 +10346,7 @@ class FigurePanel():
             unit_step = format_step[0]
 
             (unit_number,
-             frame_sec) = self.get_number_of_units_from_seconds(frame_sec,
+             frame_sec) = self._get_number_of_units_from_seconds(frame_sec,
                                                                 unit_step)
 
             format_step_string = str(int(unit_number)).zfill(number_len)
@@ -10133,13 +10381,13 @@ class FigurePanel():
 
 
     def add_timestamp(self, time_per_frame, start_time=0,
-                      format="mm:ss", position=None, font_size=None,
-                    padding= 0.015, color="white", show_only_in_zoom=False,
+                      format="mm:ss", color="white", show_only_in_zoom=False,
                       show_unit=False, first_time_difference = 1,
                        frame_jumps = None,
                       only_show_in_rows=None, only_show_in_columns=None,
                       show_unit_only_once=True, long_unit_names=False,
-                      all_units_shown = False):
+                      all_units_shown = False, position=None, font_size=None,
+                    padding= 0.015, ):
         """
         Add timestamp text to each image in panel. 
         timestamps MUST be added after other annotations were added
@@ -10149,21 +10397,37 @@ class FigurePanel():
                                 after number
         :param start_time: what frame-frame does number 1 equal
                             (start at negative value positive to indicate it
-                            was before e.g. a treatment)
+                            was before e.g. a treatment):param start_time: number of first timeframe
+        :param time_per_frame: string of number and unit ("m" for min,
+                                "h" for hour, or "s" for second) for
+                                time difference between frames
+        :param format: format of how time should be displayed.
+                        The number of letter indicates the number of digits
+                        in that category. Possible categories are "s" for
+                        seconds, "m" for minutes or "h" for hours.
+        :param show_unit: Whether to show unit name in the label of the time
+        :param first_time_difference: Difference of timesteps
+                                        from first to second frame
+                                        (helpful if after a first frame there
+                                        was an imaging break, longer than the
+                                        normal time between frames)
+        :param frame_jumps: Dictionary with keys being timepoint before which
+                            timejumps happened and values being number of frames
+                            that the jump was long (e.g. {4: 2, 10:20} for a
+                            timejump of 2 timeframes before timeframe 5 and a
+                            timejump of 20 timeframes before timeframe 11)
+        :param long_unit_names: Whether to use long unit names ("min" instead of
+                                "m", "hour" instead of "h" and "sec" instead of
+                                "s").
+        :param all_units_shown: Whether to show the unit name of the
+                                first unit in the format (e.g. "h" for "hh:mm)
+                                (if False) or both unit names separated by ":"
+                                (if True)
         :param position: define where the timestamp should be added
                             set as "first_dimension-second dimension"
                             - e.g. "bottom-left" or "top-right"
-        :param frame_jumps: Dict in which the key is the frame at right
-                            before which the jump occurs
-                            and the value is the number of frames
-                            that the jump was long
-        long_unit_names (Boolean): Whether long ("sec", "min", "hour") or
-                                    short ("s", "m", "h") unit names should
-                                    be shown
-        all_units_shown (Boolean): Whether all units should be shown in
-                                    timestamp
-                                    if True, for format "ss:mm":
-                                    "s:m" / "sec:min" will be shown
+        :param font_size: font size of timestamp label
+        :param padding: padding of timestamp from edges of image in inches
         """
 
         if font_size == None:
@@ -10187,7 +10451,7 @@ class FigurePanel():
         all_frames = []
         for ax_position, ax in self.all_axs.items():
 
-            position_allowed = self.check_if_pos_is_in_row_col_list(ax_position[0],
+            position_allowed = self._check_if_pos_is_in_row_col_list(ax_position[0],
                                                                     ax_position[1],
                                                                     only_show_in_rows,
                                                                     only_show_in_columns)
@@ -10207,7 +10471,7 @@ class FigurePanel():
             frame = identity[self.map["frames"]]
             all_frames.append(frame)
 
-            final_format_string = self.get_frame_string(frame, start_time,
+            final_format_string = self._get_frame_string(frame, start_time,
                                                         time_per_frame, format,
                                                         show_unit,
                                                         first_time_difference,
@@ -10215,10 +10479,10 @@ class FigurePanel():
                                                         long_unit_names,
                                                         all_units_shown)
 
-            txt_width_px,_ = FigurePanel.get_dimension_of_text(final_format_string,
+            txt_width_px,_ = FigurePanel._get_dimension_of_text(final_format_string,
                                                                font_size_pt, ax)
 
-            x0, y0 = FigurePanel.get_xy_of_text_from_position(final_format_string,
+            x0, y0 = FigurePanel._get_xy_of_text_from_position(final_format_string,
                                                               ax, position,
                                                               txt_width_px,
                                                               font_size_pt,
@@ -10239,7 +10503,7 @@ class FigurePanel():
             print("WARNING: Only one timepoint was annotated.")
 
     @staticmethod
-    def get_xy_of_text_from_position(text, ax, position, txt_width_px,
+    def _get_xy_of_text_from_position(text, ax, position, txt_width_px,
                                      font_size_pt, standard_x_position,
                                      standard_y_position, padding,
                                      orientation="hor"):
@@ -10257,7 +10521,7 @@ class FigurePanel():
         else:
             rotation = 0
 
-        _, font_size_px = FigurePanel.get_dimension_of_text(text,
+        _, font_size_px = FigurePanel._get_dimension_of_text(text,
                                                             font_size_pt,
                                                             ax, rotation)
 
@@ -10306,7 +10570,7 @@ class FigurePanel():
             padding_y = (padding - less_y_padding_inch) / ax_height_inch
 
 
-        x0, _, y0, _ = FigurePanel.get_xy_from_position(position, txt_width_rel,
+        x0, _, y0, _ = FigurePanel._get_xy_from_position(position, txt_width_rel,
                                                         standard_x_position,
                                                         standard_y_position,
                                                         width, height,
@@ -10367,7 +10631,7 @@ class FigurePanel():
         return x_position.lower(), y_position.lower()
 
 
-    def remove_placeholder_images(self):
+    def _remove_placeholder_images(self):
         for ax_position, ax in self.all_axs.items():
             # do not try to remove a panel that was already removed
             if ax.figure is None:
@@ -10376,12 +10640,18 @@ class FigurePanel():
             if identity[0] == -1:
                 ax.remove()
 
-
     def draw_line_on_plots(self, positions, axis,
                             line_width = 1, color = "white",
                             line_style="-",**kwargs):
         """
-        This is not implemented for multiple rows of data plots yet
+        Draw lines on data plots.
+        This is not implemented for multiple rows of data plots yet.
+        :param positions: list of positions (x or y) of adding line
+        :param axis: axis of positions ("x" or "y")
+        :param line_width: line width in pt
+        :param color: color of line
+        :param line_style: linestyle as typical matplotlib linestyle
+                            (e.g. "-" or "--" or "-.-")
         """
         if type(positions) not in [tuple, list]:
             positions = [positions]
@@ -10423,12 +10693,20 @@ class FigurePanel():
                             **kwargs):
         """
         Draw a line on images
+        :param position: positions (x or y) of adding line
         :param orientation:  either "hor" / "horizontal" or "vert" / "vertical"
+        :param line_width: line width in pt
+        :param color: color of line
+        :param line_style: linestyle as typical matplotlib linestyle
+                            (e.g. "-" or "--" or "-.-")
+        :param only_show_in_rows: list of rows in which line should be added
+        :param only_show_in_columns: list of columns in which line
+                                     should be added
         """
         for ax_position, ax in self.all_axs.items():
             row = ax_position[0]
             column = ax_position[1]
-            draw_line_here = self.check_if_pos_is_in_row_col_list(row, column,
+            draw_line_here = self._check_if_pos_is_in_row_col_list(row, column,
                                                                   only_show_in_rows,
                                                                   only_show_in_columns)
 
@@ -10436,7 +10714,7 @@ class FigurePanel():
                 continue
 
             if len(ax.images) > 0:
-                image = self.get_img_from_axis(ax)
+                image = self._get_img_from_axis(ax)
                 min_y = 0
                 # y dimension (height) is the first
                 max_y = image.shape[-3] - 1
@@ -10504,10 +10782,10 @@ class FigurePanel():
         """
         # define functions to prevent line length going over limit
         # but still keeping clear function names
-        is_pos_in_list = self.check_if_pos_is_in_row_col_list
-        correct_position = self.correct_xy_for_cropping_and_zoom
+        is_pos_in_list = self._check_if_pos_is_in_row_col_list
+        correct_position = self._correct_xy_for_cropping_and_zoom
         coords_from_data_to_axes = self.transform_coords_from_data_to_axes
-        identity_matches_criteria = self.check_if_identity_matches_dict_criteria
+        identity_matches_criteria = self._check_if_identity_matches_dict_criteria
 
         for ax_position, ax in self.all_axs.items():
             position_allowed = is_pos_in_list(ax_position[0], ax_position[1],
@@ -10580,9 +10858,13 @@ class FigurePanel():
         Font sizes above 40 will be scaled *2
         For all other text self.font_size will be used
         and optionally multiplied with font_size_factor
+        :param font_size_factor: font_size factor by which to scale text
+                                that has a font size > 40 pt in powerpoint
+        :param font_size: font_size to use, if None, use default of figure_panel
+        :param linespacing: spacing of lines when text includes line breaks
         """
 
-        if FigurePanel.is_none(font_size):
+        if FigurePanel._is_none(font_size):
            font_size = self.font_size
 
 
@@ -10674,7 +10956,7 @@ class FigurePanel():
             all_texts.append(new_text)
 
         # in ax image, delete portions of the image with text
-        image = self.get_img_from_axis(ax)
+        image = self._get_img_from_axis(ax)
 
         # cut out additional padding around the image by removing
         # everything that is transparent
@@ -10731,7 +11013,7 @@ class FigurePanel():
             if text["fontsize"] > 40:
                 text_fontsize *= 2
             else:
-                if not FigurePanel.is_none(font_size_factor):
+                if not FigurePanel._is_none(font_size_factor):
                     text_fontsize *= font_size_factor
                     
             new_text = ax.text(x0, 1-y0, text["text"],
@@ -10743,7 +11025,7 @@ class FigurePanel():
                                 fontsize=text_fontsize,
                                 linespacing=linespacing)
 
-    def transform_coords_from_axes_to_data(self, x, y, ax):
+    def _transform_coords_from_axes_to_data(self, x, y, ax):
         x_lim = ax.get_xlim()
         ax_width_px = max(x_lim) - min(x_lim)
         y_lim = ax.get_ylim()
@@ -10753,7 +11035,7 @@ class FigurePanel():
         return x_trans, y_trans
 
 
-    def transform_coords_from_data_to_axes(self, x, y, ax):
+    def _transform_coords_from_data_to_axes(self, x, y, ax):
         x_lim = ax.get_xlim()
         ax_width_px = max(x_lim) - min(x_lim)
         y_lim = ax.get_ylim()
@@ -10762,44 +11044,36 @@ class FigurePanel():
         y_trans = y / ax_height_px
         return x_trans, 1-y_trans
 
-    def smallestbox(a):
-        r = a.any(1)
-        if r.any():
-            m,n = a.shape
-            c = a.any(0)
-            out = a[r.argmax():m-r[::-1].argmax(),
-                    c.argmax():n-c[::-1].argmax()]
-        return out
-
-
-
     def draw_marker(self, frames = None, channels = None, images = None,
-                    position=None, radius=0.15,
-                    padding= 0.015, color="white", show_only_in_zoom=False,
-                    only_show_in_columns=None,
-                    only_show_in_rows = None):
+                    radius=0.15, color="white", show_only_in_zoom=False,
+                    only_show_in_columns=None, only_show_in_rows = None):
         """
-        Add marker to specific images.
-
+        Add marker (circle) to specific upper left edge in images.
+        :param frames: Will be deprecated
+                    list, which frames the zoom should be applied to.
+                    If None, it will be applied to all channels
+        :param channels: Will be deprecated
+                    list, which channels the zoom should be applied to.
+                    If None, it will be applied to all channels
         :param images: dict with each key corresponding to one category
                         ("images", "channels" and "frames" allowed) and
                         the value being a list with all allowed values
                     Alternative use, will be deprecated:
                     list, which images the zoom should be applied on.
                     If None, it will be applied to all images
-        :param channels: Will be deprecated
-                    list, which channels the zoom should be applied to.
-                    If None, it will be applied to all channels
-        :param frames: Will be deprecated
-                    list, which frames the zoom should be applied to.
-                    If None, it will be applied to all channels
         :param radius: radius in inches
+        :param color: color of circle
+        :param show_only_in_zoom: Whether show marker only in zoomed images
+        :param only_show_in_columns: List of columns of image grid in which
+                                        to add the marker
+        :param only_show_in_rows: List of rows of image grid in which
+                                        to add the marker
         """
         fig = plt.gcf()
         fig_size_inches = fig.get_size_inches()
         for ax_position, ax in self.all_axs.items():
 
-            position_allowed = self.check_if_pos_is_in_row_col_list(ax_position[0],
+            position_allowed = self._check_if_pos_is_in_row_col_list(ax_position[0],
                                                                     ax_position[1],
                                                                     only_show_in_rows,
                                                                     only_show_in_columns)
@@ -10811,7 +11085,7 @@ class FigurePanel():
             identity = self.pos_to_pre_identity_map[ax_position]
 
             if type(images) == dict:
-                identity_correct = self.check_if_identity_matches_dict_criteria(
+                identity_correct = self._check_if_identity_matches_dict_criteria(
                                                                         identity,
                                                                         images)
             else:
@@ -10830,7 +11104,7 @@ class FigurePanel():
                         identity_correct = False
             if identity_correct:
                 # calculate radius in inches
-                image = self.get_img_from_axis(ax)
+                image = self._get_img_from_axis(ax)
                 inch_per_px = ( ax.get_position().width * fig_size_inches[0] ) \
                                 / image.shape[-2]
                 radius_px = int( np.round(radius / inch_per_px , 0) )
