@@ -5870,7 +5870,7 @@ class FigurePanel():
         # if the _sub category is defined for the current label_cat
         # for that remap the positions_for_cat_vals dict
         if not ((label_cat+"_sub" in self.sub_category_map) & 
-                label_sub_remapped:)
+                label_sub_remapped):
             return positions_for_cat_vals
         new_positions_for_cat_vals = {}
         for image_nb, value in  positions_for_cat_vals.items():
@@ -11046,7 +11046,8 @@ class FigurePanel():
 
     def draw_marker(self, frames = None, channels = None, images = None,
                     radius=0.15, color="white", show_only_in_zoom=False,
-                    only_show_in_columns=None, only_show_in_rows = None):
+                    only_show_in_columns=None, only_show_in_rows = None,
+                    position=None):
         """
         Add marker (circle) to specific upper left edge in images.
         :param frames: Will be deprecated
@@ -11068,6 +11069,7 @@ class FigurePanel():
                                         to add the marker
         :param only_show_in_rows: List of rows of image grid in which
                                         to add the marker
+        :param position: Not implemented
         """
         fig = plt.gcf()
         fig_size_inches = fig.get_size_inches()

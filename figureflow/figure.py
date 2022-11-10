@@ -555,7 +555,7 @@ class Figure():
                                   "color": color,
                                   "include_all_labels": include_all_labels,
                                   "arrow_props": arrow_props,
-                                  "change_cropping":change_cropping
+                                  "change_cropping":change_cropping,
                                   "plot_row_col_pos_of_cropping":
                                       plot_row_col_pos_of_cropping,
                                   "get_text_pos_as_abs_data_coords":
@@ -586,7 +586,7 @@ class Figure():
         if hasattr(self.current_panel, "pos_to_pre_identity_map"):
             # panel with data plots do not have the attribute
             # and does not have placeholder images
-            self.current_panel.remove_placeholder_images()
+            self.current_panel._remove_placeholder_images()
 
         if self.panel_to_edit is not None:
             if self.panel_to_edit in self.all_panels.keys():
@@ -753,7 +753,7 @@ class Figure():
         if hasattr(panel_to_edit, "pos_to_pre_identity_map"):
             # panel with data plots do not have the attribute
             # and does not have placeholder images
-            panel_to_edit.remove_placeholder_images()
+            panel_to_edit._remove_placeholder_images()
 
         app = QtWidgets.QApplication(sys.argv)
         main = FigureEditorGUI(panel_to_edit, font_size=self.font_size,
