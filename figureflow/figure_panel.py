@@ -222,13 +222,12 @@ class FigurePanel():
         self._initiate_label_dicts()
 
 
-
-
     def set_image_scaling(self, x_scale = 1, y_scale = 1):
         """
         Set scaling for how values on image axes should be scaled for displaying
         the values on the axes ticks
         (does not change the size of images but only the axes tick values)
+
         :param x_scale: Relative scale of x values
         :param y_scale: Relative scale of y values
         """
@@ -264,6 +263,7 @@ class FigurePanel():
         after functions that annotate outside of the image.
         Ranges seemingly can only be extracted from ImageJ images
         if the LUT is set to gray.
+
         :param images: List of images (integers) which should be displayed
                         each image corresponds to one image file for the 
                         panel
@@ -928,18 +928,6 @@ class FigurePanel():
         self.space_for_labels["top"] = 0
         self.space_for_labels["bottom"] = 0
 
-
-    def lower(self, string):
-        """
-        Return lower version of string.
-        If string is None, prevent error and just return None.
-        """
-        if self._is_none(string):
-            return string
-        else:
-            return string.lower()
-
-
     def add_colorbars(self, site ="right", channels = None,
                       tick_labels = None,
                       size = 0.1, tick_distance_from_edge = 0.2,
@@ -951,6 +939,7 @@ class FigurePanel():
         """
         Add colorbars to imagegrid, based on their colormaps.
         For each colormap in the image grid only one colorbar will be shown.
+
         :param site: None or str, one of ["bottom", "top", "left", "right"]
                     colorbar will be shown at the respective site of the panel
                     If it is bottom or top, it will be shown in every column
@@ -3655,6 +3644,7 @@ class FigurePanel():
         """
         Create dictionary with one dictionary entry per rows that should
         be deleted.
+
         :param rows: list of rows (integers) that should be deleted
         :param images: list of images (integeres) in which rows should be
                         deleted
@@ -3676,12 +3666,8 @@ class FigurePanel():
                      row=None, column=None,
                      images=None):
         """
-        create Dictionary with one dictionary entry per crop
-        at a set of positions to be performed
-        Cropping can also be done differently on different rows
-        while still keeping the size similar
-        for that the cropping values in the same dimension (
-        Each dictionary object can contain the following params:
+        Add cropping to an image or a set of images.
+
         :param left: crop from left site, either rel width of image
                     or actual number of pixels
         :param right: crop from right site, either rel width of image
@@ -3700,6 +3686,13 @@ class FigurePanel():
                         specific number of images
                         (numbers will be given incrementally to images
                         in alphanumerical order),
+        """
+        """
+        Create dictionary with one dictionary entry per crop
+        at a set of positions to be performed
+        Cropping can also be done differently on different rows
+        while still keeping the size similar
+        for that the cropping values in the same dimension.
         """
         new_crop_param = {}
         new_crop_param["left"] = left
@@ -3721,6 +3714,7 @@ class FigurePanel():
         Append  zoom parameters to dictionary.
         For each image/channel/frame the same number of zooms have to be added.
         Otherwise auto_enlarging won't work.
+
         :param xy: x,y point as list for bottom-left origin of zoom rectangle
         :param width: width of zoom rectangle
         :param height: height of zoom rectangle
@@ -3800,7 +3794,8 @@ class FigurePanel():
                    bottom=False, row = None, column = None,
                    color="black", line_width = 2):
         """
-        Add border to images
+        Add border to images.
+
         :param left: Whether to add left border
         :param right: Whether to add right border
         :param top: Whether to add top border
@@ -4866,7 +4861,8 @@ class FigurePanel():
                    tick_values=None, tick_color="black", tick_width = 0.4,
                    tick_length=5, shift=True, direction="in"):
         """
-        Add x axis to images in image grid
+        Add x axis to images in image grid.
+
         :param axis_title: String of axis title
         :param site: Site of axis
         :param show_in_rows: List of rows in image grid in which to add x axis
@@ -4964,7 +4960,8 @@ class FigurePanel():
                    tick_values=None, tick_color="black", tick_width = 0.4,
                    tick_length=5, shift=True, direction="in"):
         """
-        Add y axis to images in image grid
+        Add y axis to images in image grid.
+
         :param axis_title: String of axis title
         :param site: Site of axis
         :param show_in_rows: List of rows in image grid in which to add y axis
@@ -5581,7 +5578,8 @@ class FigurePanel():
                        padding=2, font_size_factor = None,
                        label_orientation = None, **kwargs):
         """
-        Label a category (images, channels, frames or slices; also _subs)
+        Label a category (images, channels, frames or slices; also _subs).
+
         :param category: String of category that should be labeled
                             ("images", "channels", "frames" or "slices")
         :param texts: Text that should be used as labels; should match the
@@ -5614,8 +5612,9 @@ class FigurePanel():
                      font_size_factor = None, label_orientation = None,
                      **kwargs):
         """
-        Label images in panel.
-        If no texts are supplied, images will be labeled with incrementing numbers.
+        Label images in panel. If no texts are supplied, images will be labeled
+        with incrementing numbers.
+
         :param texts: Text that should be used as labels; should match the
                             number of different values in the defined category
                             Same labels that are adjacent are only labeled
@@ -5665,7 +5664,8 @@ class FigurePanel():
                        padding=2, font_size_factor = None,
                        label_orientation = None, **kwargs):
         """
-        Label a category (images, channels, frames or slices; also _subs)
+        Label a category (images, channels, frames or slices; also _subs).
+
         :param texts: Text that should be used as labels; should match the
                             number of different values in the defined category
                             Same labels that are adjacent are only labeled
@@ -5707,7 +5707,8 @@ class FigurePanel():
                      show_unit=True, first_time_difference=1, frame_jumps=None,
                      long_unit_names = True, all_units_shown = False, **kwargs):
         """
-        Label a category (images, channels, frames or slices; also _subs)
+        Label a category (images, channels, frames or slices; also _subs).
+
         :param texts: Text that should be used as labels; should match the
                             number of different values in the defined category
                             Same labels that are adjacent are only labeled
@@ -5985,6 +5986,7 @@ class FigurePanel():
               font_size=None, padding=2, label_orientation=None, **kwargs):
         """
         Label specific positions in image grid directly.
+
         :param text: Text to use as label
         :param position: Position (integer) in image grid to label
         :param span: Number of images that should be spanned by label
@@ -7329,6 +7331,7 @@ class FigurePanel():
     def show_data_columns(self, nb_vals = 10):
         """
         Show type and some values for all columns of the data file.
+
         :param nb_vals: number of values for column to show
         """
         self._validate_data_file()
@@ -7351,7 +7354,8 @@ class FigurePanel():
 
     def add_data_transformation(self, function):
         """
-        Add a transformation for the data that will be plotted on the y-column
+        Add a transformation for the data that will be plotted on the y-column.
+
         :param function: Function that will be applied to the column
                         (pd.series object)
         """
@@ -7557,6 +7561,7 @@ class FigurePanel():
     def set_data_params(self, x=None, y=None, hue=None, col=None, row=None):
         """
         Set data parameters for showing data.
+
         :param x: Column name of data to be used for x axis
         :param y: Column name or list of column names
                     of data to be used for y axis. Multiple y values will be
@@ -7585,7 +7590,8 @@ class FigurePanel():
         """
         Allow calculating the fraction of specific groups in the data.
         Will generate a new dataframe with different rows
-        that also will be used to plot data afterwards
+        that also will be used to plot data afterwards.
+
         :param criteria: Dict of dicts. Each dict defines
                          one fraction to calculate
                          The key in the upper dict defines the name
@@ -7656,6 +7662,7 @@ class FigurePanel():
         Statistics will be performed automatically and annotated by statannot.
         For parameters that can be set additionally, see statannot package
         "add_stat_annotation" function.
+
         :param x: Column name of data to be used for x axis
         :param y: Column name or list of column names
                     of data to be used for y axis. Multiple y values will be
@@ -8859,13 +8866,13 @@ class FigurePanel():
         """
         Get list of units (cells etc) that are closest to average of data.
         Data from one unit is in a single image, therefore cannot be separated
-        the function will rank units
-        than regarding their difference to the mean.
-        If you want a representative neuron but did measure neurites,
+        the function will rank units than regarding their difference to the
+        mean. If you want a representative neuron but did measure neurites,
         a unit should be a neuron but the function will account the difference
         from the mean of all measured neurites.
         It will weigh larger differences from the mean more
         (squared difference of mean).
+
         :param unit_column: columns which uniquely identify one "unit",
                             only necessary if there is more
                             than one datapoint in one image
@@ -9144,7 +9151,8 @@ class FigurePanel():
                              show_from_grouped_data = None):
         """
         Get basic statistics of different datagroups (mean,
-        number of experiments, number of cells, etc)
+        number of experiments, number of cells, etc).
+
         :param N_columns: is column or list of columns
                         in which the number of different values will
                         be calculated
@@ -9232,8 +9240,9 @@ class FigurePanel():
                                   only_show_in_columns=None,
                                   correct_for_cropping=True, color = "white"):
         """
-        Add text on image at coordinates
-        :param text: String of text to add. Linebreaks can be added with "\n"
+        Add text on image at coordinates.
+
+        :param text: String of text to add. Linebreaks can be added with \\n
         :param x: x coordinate at which to add the text
         :param y: y coordinate at which to add the text
         :param line_spacing: Line spacing when including a line break
@@ -9313,7 +9322,8 @@ class FigurePanel():
                       arrow_head_width_factor=0.625,
                       arrow_head_length_factor=0.625, **kwargs):
         """
-        draw on each of the images specified.
+        Draw on each of the images specified.
+
         :param targets: target position in form [x,y] or list of positions,
                         will determine where the shape ends
         :param direction: direction of object from the target,
@@ -9567,7 +9577,8 @@ class FigurePanel():
                     lengths_um=10, color="white", padding=0.015,
                       line_width=3, always_draw_scale_bar = False):
         """
-        add scale bar to image/s
+        Add scale bar to image/s.
+
         :param um_per_px: how large is one px in um
         :param position: define where the scale bar should be added
                             set as "first_dimension-second dimension"
@@ -9889,7 +9900,8 @@ class FigurePanel():
         Extract channel number from file name (__cx..x-x...x-x...x).
         Annotate corresponding channel_names with corresponding color in image.
         Each file cannhave multiple channels specified (for overlap images
-        with more than one channel in different colors)
+        with more than one channel in different colors).
+
         :param channel_names: Names of channels that will be annotated in image.
                              The index in the list corresponds
                              to the channel number in the image filename
@@ -10089,63 +10101,6 @@ class FigurePanel():
         xy[0] /= ax_size.width * fig_size_inches[0] * fig.dpi
         xy[1] *= ax_size.height * fig_size_inches[1] * fig.dpi
         return xy
-
-
-    def annotate_within_image(self, text, position, color="white",
-                              only_show_in_rows=None, only_show_in_columns=None,
-                              font_size = None,
-                              padding=0.015, orientation="hor"):
-        """
-        Add text within image at a position.
-        :param text: String of annotation added to images
-        :param only_show_in_rows: list of rows in which the labels should
-                                be displayed, if None display in all rows
-        :param only_show_in_columns: list of columns in which the labels
-                                    should be displayed, if None display
-                                    in all columns
-        """
-        if font_size == None:
-            font_size = self.font_size
-
-        standard_x_position = "right"
-        standard_y_position = "bottom"
-        font_size_pt = FontProperties(size=font_size).get_size_in_points()
-
-        for ax_position, ax in self.all_axs.items():
-            # check if current row and column should contain the label
-            row = ax_position[0]
-            column = ax_position[1]
-            position_allowed = self._check_if_pos_is_in_row_col_list(row, column,
-                                                                    only_show_in_rows,
-                                                                    only_show_in_columns)
-            if not position_allowed:
-                continue
-
-            if orientation.lower() == "vert":
-                rotation = 90
-            else:
-                rotation = 0
-
-            total_txt_width_px,_ = FigurePanel._get_dimension_of_text(text,
-                                                                     font_size_pt,
-                                                                     ax, rotation)
-
-            x0, y0 = FigurePanel._get_xy_of_text_from_position(text, ax, position,
-                                                              total_txt_width_px,
-                                                              font_size_pt,
-                                                              standard_x_position,
-                                                              standard_y_position,
-                                                              padding, orientation)
-            if orientation == "hor":
-                rotation = 0
-            elif orientation == "vert":
-                rotation= 90
-            self._add_text_within_image_at_coords(ax, text, x0, y0,
-                                                  total_txt_width_px,
-                                                  font_size_pt, color,
-                                                  rotation)
-
-
 
 
     def _add_text_within_image_at_coords(self, ax, text, x, y,
@@ -10392,12 +10347,13 @@ class FigurePanel():
         Add timestamp text to each image in panel. 
         timestamps MUST be added after other annotations were added
         to the figure. Otherwise the timestamp might be cut off.
+
         :param time_per_frame: how much frame is between frames,
                                 add as string with unit (s, sec, m, min or h)
                                 after number
         :param start_time: what frame-frame does number 1 equal
                             (start at negative value positive to indicate it
-                            was before e.g. a treatment):param start_time: number of first timeframe
+                            was before e.g. a treatment)
         :param time_per_frame: string of number and unit ("m" for min,
                                 "h" for hour, or "s" for second) for
                                 time difference between frames
@@ -10646,6 +10602,7 @@ class FigurePanel():
         """
         Draw lines on data plots.
         This is not implemented for multiple rows of data plots yet.
+
         :param positions: list of positions (x or y) of adding line
         :param axis: axis of positions ("x" or "y")
         :param line_width: line width in pt
@@ -10692,7 +10649,8 @@ class FigurePanel():
                             only_show_in_columns = None,
                             **kwargs):
         """
-        Draw a line on images
+        Draw a line on images.
+
         :param position: positions (x or y) of adding line
         :param orientation:  either "hor" / "horizontal" or "vert" / "vertical"
         :param line_width: line width in pt
@@ -10753,6 +10711,7 @@ class FigurePanel():
         "rescale_font_size". Therefore should be specifically used for 
         adding text on illustrations. Figure editor GUI will output code
         that uses this function.
+
         :param texts: list of dicts describing text.
                       Each key of dict is one parameter to axis.text function
                       and each value the corresponding parameter value
@@ -10851,13 +10810,13 @@ class FigurePanel():
         Only possible for single images with single pptx files for now!
         Only the first slide of the pptx file will be considered.
         Text boxes in powerpoint MUST BE 99% opacity for this script
-        to work properly...
-        ... before saving it as an image!
+        to work properly... before saving it as an image!
         It therefore also just works with pngs saved from powerpoint
         (not with e.g. jpeg)
-        Font sizes above 40 will be scaled *2
+        Font sizes above 40 will be scaled according to font_size_factor.
         For all other text self.font_size will be used
         and optionally multiplied with font_size_factor
+
         :param font_size_factor: font_size factor by which to scale text
                                 that has a font size > 40 pt in powerpoint
         :param font_size: font_size to use, if None, use default of figure_panel
@@ -11050,6 +11009,7 @@ class FigurePanel():
                     position=None):
         """
         Add marker (circle) to specific upper left edge in images.
+
         :param frames: Will be deprecated
                     list, which frames the zoom should be applied to.
                     If None, it will be applied to all channels

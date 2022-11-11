@@ -1,0 +1,3 @@
+sphinx_rtd_theme
+numpydoc
+git+https://github.com/maxschelski/figureflow

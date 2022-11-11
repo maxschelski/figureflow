@@ -99,6 +99,7 @@ class Figure():
                         for an even border around the figure.
                         will also be used as default padding for all panels created
                         as space between panels (in x and y)
+
         """
         self.dpi = dpi
         self.number = number
@@ -202,7 +203,7 @@ class Figure():
             #read figure csv that will give the structure
             # of the entire figure
             if (file.lower().find("__figure__") != -1) & (file.lower().find(".csv") != -1):
-                self.figure_csv = Figure.open_csv_with_unknown_seperator(file_path, header= None)
+                self.figure_csv = Figure._open_csv_with_unknown_seperator(file_path, header= None)
 
             #allow folders also
             if os.path.isdir(file_path):
@@ -435,7 +436,6 @@ class Figure():
         Get representative data matching data from multiple panels best.
         Only works after representative data was already calculated for the
         defined panels.
-
         Get list of units (cells etc) that are closest to average of data.
         Data from one unit is in a single image, therefore cannot be separated
         the function will rank units
@@ -445,6 +445,7 @@ class Figure():
         from the mean of all measured neurites.
         It will weigh larger differences from the mean more
         (squared difference of mean).
+
         :param panels: list of strings of panel letters, capitalization matters
         :param nb_vals_to_show: Number of datapoints to show in the list
         """
@@ -491,6 +492,7 @@ class Figure():
         """
         Only show panels with the defined panel letters. Even if other
         panels are defined in the script they won't be shown.
+
         :param panel_letters: list of panel letters to show
         """
         self.panel_letters_to_show = panel_letters
@@ -507,6 +509,7 @@ class Figure():
         after panel has been fully plotted: right before the next panel
         is created or alternatively before the figure is saved (for the last
         panel)
+
         :param panel_letter: panel letter that should be edited
         :param change_cropping: Whether you want to change cropping. If True
                                 no cropping will be done. Instead the region
@@ -567,6 +570,7 @@ class Figure():
                      height=None, padding = None, **kwargs):
         """
         Create panel with defined letter.
+
         :param letter: panel letter as string, if None get the letter following
                         the highest panel letter used so far
         :param x: relative x position
@@ -582,6 +586,7 @@ class Figure():
                         or list. if list, the first value is for padding
                         left / top and the second value is for padding
                         right / bottom.
+        :return: FigurePanel
         """
         if hasattr(self.current_panel, "pos_to_pre_identity_map"):
             # panel with data plots do not have the attribute
@@ -669,7 +674,7 @@ class Figure():
         for panel_file_path in panel_file_paths:
             file_name = os.path.basename(panel_file_path)
             if file_name.find(".csv") != -1:
-                data = Figure.open_csv_with_unknown_seperator(panel_file_path)
+                data = Figure._open_csv_with_unknown_seperator(panel_file_path)
                 break
 
         #for videos set the default to center aligned
@@ -693,7 +698,7 @@ class Figure():
 
 
     @staticmethod
-    def open_csv_with_unknown_seperator(csv_file, header="infer"):
+    def _open_csv_with_unknown_seperator(csv_file, header="infer"):
         seps = [";", ",", "\t"]
         for sep in seps:
             data = pd.read_csv(csv_file, sep=sep, header=header)
@@ -776,6 +781,7 @@ class Figure():
         another panel letter
         Be careful to not execute it more than once, otherwise it will
         obviously be mixed up.
+
         :param relabel_dict: dict in which the key is the origin label
                               and the value is the target label
         """
@@ -792,6 +798,7 @@ class Figure():
     def save(self,format ="png"):
         """
         Save entire figure object as figure/image file.
+
         :param format: Any format that is allowed for the matplotlib safefig
                         function (e.g. "png", "jpg", "tiff").
                         However, "pdf" might lead to some errors
@@ -863,7 +870,7 @@ class Figure():
                                                                   nb_vals_to_show=20):
         """
         Get representative data matching data from multiple panels best.
-        Also works if represntative data for panels was not calculated already.
+        Also works if representative data for panels was not calculated already.
 
         Get list of units (cells etc) that are closest to average of data.
         Data from one unit is in a single image, therefore cannot be separated
@@ -874,6 +881,7 @@ class Figure():
         from the mean of all measured neurites.
         It will weigh larger differences from the mean more
         (squared difference of mean).
+
         :param panel_letters: list of strings of panel letters,
                                 capitalization matters
         :param unit_columns: list of columns which uniquely identify one "unit".
@@ -1082,21 +1090,23 @@ class Figure():
                    min_final_fps=10):
         """
         Save entire figure object as video.
+
         :param fps: Data frames per second of video.
         :param bitrate: Bitrate of video. -1 means matplotlib will find the
                         best bitrate automatically. For non-grey movies
                         matplotlib does not find great bitrates. Choose a high
                         bitrate manually.
         :param title_page_text: String for the text on the title page of the
-                                video (can also include linebreaks as "\n")
+                                video (can also include linebreaks as "\\n")
         :param duration_title_page: Seconds the title page will be shown
         :param repeats: Number of times the data part of the movie is repeated
                         (helpful for movies in publications so that the title
                         is not replayed and that the movie is replayed without
                         the user needing to click on the play button)
-        :param frames_to_show_longer: List of numbers; Which frames to show longer
-                                    than just one videoframe
-        :param seconds_to_show_frames: how many seconds to show frames_to_show_longer
+        :param frames_to_show_longer: List of numbers; Which frames to show
+                                    longer than just one videoframe
+        :param seconds_to_show_frames: how many seconds to show
+                                        frames_to_show_longer
         :param min_final_fps: Minimum final fps that the video will be saved in.
                                 is important to be >10 for the title frame
                                 to prevent a black frame at the beginning
