@@ -22,7 +22,7 @@ import functools
 import itertools
 
 # dynamically load all data plots added
-from . import plots
+from figureflow import plots
 from .plots import *
 for plot_module in os.listdir(plots.__path__._path[0]):
     if plot_module.find(".py") == -1:
