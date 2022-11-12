@@ -11,4 +11,3 @@ pyqt5
 moviepy
 python-pptx
 scikit-posthocs
-git+https://github.com/maxschelski/figureflow
