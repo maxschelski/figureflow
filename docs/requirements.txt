@@ -1,3 +1,13 @@
 sphinx_rtd_theme
-numpydoc
+numpy
+pandas
+matplotlib
+scikit-image
+pillow
+tifffile
+scipy
+seaborn
+pyqt5
+moviepy
+python-pptx
 git+https://github.com/maxschelski/figureflow
