@@ -1,6 +1,40 @@
 Tutorial
 ===========
 
+The best way to learn how to use figureflow is to start with the many available usage examples. First check which figure or movie has features or a similar layout you would like to use yourself, then check the corresponding script and data for this figure/movie. Change functions and parameters to understand what they are doing.
+
+General Usage
+-----------
+
+In general you first create a figure object.
+
+.. code:: sh
+
+  figure = Figure(...)
+  
+You should now create a .csv layout file (see section "Creating a layout for a figure" below).
+Then you can execute all functions on this figure object. You should first create a panel. For that, you first need to have a csv file (for showing data plots) or an image file (e.g. tiff; for showing images). The filename must start with panelA. If there is no file for the panel you want to create, an error will be raised.
+
+.. code:: sh
+
+  figure.create_panel(letter="A",...)
+
+
+This panel can either show images (if the panel files are image files) using:
+
+.. code:: sh
+
+  figure.show_images(...)
+
+or it can show data plots (if the panel file is a csv file) using:
+
+.. code:: sh
+
+  figure.show_data(...)
+
+The parameters for both functions are described in API documentation.
+
+
 Usage Examples
 -----------
 
@@ -38,6 +72,8 @@ Widths and heights can be defined by two possible ways:
   1) In which the first row is the width of each column and the last column is the height of each row
   2) In which above every panel letters there is a number corresponding to the relative width of the panel in that row and the last column of the csv contains the height of each row
   3) In which widths are defined as in the second point but heights are defined for every panel by a number right of the panel letter           
+
+Each figure usage example also contains a csv layout you can check.
 
 Using the GUI to add/edit elements
 ------------------
