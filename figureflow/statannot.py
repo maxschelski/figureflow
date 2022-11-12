@@ -22,6 +22,7 @@ import functools
 import itertools
 
 # dynamically load all data plots added
+from figureflow.plots import *
 from figureflow import plots
 from .plots import *
 for plot_module in os.listdir(plots.__path__._path[0]):
