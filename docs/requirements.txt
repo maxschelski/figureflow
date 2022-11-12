@@ -11,3 +11,4 @@ pyqt5
 moviepy
 python-pptx
 scikit-posthocs
+-e .
