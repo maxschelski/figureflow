@@ -4165,7 +4165,7 @@ class FigurePanel():
                     img_range = [0,0]
                 all_img_ranges.append(img_range)
                 cmaps_for_img.append(cmap_for_img)
-            print(cmaps_for_img)
+                
             if len(image) > 1:
                 if black_composite_background:
                     start_color = "black"
