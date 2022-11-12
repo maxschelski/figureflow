@@ -14,7 +14,6 @@ import seaborn as sns
 from seaborn.utils import remove_na
 import scikit_posthocs as posthocs
 from scipy import stats
-import statsmodels
 import copy
 import matplotlib as mpl
 from matplotlib.patches import PathPatch
