@@ -1,1 +1,1 @@
-from . import plots
+from figureflow.plots import *
