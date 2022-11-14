@@ -2,6 +2,8 @@ import seaborn as sns
 import pandas as pd
 
 class LinePlot():
+    CONTINUOUS_X = True
+
     def __init__(self, x, y, hue, data, hue_order, plot_colors, ax,
                  x_range, **kwargs):
         data[x] = pd.to_numeric(data[x])

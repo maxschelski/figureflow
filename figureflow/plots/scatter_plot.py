@@ -2,6 +2,8 @@ import seaborn as sns
 
 
 class ScatterPlot():
+    CONTINUOUS_X = True
+
     def __init__(self, x, y, hue, data, plot_colors, ax, size_factor, **kwargs):
         self.x = x
         self.y = y

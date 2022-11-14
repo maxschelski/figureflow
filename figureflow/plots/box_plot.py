@@ -3,6 +3,8 @@ from .swarm_plot import SwarmPlot
 import seaborn as sns
 
 class BoxPlot(GroupPlot):
+    CONTINUOUS_X = False
+
     def __init__(self, x, y, hue, data, x_order, hue_order, plot_colors,
                  size_factor,  ax, plot_type,  swarm_plot_point_size=2,
                  show_data_points=True, connect_paired_data_points = True,

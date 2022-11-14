@@ -5,6 +5,8 @@ import numpy as np
 import itertools
 
 class GroupPlot():
+    CONTINUOUS_X = False
+
     def __init__(self, x, y, hue, data, x_order, hue_order, plot_colors,
                  size_factor, ax, plot_type, nb_x_vals=1, pair_unit_columns=None,
                  connect_paired_data_points=True, connect_points_hue=None,

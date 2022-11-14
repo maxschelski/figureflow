@@ -6,6 +6,8 @@ from matplotlib.font_manager import FontProperties
 import functools
 
 class RegressionPlot():
+    CONTINUOUS_X = True
+
     def __init__(self, x, y, hue, data, plot_colors,size_factor, ax,
                  show_formula=True,
                  position_regression_text = "top-left",

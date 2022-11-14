@@ -4,6 +4,8 @@ import seaborn as sns
 
 
 class BarPlot(GroupPlot):
+    CONTINUOUS_X = False
+
     def __init__(self, x, y, hue, data, x_order, hue_order, plot_colors,
                  size_factor, ax, plot_type, line_width, swarmplot_point_size = 2,
                  show_data_points=True, connect_paired_data_points = True,
