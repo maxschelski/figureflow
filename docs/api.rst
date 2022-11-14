@@ -50,7 +50,7 @@ Dataplot panel functions
 .. currentmodule:: figureflow.figure_panel.FigurePanel
 .. autofunction:: show_data
 
-**KEYWORD ARGUMENTS FOR show_data (in plot_and_add_stat_annotation)----------------------------------------------------------------------------------------------------------------------------**
+**KEYWORD ARGUMENTS FOR show_data (passed to plot_and_add_stat_annotation)----------------------------------------------------------------------------------------------------------------------------**
 
 .. currentmodule:: figureflow.statannot
 .. autofunction:: plot_and_add_stat_annotation
