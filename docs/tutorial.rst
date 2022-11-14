@@ -32,7 +32,7 @@ or it can show data plots (if the panel file is a csv file) using:
 
   figure.show_data(...)
 
-The parameters for both functions are described in API documentation.
+The all functions and their parameters related to showing data plots are described under the "Dataplot panel" navigation point, while all functions and their parameters related to showing images are described under the "Image panel" navigation point.
 
 
 Usage Examples
