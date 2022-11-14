@@ -7,7 +7,7 @@ Dataplot Panel API
 
     show_data
 
-The function show_data can receive many kwargs to customize dataplots, which will be used in the "plot_and_add_stat_annotation" function:
+The function show_data can receive many keyword arguments to customize dataplots, which are passed to the "plot_and_add_stat_annotation" function:
 
 .. currentmodule:: figureflow.statannot
 .. autosummary::
@@ -15,7 +15,7 @@ The function show_data can receive many kwargs to customize dataplots, which wil
 
     plot_and_add_stat_annotation
 
-In addition, several helper functions allow you to set parameters before show_data, look at the data columns, modify the data and get corresponding statistics:
+In addition, several helper functions allow you to set parameters before show_data, look at the data columns, transform the data and get corresponding statistics:
 
 .. currentmodule:: figureflow.figure_panel.FigurePanel
 .. autosummary::
