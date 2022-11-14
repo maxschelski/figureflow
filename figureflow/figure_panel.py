@@ -4165,7 +4165,7 @@ class FigurePanel():
                     img_range = [0,0]
                 all_img_ranges.append(img_range)
                 cmaps_for_img.append(cmap_for_img)
-                
+
             if len(image) > 1:
                 if black_composite_background:
                     start_color = "black"
@@ -7798,6 +7798,9 @@ class FigurePanel():
                                 to measure dimensions for perfect alignment,
                                 while the plot is removed afterwards
                                 again
+        :param kwargs: Keyword arguments for function
+                       statannot.plot_and_add_stat_annotation; see API for
+                       available keywords
         """
         
         if self._is_none(self.x) & self._is_none(x):
@@ -8076,8 +8079,8 @@ class FigurePanel():
             nb_hue_values = self.data.groupby(group_cols).apply(lambda x: 
                                                                 len(x[self.hue].drop_duplicates())).max()
         if nb_hue_values <= 1:
-            if "_leave_space_for_legend" not in kwargs:
-                kwargs["_leave_space_for_legend"] = False
+            if "leave_space_for_legend" not in kwargs:
+                kwargs["leave_space_for_legend"] = False
 
 
         (axs_for_measuring,
@@ -8580,7 +8583,7 @@ class FigurePanel():
 
 
         if (show_legend is not None) and show_legend:
-            kwargs["_leave_space_for_legend"] = True
+            kwargs["leave_space_for_legend"] = True
             if row_nb == 0:
                 show_legend = True
             else:
@@ -9150,8 +9153,8 @@ class FigurePanel():
                              show_stats=False, show_from_ungrouped_data=None,
                              show_from_grouped_data = None):
         """
-        Get basic statistics of different datagroups (mean,
-        number of experiments, number of cells, etc).
+        Get basic statistics of different datagroups.
+        (mean, number of experiments, number of cells, etc).
 
         :param N_columns: is column or list of columns
                         in which the number of different values will
