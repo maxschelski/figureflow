@@ -4,10 +4,16 @@ Figure API
 Figure level functions
 ------------------------
 
-.. automodule:: figureflow.figure
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. currentmodule:: figureflow.figure.Figure
+.. autofunction:: __init__
+.. autofunction:: create_panel
+.. autofunction:: show_panels
+.. autofunction:: edit_panel
+.. autofunction:: edit_this_panel
+.. autofunction:: get_representative_data_from_multiple_panels
+.. autofunction:: get_representative_data_from_multiple_panels_from_scratch
+.. autofunction:: save
+.. autofunction:: save_video
 
 Image panel functions
 ------------------------
