@@ -7798,9 +7798,9 @@ class FigurePanel():
                                 to measure dimensions for perfect alignment,
                                 while the plot is removed afterwards
                                 again
-        :param kwargs: Keyword arguments for function
-                       statannot.plot_and_add_stat_annotation; see API for
-                       available keywords
+        :param kwargs: Keyword arguments for plotting data
+                        and adding annotations, passed to function
+                        statannot.plot_and_add_stat_annotation.
         """
         
         if self._is_none(self.x) & self._is_none(x):
