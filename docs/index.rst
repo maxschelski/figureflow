@@ -34,7 +34,7 @@ Figure 4:
    :maxdepth: 2
    :hidden:
 
-   Introduction <intro>
+   Features <features>
    Installation <installation>
    Tutorial <tutorial>
 
