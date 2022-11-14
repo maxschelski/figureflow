@@ -121,7 +121,7 @@ def simple_text(pval, pvalue_format, pvalue_thresholds, test_short_name=None):
 
 
 def validate_arguments(perform_stat_test,test,pvalues,test_short_name,
-                       box_pairs,loc,text_format,text_annot_custom):
+                       box_pairs,loc,text_format):
 
     if (not box_pairs) & (perform_stat_test):
         print("Warning:No box pair was added - all groups will be compared.")
@@ -140,10 +140,6 @@ def validate_arguments(perform_stat_test,test,pvalues,test_short_name,
         #     raise ValueError("test value should be one of the following: {}."
         #                      .format(', '.join(valid_list)))
 
-    if (text_annot_custom is not None and
-            (len(text_annot_custom) != len(box_pairs))):
-        raise ValueError("`text_annot_custom` should be "
-                         "of same length as `box_pairs`.")
 
     valid_list = ['inside', 'outside']
     if loc not in valid_list:
@@ -739,9 +735,10 @@ def exclude_data(data,col,col_order,x,x_order,hue,hue_order):
                                                          subset=
                                                          [missing_val_column])
                     exclude_by_column_val = False
-            if exclude_by_column_val:
-                included_data = included_data.loc[included_data[missing_val_column]
-                                                  != missing_val]
+            if not exclude_by_column_val:
+                continue
+            included_data = included_data.loc[included_data[missing_val_column]
+                                              != missing_val]
     return included_data
 
 def perform_stat_test(data_groups, data_group_names,
@@ -807,14 +804,17 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                                          all_box_pairs,
                                          max_level_of_pairs,test_short_name,
                                          test, test_result_list,
-                                         stats_params,add_bonferroni_correction,
-                                         pair_unit_columns,
+                                         stats_params,
+                                         pair_unit_columns,pvalue_thresholds,
                                          annotate_nonsignificant,
                                          verbose):
     
     test_short_name = test_short_name if test_short_name is not None else ''
     included_pairs = []
     p_values = {}
+    pvalue_thresholds_significant = [p_value[0] for p_value in pvalue_thresholds
+                                     if p_value[1] != "ns"]
+    pvalue_threshold = max(pvalue_thresholds_significant)
     # create dict with data according to level of pairs for statistical analysis
     # max_level of pairs == 1: only compare within x
     # max_level of pairs == 2: only compare within group
@@ -900,8 +900,8 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
             if len(test) == 1:
 
                 stat_results = perform_stat_test(group_data_list,
-                                                 all_data_groups,
-                                                 test[0], stats_params, "single")
+                                                 all_data_groups, test[0],
+                                                 stats_params, "single")
                 # perform single comparison
             elif (len(test) == 2):
                 if type(stats_params) in [tuple, list]:
@@ -912,8 +912,13 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                                          "a list of two dictionaries.")
                 # perform group comparison first
                 grup_p_val = perform_stat_test(group_data_list, all_data_groups,
-                                               test[0], stats_params[0], "group")
-                if grup_p_val < THRESHOLD:
+                                               test[0], stats_params[0],
+                                               "group")
+                # do not perform follow up tests, if group comparison is not
+                # significant. Even if nonsignificant should be annotated,
+                # a non significant group test means that all sub comparisons 
+                # are nonsignificant as well automatically
+                if (grup_p_val > pvalue_threshold):
                     continue
                 # perform comparison of sub groups
                 stat_results = perform_stat_test(group_data_list,
@@ -933,8 +938,10 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
             # not sure what this should do... commented out for now.
             use_box_pair = True
 
-            stat_column = str(box1[0]) + "___" + str(box1[1]) + "___" + str(box1[2])
-            stat_row = str(box2[0]) + "___" + str(box2[1]) + "___" + str(box2[2])
+            stat_column = (str(box1[0]) + "___" + str(box1[1]) +
+                           "___" + str(box1[2]))
+            stat_row = (str(box2[0]) + "___" + str(box2[1]) +
+                        "___" + str(box2[2]))
 
             if stat_column not in stat_results.index:
                 use_box_pair = False
@@ -942,8 +949,11 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
             if stat_row not in stat_results.columns:
                 use_box_pair = False
 
-            if use_box_pair:
-
+            if not use_box_pair & annotate_nonsignificant:
+                # arbitrarily use a pvalue which is 10% higher than the maximum
+                # significant pvalue
+                p_values[box_pair] = (pvalue_threshold * 1.1)
+            elif use_box_pair:
                 pval = stat_results.loc[stat_column,stat_row]
                 formatted_output = ("Custom statistical test, {}, P_val={:.3e}"
                                     .format(test_short_name, pval))
@@ -952,12 +962,14 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                 # if (grup_p_val > 0.05) & (pval < 0.05):
                 #     pval = 0.051
 
-                test_result_list.append({'pvalue': pval, 'test_short_name': test_short_name,
-                                         'formatted_output': formatted_output, 'box1': box1,
+                test_result_list.append({'pvalue': pval,
+                                         'test_short_name': test_short_name,
+                                         'formatted_output': formatted_output,
+                                         'box1': box1,
                                          'box2': box2})
                 if verbose:
                     print("{} v.s. {}: {}".format(box1, box2, formatted_output))
-                if (pval < 0.05) | (annotate_nonsignificant == True):
+                if (pval < pvalue_threshold) | (annotate_nonsignificant):
                     included_pairs.append(box_pair)
                     p_values[box_pair] = (pval)
     return included_pairs, p_values, test_result_list
@@ -1122,7 +1134,7 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
                         show_legend,
                         borderaxespad_, legend_handle_length,
                         show_x_label_in_all_columns,
-                        _leave_space_for_legend,
+                        leave_space_for_legend,
                         data_is_continuous,
                         show_data_points, connect_paired_data_points):
 
@@ -1210,7 +1222,7 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
                 show_legend = False
         if not show_legend:
             ax.legend_.remove()
-            if not _leave_space_for_legend:
+            if not leave_space_for_legend:
                 legend_width = 0
 
     # remove y axis label and title for all subplots except the first one
@@ -1318,7 +1330,8 @@ def get_accurate_x_tick_padding(ax, target_padding, size_factor = None):
     return axis_padding
 
 def get_y_shift_to_vert_fill_outer_border(ax, col, col_order,
-                                          max_nb_col_val_lines, y_shift, inner_padding,
+                                          max_nb_col_val_lines, y_shift,
+                                          inner_padding,
                                           fontsize, outer_border,
                                           show_col_labels_below,
                                           always_show_col_label):
@@ -1594,9 +1607,6 @@ def get_annotated_text_dict(p_values,pvalue_format_string,test_short_name,
     pval_texts = {}
     for box_pair,pval in p_values.items():
 
-        # if text_annot_custom is not None:
-        #     text = text_annot_custom[i_box_pair]
-        # else:
         if text_format == 'full':
             text = ("{} p = {}".format('{}', pvalue_format_string)
                     .format(test_short_name, pval))
@@ -1606,7 +1616,8 @@ def get_annotated_text_dict(p_values,pvalue_format_string,test_short_name,
             text = pval_annotation_text(pval, pvalue_thresholds)
         elif text_format is 'simple':
             test_short_name = show_test_name and test_short_name or ""
-            text = simple_text(pval, simple_format_string, pvalue_thresholds, test_short_name)
+            text = simple_text(pval, simple_format_string,
+                               pvalue_thresholds, test_short_name)
 
         pval_texts[box_pair] = text
     return pval_texts
@@ -2244,17 +2255,17 @@ def overhanging_axis_tick_labels_into_inner_border(all_x_tick_overhangs,
 
 def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                            all_box_structs, all_box_structs_dics,
-                       test, test_short_name, stats_params, all_box_names,
+                           test, test_short_name, stats_params, all_box_names,
                            text_format,
                            add_bonferroni_correction,
                            show_stats_to_control_without_lines,
-                       pair_unit_columns, annotate_nonsignificant,
-                       verbose,pvalue_format_string,pvalue_thresholds,
-                                                    show_data_points,
-                       data, col, col_order, y,  x, x_order, hue,
-                       text_offset,use_fixed_offset,loc,
-                       hue_order, included_data,max_yrange,
-                       y_offset, y_offset_to_box,fontsize,color,
+                           pair_unit_columns, annotate_nonsignificant,
+                           verbose,pvalue_format_string,pvalue_thresholds,
+                           show_data_points,
+                           data, col, col_order, y,  x, x_order, hue,
+                           text_offset,use_fixed_offset,loc,
+                           hue_order, included_data,max_yrange,
+                           y_offset, y_offset_to_box,fontsize,color,
                            line_height,line_width,
                            show_test_name):
     ann_list = []
@@ -2285,8 +2296,8 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                                                                 test_short_name,
                                                               test,test_result_list,
                                                               stats_params,
-                                                              add_bonferroni_correction,
                                                               pair_unit_columns,
+                                                              pvalue_thresholds,
                                                                 annotate_nonsignificant,
                                                               verbose,
                                                               )
@@ -2391,67 +2402,136 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
     return ax_annot, all_axs, test_result_list
 
 
-def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
-                                 x_order=[], hue_order=[], box_pairs=[],
-                                 col=None, col_order=[], y_range = None,
-                                 x_range = None, hor_alignment ="left",
+
+def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
+                                 x_order=[], hue_order=[], col_order=[],
+                                 show_legend=True, pair_unit_columns=None,
+                                 plot_type="box", data_plot_kwds=None,
+                                 show_data_points=True,
+                                 connect_paired_data_points=True,
+                                 plot_colors=-1,
+                                 box_pairs=[],
+                                 perform_stat_test=True, pvalues=None,
+                                 test=None, stats_params=None,
+                                 text_format='star', show_test_name=False,
+                                 test_short_name=None,
+                                 pvalue_format_string=DEFAULT,
+                                 pvalue_thresholds=DEFAULT,
+                                 annotate_nonsignificant=False,
+                                 show_stats_to_control_without_lines=False,
+                                 loc='inside',
+                                 verbose=False,
+                                 plot_title = None,
                                  show_col_labels_above = False,
                                  show_col_labels_below=True,
-                                 perform_stat_test=True, pvalues=None,
-                                 test_short_name=None, test=None,
-                                 text_format='star', show_test_name=False,
-                                 pvalue_format_string=DEFAULT,
-                                 add_bonferroni_correction=False,
-                                 text_annot_custom=None, outer_border=None,
-                                 loc='inside', figure_panel=None,
-                                 always_show_col_label=False, plot_type="box",
-                                 data_plot_kwds=None, pvalue_thresholds=DEFAULT,
-                                 stats_params=None, y_axis_label=None,
-                                 fig=None, show_x_axis=True,
+                                 always_show_col_label=False,
+                                 col_label_padding=4,
+                                 show_row_label = False,
+                                 row_label_text=None,
+                                 row_label_orientation = "vert",
+                                 x_range = None,show_x_axis=True,
+                                 x_axis_label = None,
+                                 show_x_label_in_all_columns=True,
+                                 x_tick_interval=None,
+                                 x_tick_label_rotation=False,
                                  leave_space_for_x_tick_overhang=False,
-                                 show_y_axis=True, letter=None,
-                                 annotate_nonsignificant=False,
+                                 y_range = None,
+                                 show_y_axis=True,
+                                 neg_y_vals=True,
+                                 y_axis_label=None,y_tick_interval=None,
+                                 show_y_minor_ticks=False,
+                                 y_ticks=None,
+                                 axis_padding=10,
+                                 hor_alignment ="left",
                                  use_fixed_offset=False,
                                  line_offset_to_box=None, line_offset=None,
                                  text_offset=1, line_width=0.8,
-                                 line_height=0.02, line_width_thin=0.3,
-                                 color = "black", fontsize='medium',
-                                 verbose=False, plot_colors=-1,
-                                 show_data_points=True,
-                                 pair_unit_columns=None,
-                                 connect_paired_data_points=True,
-                                 neg_y_vals=True, inner_padding=1,
-                                 box_width=0.4, background_color="0.98",
-                                 size_factor=1, group_padding=0.04,
-                                 legend_spacing = 0.25, x_axis_label = None,
-                                 x_tick_interval=None, y_tick_interval=None,
-                                 axis_padding=10, legend_title=None,
-                                 show_legend=True, col_label_padding=4,
-                                 show_row_label = False, row_label_text=None,
-                                 row_label_orientation = "vert",
-                                 auto_scale_group_padding = True,
-                                 plot_title = None, show_y_minor_ticks=False,
-                                 y_ticks=None, borderaxespad_ = 0.2,
-                                 add_background_lines = True,
-                                 vertical_lines=False,
-                                 show_stats_to_control_without_lines=False,
-                                 show_x_label_in_all_columns=True,
+                                 line_width_thin=0.3,
+                                 line_height=0.02,
+                                 legend_title=None,
                                  legend_handle_length=2,
-                                 x_tick_label_rotation=False,
-                                 _leave_space_for_legend=False,
-                                 for_measuring=False):
+                                 legend_spacing = 0.25,
+                                 leave_space_for_legend=False,
+                                 borderaxespad_ = 0.2,
+                                 box_width=0.4,
+                                 group_padding=0.04,
+                                 auto_scale_group_padding = True,
+                                 inner_padding=1,
+                                 vertical_lines=False,
+                                 add_background_lines = True,
+                                 color = "black",
+                                 background_color="0.98",
+                                 outer_border=None,fig=None, figure_panel=None,
+                                 letter=None, fontsize='medium',
+                                 for_measuring=False, size_factor=1,):
     """
+    Plot data row and add statistical annotations on top.
+
     Optionally computes statistical test between pairs of data series,
     and add statistical annotation on top
     of the boxes. Uses the same exact arguments `data`, `x`, `y`,`hue`, `order`,
     `hue_order` as the seaborn boxplot function.
     This function works in one of the two following modes:
     a) `perform_stat_test` is True: statistical test as given by argument
-                                    `test` is performed.
+    test` is performed.
     b) `perform_stat_test` is False: no statistical test is performed,
-                                    list of custom p-values `pvalues` are
-       used for each pair of boxes. The `test_short_name` argument is then
-       used as the name of the custom statistical test.
+    list of custom p-values `pvalues` are used for each pair of boxes. The
+    `test_short_name` argument is then used as the name of the custom
+    statistical test.
+    data
+    :param x: Column name of data to be used for x axis
+                (already a parameter for figure_panel.show_data)
+    :param y: Column name or list of column names
+                of data to be used for y axis. Multiple y values will be
+                plotted as several rows.
+                (already a parameter for figure_panel.show_data)
+    :param hue: column name of data to be used for hue
+                (already a parameter for figure_panel.show_data)
+    :param col: column name of data used for plots in different columns
+                (generating a row of plots)
+                (already a parameter for figure_panel.show_data)
+    :param x_order: list of x values after applying the changes
+                    of x_labels, determining the order of c values
+                (already a parameter for figure_panel.show_data)
+    :param hue_order: list of hue values after applying the changes
+                    of hue_labels, determining the order of c values
+                (already a parameter for figure_panel.show_data)
+    :param col_order: list of col values after applying the changes
+                    of col_labels, determining the order of c values
+                (already a parameter for figure_panel.show_data)
+    :param show_legend: Whether to show legend of plot for different values
+                        in hue column (will not be shown if there is only
+                        one hue value)
+    :param pair_unit_columns: list of columns that uniquely identify one
+                        set of dependent datapoints (needed to connect
+                        paired datapoints and also needed as preprocessing
+                        to allow statistics tests for paired data)
+    :param plot_type: string of plot-type name (e.g. "box", "bar",
+                        "line", "regression", "scatter", "swarm"). Available
+                        values are determined by modules in figureflow.plots.
+                        Alowed strings are either the complete module name
+                        or the module name without the "_plot" ending.
+    :param data_plot_kwds: dictionary with keywords for plotting object
+                            used in function "plot_data" depending on the
+                            plot_type defined; see respective
+                            data_plot object for parameters which can be used
+    :param show_data_points: Whether to show single datapoints as swarm plot.
+                                This is only possible for non continuous x vals.
+    :param connect_paired_data_points: Whether to connect paired data points of
+                                        paired data in different groups with
+                                        lines
+    :param plot_colors: List of plot colors
+    :param box_pairs: Pairs of data groups (boxes) that should be statistically
+        compared. Can be of any of the following forms:
+        For non-grouped boxplot: `[[cat1, cat2], [cat3, cat4]]`.
+        For boxplot grouped by hue: `[[(cat1, hue1), (cat2, hue2)],
+                                     [(cat3, hue3), (cat4, hue4)]]`
+        For boxplots grouped by hue and an additional column (col):
+            '[[(col1,cat1, hue1), (col2,cat2, hue2)],
+             [(col3,cat3, hue3), (col4,cat4, hue4)]]'
+    :param perform_stat_test: Whether to perform stat tests
+    :param pvalues: list of p-values for each box pair comparison, if no
+                    stat test should be performed
     :param test: statistics test that should be performed. For comparing two
                 groups can be a list with one element or just a string. For
                 comparing more than two groups has to be a list with two strings
@@ -2462,24 +2542,13 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
                 under scipy.stats should start with "stats.". Scipy stats
                 test work for group comparisons and for comparing two
                 groups without control.
-    :param line_height: in axes fraction coordinates
-    :param text_offset: in points
-    :param box_pairs: can be of either form:
-        For non-grouped boxplot: `[[cat1, cat2], [cat3, cat4]]`.
-        For boxplot grouped by hue: `[[(cat1, hue1), (cat2, hue2)],
-                                    [(cat3, hue3), (cat4, hue4)]]`
-        For boxplots grouped by hue and an additional column (col):
-            '[[(col1,cat1, hue1), (col2,cat2, hue2)],
-             [(col3,cat3, hue3), (col4,cat4, hue4)]]'
-    :param col: group that is plotted in columns of plot for a three-level plot
-    :param hor_alignment: "right", "left" or "center", horizontal alignment
-                            of plots in panel plots always will the entire
-                            y space but not necessarily the entire x space.
-                            therefore alignment in x matters but not in y
-    :param data_plot_kwds: dictionary with keywords for plotting object
-                            used in function "plot_data" depending on the
-                            plot_type defined; see respective
-                            data_plot object for parameters which can be used
+    :param stats_params: Dictionary with parameters for the used stat test
+    :param text_format: Type of stat annotation, "star" for "*" and "simple" for
+                        direct p values.
+    :param show_test_name: Whether to show the test name if text_format is
+                            "simple"
+    :param test_short_name: Short name of stat test. If show_text_name is True,
+                            is displayed in annotation if text_format is "simple"
     :param pvalue_format_string: defaults to `"{.3e}"`
     :param pvalue_thresholds: list of lists, or tuples. Default is:
                                 For "star" text_format: `[[1e-4, "****"],
@@ -2487,25 +2556,84 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
                                 [1, "ns"]]`. For "simple" text_format :
                                 `[[1e-5, "1e-5"], [1e-4, "1e-4"],
                                 [1e-3, "0.001"], [1e-2, "0.01"]]`
-    :param pvalues: list of p-values for each box pair comparison.
+    :param annotate_nonsignificant: Annotate nonsignificant values as n.s.
+                                    if text_format is "star"
+    :param show_stats_to_control_without_lines: When annotating statistics,
+                                                do not draw lines when comparing
+                                                to control, instead just add
+                                                annotation on top of respective
+                                                bar/box/points. This is helpful
+                                                if too many lines would be drawn
+                                                otherwise.
+    :param loc: location of statistics annotation, "inside" or "outside" of plot
+    :param verbose: Whether all the statistic test information should be printed
+    :param plot_title: String; Title of the plot that will be added
+                        above the plot
+    :param show_col_labels_above: Whether to show col labels above the plot,
+                                    if True, show_col_labels_below will be set
+                                    to False
+    :param show_col_labels_below: Whether to show col labels below the plot
+    :param always_show_col_label: Whether to always show col labels (also if
+                                    there was only one col value)
+    :param col_label_padding: Label padding for cols
+    :param show_row_label: Bool; Whether there should be a label displayed
+                            right of the rightmost plot when True, legend
+                            will not be displayed automatically (both together
+                            is not implemented at the moment)
+    :param row_label_text: Text that should be used as row label instead of the
+                            value in the row column
+    :param row_label_orientation: Text orientation of row label, "hor" or "vert"
+    :param x_range: List of minimum and maximum x value
+    :param show_x_axis: Whether to show x axis
+    :param x_axis_label: Label of x axis.
+    :param show_x_label_in_all_columns: Whether to show x axis in all columns
+                                        even if they have the same x axis.
+    :param x_tick_label_rotation: Boolean, Whether the x tick labels
+                                    should be rotated by 45 degree
+    :param x_tick_interval: Interval between major ticks on x axis
     :param leave_space_for_x_tick_overhang: For plotting multiple rows
                                             where only the last row might have
                                             an x axis with potential x tick
                                             overhangs. Whether to leave space
                                             for these overhangs in the last row
                                             in the other rows.
+    :param y_range: List of minimum and maximum y value
+    :param show_y_axis: Whether to show the y axis
     :param neg_y_vals: are there data points below zero, if not lowest y axis
                         value is 0 (margin settings will make it lower
                         than zero otherwise)
-    :param padding: padding between panels in inches
-                    (is autoscaled by size factor in figure script)
+    :param y_axis_label: Label of y axis
+    :param y_tick_interval: Interval between major ticks on y axis
+    :param show_y_minor_ticks: Whether to show minor ticks on y axis
+    :param y_ticks: Specific ticks that should be used for y axis
+    :param axis_padding: padding between plot and y_axis ticks in points
+    :param hor_alignment: "right", "left" or "center", horizontal alignment
+                            of plots in panel plots always will the entire
+                            y space but not necessarily the entire x space.
+                            therefore alignment in x matters but not in y
+    :param use_fixed_offset: Whether to use a fixed distance of stat annotations
+                                (if True) or whether to plot annotations
+                                above highest y datapoint.
+    :param line_offset_to_box: Offset of stat annotation lines to highest point
+                                in data
+    :param line_offset: Offset of annotation lines to highest annotation lines.
+    :param text_offset: Offset of annotation text from annotation line in points
+    :param line_width: Width of annotation lines and grid lines in plot
+    :param line_width_thin: Width of minor tick grid lines in plot
+    :param line_height: in axes fraction coordinates
+    :param legend_title: Title of legend, displayed above legend.
+    :param legend_handle_length: Length of colored bars used in legend
+    :param legend_spacing: space between legend handles (color boxes)
+                            and legend text
+    :param leave_space_for_legend: Internal parameter to indicate whether
+                                    space for legend should be kept free
+                                    even if legend was removed
+    :param borderaxespad_: in points, padding of legend from plot
+                            and also of row label from plot
     :param box_width: maximum box width in inches -
                      scaled by width of one column in inches / 2
     :param group_padding: space between two cols in inches -
                             scaled by width of one column in inches / 2
-    :param legend_spacing: space between legend handles (color boxes)
-                            and legend text
-    :param axis_padding: padding between plot and y_axis ticks in points
     :param auto_scale_group_padding: Bool; Whether defined group_padding should
                                             be scaled automatically
                                             Autoscaling scales space between
@@ -2518,22 +2646,26 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
                                             be used since the exact size of the
                                             group padding is necessary
                                             for a proper grid-like arrangement
-    :param show_row_label: Bool; Whether there should be a label displayed
-                                right of the rightmost plot
-                            when True, legend will not be displayed
-                            automatically (both together is not implemented
-                            at the moment)
-    :param borderaxespad_: in points, padding of legend from plot
-                            and also of row label from plot
+    :param inner_padding: Padding of axis labels to plots
     :param vertical_lines: Boolean, Whether thin vertical lines
                             should be drawn for each box
-    :param x_tick_label_rotation: Boolean, Whether the x tick labels
-                                    should be rotated by 45 degree
-    :param _leave_space_for_legend: Internal parameter to indicate whether
-                                    space for legend should be kept free
-                                    even if legend was removed
-    :param plot_title: String; Title of the plot that will be added
-                        above the plot
+    :param add_background_lines: Whether to add lines between plots in
+                                    different columns (different col values).
+                                    Adding lines makes plots seem connected,
+                                    not adding them makes them look like
+                                    separate plots.
+    :param color: Color of lines and text
+    :param background_color: Background color of plot
+    :param outer_border: Outer border of plot
+                    (cannot be manually set, will be set by figure_panel)
+    :param fig: matplotlib figure object
+                    (cannot be manually set, will be set by figure_panel)
+    :param figure_panel: figureflow figure_panel object
+                    (cannot be manually set, will be set by figure_panel)
+    :param letter: Letter of figure_panel
+                    (cannot be manually set, will be set by figure_panel)
+    :param padding: padding between panels in inches
+                    (cannot be manually set, will be set by figure_panel)
 
     """
 
@@ -2546,7 +2678,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
 
     if plot_colors == -1:
         plot_colors = sns.xkcd_palette(["white", "grey"])
-
 
     if show_col_labels_above:
         show_col_labels_below = False
@@ -2592,7 +2723,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
     # Validate arguments
     box_pairs = validate_arguments(perform_stat_test,test,pvalues,
                                    test_short_name, box_pairs,loc,
-                                   text_format,text_annot_custom)
+                                   text_format)
 
     (pvalue_thresholds,
      pvalue_format_string,
@@ -2786,7 +2917,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
                                                        show_legend, borderaxespad_,
                                                        legend_handle_length,
                                                        show_x_label_in_all_columns,
-                                                       _leave_space_for_legend,
+                                                       leave_space_for_legend,
                                                        data_is_continuous,
                                                        show_data_points,
                                                        connect_paired_data_points)
@@ -2801,9 +2932,10 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None,
         # if there are ticklabels on x axis, increase inner padding by line width
         # only with tick labels the line will be added and therefore needs to be considered
 
-        if (plot_nb == 1) & (ax.xaxis.get_ticklabel_extents(fig.canvas.get_renderer())[0].height > 0):
+        get_tick_label_extents = ax.xaxis.get_ticklabel_extents
+        renderer = fig.canvas.get_renderer()
+        if ((plot_nb == 1) & (get_tick_label_extents(renderer)[0].height > 0)):
             inner_padding += line_width
-        
 
         axis_padding = set_axis_label_paddings(inner_padding, axis_padding, ax,
                                                 plot_nb, outer_border,
