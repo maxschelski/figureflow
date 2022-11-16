@@ -11,6 +11,10 @@ A lot of the code to plot data and add significance information (in statannot.py
 
 For any questions or an introduction of how to use the package please contact me via E-Mail to max.schelski@googlemail.com. I am very happy to help people starting to use the package and I am very open to any feedback - including anything not working properly or easily. <br/>
 
+# How to use Figureflow?
+
+After installation, start with looking at some of the many available examples for movies or figures (see section "Usage Examples). For detailed questions, check the API section of the documentation under http://figureflow.readthedocs.io/ - all parameters for all functions are documented there.
+
 # Usage Examples
 Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
 Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (under "scripts/figures") or movies (under "scripts/movies"). The figures and movies are from Schelski and Bradke 2022.<br/>
