@@ -13,7 +13,8 @@ For any questions or an introduction of how to use the package please contact me
 
 # How to use Figureflow?
 
-After installation, start with looking at some of the many available examples for movies or figures (see section "Usage Examples). For detailed questions, check the API section of the documentation under http://figureflow.readthedocs.io/ - all parameters for all functions are documented there.
+After installation, start with looking at some of the many available examples for movies or figures (see section "Usage Examples"). For questions about specific functions, check the API section of the documentation under http://figureflow.readthedocs.io/ - all parameters for all functions are documented there. <br/>
+If something is unclear, not well explained, you are unsure whether something is implemented or something doesn't work, feel free to write me an E-Mail to max.schelski@googlemail.com - I am happy to help.
 
 # Usage Examples
 Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
