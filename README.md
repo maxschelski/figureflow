@@ -5,7 +5,7 @@ Figureflow was used to generate all 26 figures (10 main, 16 supplementary) and 2
 https://www.science.org/doi/10.1126/sciadv.abo2336 <br/>
 FigureFlow was also used to generate all figures and all movies from the corresponding preprint Schelski and Bradke 2021 (examples from preprint at the bottom of this page):<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
-<br/>
+
 
 A lot of the code to plot data and add significance information (in statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
 
@@ -14,7 +14,8 @@ For any questions or an introduction of how to use the package please contact me
 # How to use Figureflow?
 
 After installation (see section "Installation" below), start with looking at some of the many available examples for movies or figures. ***Examples of figures are under data/example_figures/ as .png files, while example movies are under data/example_movies as .mp4 files*** (for details see section "Usage Examples" below). <br/>
-For questions about specific functions, check the API section of the documentation under http://figureflow.readthedocs.io/en/latest/api.html - all parameters for all functions are documented there. <br/>
+For questions about specific functions, check the API section of the documentation under http://figureflow.readthedocs.io/en/latest/api.html - all parameters for all functions are documented there.
+
 If something is unclear, not well explained, you are unsure whether something is implemented or something doesn't work, feel free to write me an E-Mail to max.schelski@googlemail.com - I am happy to help.
 
 # Selected Features
