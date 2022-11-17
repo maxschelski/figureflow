@@ -526,10 +526,16 @@ class FigureEditorGUI(QtWidgets.QDialog):
         # get mid point and width and height
         crop_dimensions = crop_rect.get_bbox()
 
-        left = crop_dimensions.x0
-        right = 1 - (crop_dimensions.x1)
-        bottom = 1 - (crop_dimensions.y1)
-        top = crop_dimensions.y0
+        x0 = min(crop_dimensions.x0, crop_dimensions.x1)
+        x1 = max(crop_dimensions.x0, crop_dimensions.x1)
+        y0 = min(crop_dimensions.y0, crop_dimensions.y1)
+        y1 = max(crop_dimensions.y0, crop_dimensions.y1)
+
+
+        left = x0
+        right = 1 - (x1)
+        bottom = 1 - (y1)
+        top = y0
 
         # add "row=, column=, images=" information
         add_crop_string = "figure.add_cropping(\n"
@@ -550,10 +556,14 @@ class FigureEditorGUI(QtWidgets.QDialog):
                                 ", column="+str(axes_position[1])+",")
         add_crop_string += "\n"
 
-        target_images_string = indent_string + "images=[\n"
+        target_images_string = indent_string + "images=["
         # get target images for arrow
-        target_images_string += self.get_image_identity_string(ax,indent_string)
-        target_images_string += indent_string+"]"
+
+        axes_position = self.get_position_of_axes(ax)
+        axes_identity = self.figure_panel.pos_to_pre_identity_map[axes_position]
+        image_number = axes_identity[self.figure_panel.map["images"]]
+        target_images_string += str(image_number)
+        target_images_string += "]"
 
         add_crop_string += target_images_string
         add_crop_string += ")"
@@ -779,7 +789,6 @@ class FigureEditorGUI(QtWidgets.QDialog):
         return add_text_string
 
     def get_image_identity_string(self, ax, indent_string):
-        axes_label = ax.get_label()
         axes_position = self.get_position_of_axes(ax)
 
         axes_identity = self.figure_panel.pos_to_pre_identity_map[axes_position]

@@ -31,7 +31,7 @@ class CropEditor(rectangle_editor.RectangleEditor):
 
             mpl_rectangle = matplotlib.patches.Rectangle
 
-            self.crop_element = mpl_rectangle((x0_ax, 1-y0_ax),width, height,
+            self.crop_element = mpl_rectangle((x0_ax, y1_ax),width, height,
                                               linewidth=self.line_width,
                                               edgecolor=self.color,
                                               transform=self.ax.transAxes,
