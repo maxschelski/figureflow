@@ -100,6 +100,30 @@ For updating Figureflow on your machine, open a terminal, navigate into the fold
 
 This will download all new files on GitHub (if there are some).
 
+
+# General Usage
+
+In general you first create a figure object.
+
+> figure = Figure(...)
+  
+You should now create a .csv layout file (see section "Creating a layout for a figure" below).
+Then you can execute all functions on this figure object. You should first create a panel. For that, you first need to have a csv file (for showing data plots) or an image file (e.g. tiff; for showing images). The filename must start with panelA. If there is no file for the panel you want to create, an error will be raised.
+
+> figure.create_panel(letter="A",...)
+
+
+This panel can either show images (if the panel files are image files) using:
+
+> figure.show_images(...)
+
+or it can show data plots (if the panel file is a csv file) using:
+
+> figure.show_data(...)
+
+The all functions and their parameters related to showing data plots are described under the "Dataplot panel" navigation point, while all functions and their parameters related to showing images are described under the "Image panel" navigation point.
+
+
 # Creating a layout for a figure
 
 The layout of a figure is created by defining the position and size of the panels. This can either be done by setting the parameters x, y, width and height separately for each figure panel or by creating a csv file the following way:
@@ -128,7 +152,7 @@ you can write the following:
 
 (where "C" is the panel you want to edit)
 
-The GUI has a button to generate the code after you are done adding the elements you want you can then copy paste into the script of the figure/movie. 
+After you are done adding and modifying the elements you want, you have to press the "Print code" button, which will print the code for the elements in your Python console. You can then copy and paste the code into the script of the figure/movie, making sure you paste each command at the right spot (before or after show_images and to the right panel). 
 
 # Examples
 Examples are not displayed to scale on this website but were all generated with 4.75 inch width.<br/>
