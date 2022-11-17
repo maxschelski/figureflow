@@ -152,6 +152,12 @@ you can write the following:
 
 (where "C" is the panel you want to edit)
 
+Adding arrows or text on images which will be cropped should only be done with setting the parameter "change_cropping" to False:
+
+> figure.edit_panel("C", change_cropping=False)
+
+Otherwise, the image is shown without cropping applied and therefore the relative size of arrows or text compared to the image will be different than after cropping is applied.
+
 After you are done adding and modifying the elements you want, you have to press the "Print code" button, which will print the code for the elements in your Python console. You can then copy and paste the code into the script of the figure/movie, making sure you paste each command at the right spot (before or after show_images and to the right panel). 
 
 # Examples
