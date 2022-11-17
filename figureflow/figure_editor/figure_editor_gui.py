@@ -805,6 +805,8 @@ class FigureEditorGUI(QtWidgets.QDialog):
         The string creates a dictionary containing the details of
         plotting user-defined text at the user-defined positions.
         """
+        for _, tool in self.tools.items():
+            tool.deactivate()
         code_string = ""
         add_texts_string = ""
         add_arrows_string = ""
