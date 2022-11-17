@@ -4315,7 +4315,6 @@ class FigurePanel():
             if crop_param["images"] != None:
                 if pre_identity[self.map["images"]] not in crop_param["images"]:
                     image_correct = False
-            print("ZOOM:", is_zoom, " IMAGE CORRECT: ", image_correct)
 
             position_correct = self._check_if_pos_is_in_row_col_list(row, col,
                                                                     crop_param["row"],
@@ -4323,8 +4322,6 @@ class FigurePanel():
 
             if (is_zoom) | ( not (image_correct & position_correct)):
                 continue
-
-            print("CROP!")
 
             # get width_fac and height_fac to get from relative values
             #  to actual px values for cropping images
