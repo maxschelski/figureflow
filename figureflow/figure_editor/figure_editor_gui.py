@@ -531,11 +531,10 @@ class FigureEditorGUI(QtWidgets.QDialog):
         y0 = min(crop_dimensions.y0, crop_dimensions.y1)
         y1 = max(crop_dimensions.y0, crop_dimensions.y1)
 
-
         left = x0
         right = 1 - (x1)
-        bottom = 1 - (y1)
-        top = y0
+        top = 1 - (y1)
+        bottom = y0
 
         # add "row=, column=, images=" information
         add_crop_string = "figure.add_cropping(\n"
