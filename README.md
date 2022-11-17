@@ -128,7 +128,7 @@ you can write the following:
 
 (where "C" is the panel you want to edit)
 
-The GUI has a button to generate the code after you are done adding the elements you want you can then copy paste into the script of the figure/movie. 
+After you are done adding and modifying the elements you want, you have to press the "Print code" button, which will print the code for the elements in your Python console. You can then copy and paste the code into the script of the figure/movie, making sure you paste each command at the right spot (before or after show_images and to the right panel). 
 
 # Examples
 Examples are not displayed to scale on this website but were all generated with 4.75 inch width.<br/>
