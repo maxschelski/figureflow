@@ -181,15 +181,19 @@ class ArrowEditor(shape_editor.ShapeEditor):
         # self.dragged_element.remove()
         x_pos_data = event.xdata
         y_pos_data = event.ydata
+
+        pick_pos_data = self.transform_coords_from_axes_to_data(self.pick_pos[0],
+                                                                1-self.pick_pos[1],
+                                                                self.ax)
+        
         (x_pos_ax,
         y_pos_ax) = self.transform_coords_from_data_to_axes(x_pos_data,
                                                              y_pos_data,
                                                              self.ax)
-
-        d_x = x_pos_ax- self.pick_pos[0]
-        d_y = y_pos_ax - self.pick_pos[1]
         self.pick_pos = [x_pos_ax, y_pos_ax]
 
+        d_x = x_pos_data- pick_pos_data[0]
+        d_y = y_pos_data - pick_pos_data[1]
         position = self.dragged_element.xy
 
         position[:,0] += d_x
