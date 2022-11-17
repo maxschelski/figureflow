@@ -692,7 +692,7 @@ class FigureEditorGUI(QtWidgets.QDialog):
             head_length_factor = float(arrow_params[2])
             # check if each of the parameters is different from the default
             default_in_function = self.figure_panel._default_in_function
-            function_object = self.figure_panel._draw_on_image
+            function_object = self.figure_panel.draw_on_image
 
             default_factor = default_in_function(function_object,
                                                  "arrow_width_factor")
@@ -728,6 +728,8 @@ class FigureEditorGUI(QtWidgets.QDialog):
         return add_all_arrows_string
 
     def get_code_for_adding_texts(self, text_tool, ax):
+        if len(text_tool.all_text_fields) == 0:
+            return ""
         indent_string = "\t\t\t\t\t\t"
         add_text_string = "figure.add_text_on_image(\n"
         texts_string = indent_string + "texts=[\n"

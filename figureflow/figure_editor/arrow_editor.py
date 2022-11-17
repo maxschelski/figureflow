@@ -185,7 +185,7 @@ class ArrowEditor(shape_editor.ShapeEditor):
         pick_pos_data = self.transform_coords_from_axes_to_data(self.pick_pos[0],
                                                                 1-self.pick_pos[1],
                                                                 self.ax)
-        
+
         (x_pos_ax,
         y_pos_ax) = self.transform_coords_from_data_to_axes(x_pos_data,
                                                              y_pos_data,
