@@ -756,7 +756,8 @@ class FigurePanel():
                                                             show_focus_in,
                                                             enlarged_image_site)
 
-                order_of_categories = self._resort_order_of_categories_from_primer([first_dimension, second_dimension],
+                order_of_categories = self._resort_order_of_categories_from_primer([first_dimension,
+                                                                                    second_dimension],
                                                                                       order_of_categories)
 
                 (all_images_by_identity,
@@ -2248,8 +2249,12 @@ class FigurePanel():
 
         inv_increase_size_map = {v: k for k, v in increase_size_map.items()}
 
+        images_cat_nb = self.map["images"]
         place_holder_pre_identity = tuple([-1
-                                           for _ in range(len(images_enlarge[0]))])
+                                           if cat_nb != images_cat_nb
+                                           else images_enlarge[0][images_cat_nb]
+                                           for cat_nb, _ in
+                                           enumerate(range(len(images_enlarge[0])))])
 
         for place_holder_identity, image in place_holder_identities.items():
             #  add place_holder_identities to inv_map
@@ -3514,8 +3519,7 @@ class FigurePanel():
             self.pos_to_identity_map[position[1],
                                      position[0]] = tuple(identity)
 
-
-            if pre_identity[0] == -1:
+            if self._identity_is_placeholder(pre_identity) == -1:
                 continue
 
             # for non place holder images save connection
@@ -3599,7 +3603,8 @@ class FigurePanel():
         # then it is a place holder identity and image
         #  that does not need to be further remapped
         # only if dim_val_maps was filled already
-        if (remapped_identity[0] == -1) | (len(self.dim_val_maps) == 0):
+        if (self._identity_is_placeholder(remapped_identity) |
+                (len(self.dim_val_maps) == 0)):
             pre_identity = remapped_identity
         else:
             for dimension_nb, identity_val in enumerate(remapped_identity):
@@ -4305,19 +4310,21 @@ class FigurePanel():
                 zoom_nb = pre_identity[self.map["zooms"]]
                 if zoom_nb > 0:
                     is_zoom = True
-
             image_correct = True
             # check if image is correct if images were specified in the crop param
             if crop_param["images"] != None:
                 if pre_identity[self.map["images"]] not in crop_param["images"]:
                     image_correct = False
+            print("ZOOM:", is_zoom, " IMAGE CORRECT: ", image_correct)
 
             position_correct = self._check_if_pos_is_in_row_col_list(row, col,
                                                                     crop_param["row"],
                                                                     crop_param["col"])
 
-            if (is_zoom) | ( not image_correct & position_correct):
+            if (is_zoom) | ( not (image_correct & position_correct)):
                 continue
+
+            print("CROP!")
 
             # get width_fac and height_fac to get from relative values
             #  to actual px values for cropping images
@@ -10596,8 +10603,15 @@ class FigurePanel():
             if ax.figure is None:
                 continue
             identity = self.pos_to_pre_identity_map[ax_position]
-            if identity[0] == -1:
+            if self._identity_is_placeholder(identity):
                 ax.remove()
+
+    def _identity_is_placeholder(self, identity):
+        for cat_val in identity:
+            if type(cat_val) == int:
+                if cat_val == -1:
+                    return True
+        return False
 
     def draw_line_on_plots(self, positions, axis,
                             line_width = 1, color = "white",
@@ -10746,7 +10760,7 @@ class FigurePanel():
         # but still keeping clear function names
         is_pos_in_list = self._check_if_pos_is_in_row_col_list
         correct_position = self._correct_xy_for_cropping_and_zoom
-        coords_from_data_to_axes = self.transform_coords_from_data_to_axes
+        coords_from_data_to_axes = self._transform_coords_from_data_to_axes
         identity_matches_criteria = self._check_if_identity_matches_dict_criteria
 
         for ax_position, ax in self.all_axs.items():
