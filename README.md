@@ -5,30 +5,18 @@ Figureflow was used to generate all 26 figures (10 main, 16 supplementary) and 2
 https://www.science.org/doi/10.1126/sciadv.abo2336 <br/>
 FigureFlow was also used to generate all figures and all movies from the corresponding preprint Schelski and Bradke 2021 (examples from preprint at the bottom of this page):<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
-<br/>
+
 
 A lot of the code to plot data and add significance information (in statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
 
 For any questions or an introduction of how to use the package please contact me via E-Mail to max.schelski@googlemail.com. I am very happy to help people starting to use the package and I am very open to any feedback - including anything not working properly or easily. <br/>
 
-# Usage Examples
-Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
-Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (under "scripts/figures") or movies (under "scripts/movies"). The figures and movies are from Schelski and Bradke 2022.<br/>
-To find out which examples might be interesting to you, start by looking 
-- in "data/example_figures" for generated figures (as .png file, e.g. data/example_figures/figure1.png) or 
-- in "data/example_movies" for generated movies (as .mp4 file, e.g. data/example_movies/MovieS1.mp4) 
+# How to use Figureflow?
 
-Check which examples contain features you would like to use. Then you can use the corresponding script for the example of interest (e.g. scripts/Figure1.py or scripts/MovieS1.py) to play around with the feature of interest and thereby understand the usage hands-on.<br/><br/>
+After installation (see section "Installation" below), start with looking at some of the many available examples for movies or figures. ***Examples of figures are under data/example_figures/ as .png files, while example movies are under data/example_movies as .mp4 files*** (for details see section "Usage Examples" below). <br/>
+For questions about specific functions, check the API section of the documentation under http://figureflow.readthedocs.io/en/latest/api.html - all parameters for all functions are documented there.
 
-The data used for the figures and movies is in the folder "data" in a subfolder with the same name as the name of the script (e.g. the data for scripts/figures/Figure1.py is in data/Figure1).<br/><br/>
-The data for a figure can contain: 
-- A .csv file named \_\_figure\_\_ followed by the figure number (e.g. "\_\_figure\_\_S1.csv") file that describes the layout of the panels
-- .csv files for analyzed data
-- .tif files for microscopy images 
-- .png/.pptx files for illustrations.
-
-Figureflow automatically assigns files to the respective panel by file name:<br/>
-The name of files for a specific panel starts with "panel" followed by the uppercase panel letter and then an underscore (e.g. a file for panel A starts with "panelA_"). Alternatively, files for a panel can be stored in a folder named "panel" followed by the uppercase panel letter ("e.g. "panelA").
+If something is unclear, not well explained, you are unsure whether something is implemented or something doesn't work, feel free to write me an E-Mail to max.schelski@googlemail.com - I am happy to help.
 
 # Selected Features
 
@@ -66,6 +54,24 @@ The name of files for a specific panel starts with "panel" followed by the upper
 - ...
 <br/>
 
+# Usage Examples
+Some documentation of how to generate movies can be found in the folder "scripts" in create_movies.py. <br/><br/>
+Many usage examples covering almost all of the features of figureflow can be found in the the folder "scripts" for generating figures (under "scripts/figures") or movies (under "scripts/movies"). The figures and movies are from Schelski and Bradke 2022.<br/>
+To find out which examples might be interesting to you, start by looking 
+- in "data/example_figures" for generated figures (as .png file, e.g. data/example_figures/figure1.png) or 
+- in "data/example_movies" for generated movies (as .mp4 file, e.g. data/example_movies/MovieS1.mp4) 
+
+Check which examples contain features you would like to use. Then you can use the corresponding script for the example of interest (e.g. scripts/Figure1.py or scripts/MovieS1.py) to play around with the feature of interest and thereby understand the usage hands-on.<br/><br/>
+
+The data used for the figures and movies is in the folder "data" in a subfolder with the same name as the name of the script (e.g. the data for scripts/figures/Figure1.py is in data/Figure1).<br/><br/>
+The data for a figure can contain: 
+- A .csv file named \_\_figure\_\_ followed by the figure number (e.g. "\_\_figure\_\_S1.csv") file that describes the layout of the panels
+- .csv files for analyzed data
+- .tif files for microscopy images 
+- .png/.pptx files for illustrations.
+
+Figureflow automatically assigns files to the respective panel by file name:<br/>
+The name of files for a specific panel starts with "panel" followed by the uppercase panel letter and then an underscore (e.g. a file for panel A starts with "panelA_"). Alternatively, files for a panel can be stored in a folder named "panel" followed by the uppercase panel letter ("e.g. "panelA").
 
 # Installation
 
