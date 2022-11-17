@@ -654,7 +654,6 @@ class FigureEditorGUI(QtWidgets.QDialog):
         function_call_string = "figure.draw_on_image(\n"
         target_images_string_start = indent_string + "images=\n"
 
-
         for arrow in arrow_tool.all_arrows:
             add_arrow_string = function_call_string
             # get and set target for each arrow
@@ -679,13 +678,12 @@ class FigureEditorGUI(QtWidgets.QDialog):
 
             # get and set direction for each arrow
             # get direction in degrees from d_x and d_y of arrow
-            direction = np.rad2deg(np.arctan2(d_x, d_y) % (2*np.pi))
+            direction = np.rad2deg(np.arctan2(d_x, -d_y) % (2*np.pi))
             add_arrow_string += " direction="+str(self.round(direction))+","
 
             color_string = self.get_color_string(arrow.get_edgecolor(),
                                                  indent_string)
             add_arrow_string += color_string
-
 
             # get and set several parameters from label of arrow:
             # width_factor (first)
