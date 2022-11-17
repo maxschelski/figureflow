@@ -53,15 +53,16 @@ class Figure():
         if a panel should span several cells
         the corresponding letter should be written in several cells.
         Widths and heights can be defined by three possible ways:
-        1) in which the first row is the width of each column
-        and the last column is the height of each row
-        2) in which above every panel letters
-        there is a number corresponding to the relative
-        width of the panel in that row
-        and the last column of the csv contains the height of each row
-        3) in which widths are defined as in 2) but
-           heights are defined for every panel
-           by a number right of the panel letter
+          1) in which the first row is the width of each column and the last
+          column is the height of each row
+
+          2) in which above every panel letters there is a number corresponding
+          to the relative width of the panel in that row and the last column of
+          the csv contains the height of each row
+
+          3) in which widths are defined as in 2) but heights are defined for
+          every panel by a number right of the panel letter
+
         :param folder: Absolute path to folder with files for figure
         :param letter_fontsize: Fontsize in pt for panel letters in figure
         :param number: Number of the figure, which will be used for the file
@@ -554,6 +555,7 @@ class Figure():
                              f"{type(panel_letter)}.")
 
         self.panel_to_edit = panel_letter
+        self.change_cropping = change_cropping
         self.panel_edit_kwargs = {"coord_decimals": coord_decimals,
                                   "color": color,
                                   "include_all_labels": include_all_labels,
@@ -761,6 +763,7 @@ class Figure():
             panel_to_edit._remove_placeholder_images()
 
         app = QtWidgets.QApplication(sys.argv)
+        self.change_cropping = change_cropping
         main = FigureEditorGUI(panel_to_edit, font_size=self.font_size,
                                coord_decimals=coord_decimals, color=color,
                                include_all_labels=include_all_labels,
