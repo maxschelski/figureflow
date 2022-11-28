@@ -3519,7 +3519,7 @@ class FigurePanel():
             self.pos_to_identity_map[position[1],
                                      position[0]] = tuple(identity)
 
-            if self._identity_is_placeholder(pre_identity) == -1:
+            if self._identity_is_placeholder(pre_identity):
                 continue
 
             # for non place holder images save connection
@@ -5822,6 +5822,7 @@ class FigurePanel():
          label_vals) = self._pool_adjacent_similar_labels(label_vals, all_cat_vals,
                                                          positions_for_cat_vals,
                                                          label_cat)
+
         # initiate counter for multiple categories (composite channels)
         for cat_nb, cat_val in enumerate(all_cat_vals):
             site_positions = positions_for_cat_vals[cat_val]
@@ -5919,6 +5920,7 @@ class FigurePanel():
         new_all_cat_vals = []
         new_label_vals = []
         printed_warning = False
+
         for label_nb, label in enumerate(label_vals):
             # if more labels were defined than cat vals
             # are present, ignore too many cat vals
