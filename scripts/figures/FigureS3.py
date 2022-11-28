@@ -36,7 +36,7 @@ figure.create_panel("B", increase_size_fac=6, hor_alignment="center",
                     padding=[None, None])
 figure.show_data(hue=None, y="speed", x="type",
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="stats.Wilcoxon",
+                    perform_stat_test=True, test="stats.wilcoxon",
                     x_labels=[("proximal","Proximal"),('distal','Distal')], 
                     x_order=["Proximal", "Distal"],
                     pair_unit_columns=["date", "cell"],
