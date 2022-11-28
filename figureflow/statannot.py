@@ -949,12 +949,13 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
             if stat_row not in stat_results.columns:
                 use_box_pair = False
 
-            if not use_box_pair & annotate_nonsignificant:
+            if (not use_box_pair) & annotate_nonsignificant:
                 # arbitrarily use a pvalue which is 10% higher than the maximum
                 # significant pvalue
                 p_values[box_pair] = (pvalue_threshold * 1.1)
             elif use_box_pair:
                 pval = stat_results.loc[stat_column,stat_row]
+
                 formatted_output = ("Custom statistical test, {}, P_val={:.3e}"
                                     .format(test_short_name, pval))
 
@@ -972,6 +973,7 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                 if (pval < pvalue_threshold) | (annotate_nonsignificant):
                     included_pairs.append(box_pair)
                     p_values[box_pair] = (pval)
+
     return included_pairs, p_values, test_result_list
 
 
