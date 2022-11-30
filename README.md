@@ -6,7 +6,7 @@ https://www.science.org/doi/10.1126/sciadv.abo2336 <br/>
 FigureFlow was also used to generate all figures and all movies from the corresponding preprint Schelski and Bradke 2021 (examples from preprint at the bottom of this page):<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 
-***FOR MAC AND LINUX: FIXED the environment.yml thanks to Thomas Cheng (https://github.com/nhcheng).***
+***FOR MAC AND LINUX: INSTALLATION FIXED! The environment.yml was fixed by Thomas Cheng (https://github.com/nhcheng) and now only includes necessary dependencies.***
 
 A lot of the code to plot data and add significance information (in statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
 
