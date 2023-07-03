@@ -741,7 +741,7 @@ def exclude_data(data,col,col_order,x,x_order,hue,hue_order):
                                               != missing_val]
     return included_data
 
-def perform_stat_test(data_groups, data_group_names,
+def _perform_stat_test(data_groups, data_group_names,
                       test_name, stats_params, type):
     """
     :param type: "group" or "single"
@@ -899,7 +899,7 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                                  "the parameter 'test'.")
             if len(test) == 1:
 
-                stat_results = perform_stat_test(group_data_list,
+                stat_results = _perform_stat_test(group_data_list,
                                                  all_data_groups, test[0],
                                                  stats_params, "single")
                 # perform single comparison
@@ -911,8 +911,13 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                                          "or stats_params are supplied as "
                                          "a list of two dictionaries.")
                 # perform group comparison first
-                grup_p_val = perform_stat_test(group_data_list, all_data_groups,
-                                               test[0], stats_params[0],
+                if type(stats_params) == dict:
+                    stats_params_group = stats_params
+                else:
+                    stats_params_group = stats_params[0]
+                grup_p_val = _perform_stat_test(group_data_list,
+                                                all_data_groups,
+                                               test[0], stats_params_group,
                                                "group")
                 # do not perform follow up tests, if group comparison is not
                 # significant. Even if nonsignificant should be annotated,
@@ -921,12 +926,16 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                 if (grup_p_val > pvalue_threshold):
                     continue
                 # perform comparison of sub groups
-                stat_results = perform_stat_test(group_data_list,
+                if type(stats_params) == dict:
+                    stats_params_posthoc = stats_params
+                else:
+                    stats_params_posthoc = stats_params[1]
+                stat_results = _perform_stat_test(group_data_list,
                                                  all_data_groups,
-                                                 test[1], stats_params[1],
+                                                 test[1], stats_params_posthoc,
                                                  "single")
         else:
-            stat_results = perform_stat_test(group_data_list, all_data_groups,
+            stat_results = _perform_stat_test(group_data_list, all_data_groups,
                                              test, stats_params, "single")
 
         for box_pair in all_box_pairs:

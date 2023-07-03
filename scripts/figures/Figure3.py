@@ -41,6 +41,7 @@ figure.show_data(x="group",y="fraction",hue="group_hue",
                 x_order=["In the\naxon","In all\nneurites",
                           "In no\nneurite"],
                 show_data_points=False,
+                bar_plot_dodge=False,
                 show_x_axis=False)
 
                 
