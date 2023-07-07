@@ -16,7 +16,7 @@ figure_folder_name = os.path.basename(script_path).replace(".py", "")
 data_folder = os.path.join(figureflow_folder, "data")
 input_folder = os.path.join(data_folder,figure_folder_name)
 
-figure = Figure(input_folder,number=3, dpi=600, width=5)
+figure = Figure(input_folder,number="3_highres", dpi=300, width=5)
 
 
 figure.create_panel("A", increase_size_fac=1, hor_alignment="center",
@@ -41,7 +41,6 @@ figure.show_data(x="group",y="fraction",hue="group_hue",
                 x_order=["In the\naxon","In all\nneurites",
                           "In no\nneurite"],
                 show_data_points=False,
-                bar_plot_dodge=False,
                 show_x_axis=False)
 
                 
@@ -65,13 +64,13 @@ figure.get_basic_statistics()
 
 figure.create_panel("D", increase_size_fac = 1, hor_alignment="center")
 figure.add_cropping(top=0.085)
-figure.show_images(frames=[30, 348, 622], channels=[0])
-figure.write_on_image("Axon",[328, 388], only_show_in_rows=[2])
-figure.write_on_image("1",[142, 402], only_show_in_rows=[2])
-figure.write_on_image("2",[158, 285], only_show_in_rows=[2])
-figure.write_on_image("3",[108, 153], only_show_in_rows=[2])
-figure.write_on_image("4",[221, 126], only_show_in_rows=[2])
-figure.write_on_image("5",[385, 172], only_show_in_rows=[2])
+figure.show_images(frames=[0, 1, 2], channels=[0])
+figure.add_text_within_at_coords("Axon",x=328, y=388, only_show_in_rows=[2])
+figure.add_text_within_at_coords("1",x=142, y=402, only_show_in_rows=[2])
+figure.add_text_within_at_coords("2",x=158, y=285, only_show_in_rows=[2])
+figure.add_text_within_at_coords("3",x=108, y=153, only_show_in_rows=[2])
+figure.add_text_within_at_coords("4",x=221, y=126, only_show_in_rows=[2])
+figure.add_text_within_at_coords("5",x=385, y=172, only_show_in_rows=[2])
 figure.annotate_channel_within_image(channel_names=["","Cytosol"], position="bottom-right", only_show_in_rows=[0])
 figure.add_scale_bar(um_per_px=0.22, lengths_um=20)
 
