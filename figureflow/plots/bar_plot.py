@@ -1,6 +1,8 @@
 from .group_plot import GroupPlot
 from .swarm_plot import SwarmPlot
 import seaborn as sns
+import numpy as np
+import matplotlib as mpl
 
 
 class BarPlot(GroupPlot):
@@ -16,7 +18,7 @@ class BarPlot(GroupPlot):
         """
         super().__init__(x, y, hue, data, x_order, hue_order, plot_colors,
                          size_factor, ax, plot_type,
-                         swarm_plot_point_size=swarm_plot_point_size,
+                         swarm_plot_point_size=swarmplot_point_size,
                          show_data_points=show_data_points,
                          connect_paired_data_points=connect_paired_data_points,
                          **kwargs)
@@ -24,6 +26,7 @@ class BarPlot(GroupPlot):
         self.line_width = line_width
         # needed to plot swarm plot in group_plot function plot
         self.SwarmPlot = SwarmPlot
+        self.ax = ax
 
     def plot(self):
         super().plot()
@@ -42,7 +45,7 @@ class BarPlot(GroupPlot):
         # this can lead to different grays for different subplots if only a part of the colors are plotted in one of them
         gray = mpl.colors.rgb2hex((0, 0, 0))
         plot.gray = gray
-        plot.plot(ax, {"linewidth":self.line_width,"edgecolor":"black"})
+        plot.plot(self.ax, {"linewidth":self.line_width,"edgecolor":"black"})
         if self.connect_paired_data_points:
             self.add_lines_to_connect_paired_data_points()
         return plot, []
