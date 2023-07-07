@@ -16,7 +16,7 @@ figure_folder_name = os.path.basename(script_path).replace(".py", "")
 data_folder = os.path.join(figureflow_folder, "data")
 input_folder = os.path.join(data_folder,figure_folder_name)
 
-figure = Figure(input_folder,number="3_highres", dpi=300, width=5)
+figure = Figure(input_folder,number=3, dpi=300, width=5)
 
 
 figure.create_panel("A", increase_size_fac=1, hor_alignment="center",
