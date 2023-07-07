@@ -2680,7 +2680,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     """
 
     if test is None:
-        test = ["stats.Wilcoxon", "posthocs.posthoc_dunn"]
+        test = ["stats.wilcoxon", "posthocs.posthoc_dunn"]
 
     plot_object = get_plotting_class(plot_type)
 
