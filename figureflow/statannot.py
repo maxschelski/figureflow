@@ -763,6 +763,7 @@ def _perform_stat_test(data_groups, data_group_names,
                                  f"using 'posthocs.' before the function name.")
 
             stat_func = getattr(stats, split_test_name[1])
+
             p_val = stat_func(*data_groups, **stats_params).pvalue
             if type == "group":
                 return p_val
@@ -2680,7 +2681,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     """
 
     if test is None:
-        test = ["stats.wilcoxon", "posthocs.posthoc_dunn"]
+        test = ["stats.kruskal", "posthocs.posthoc_dunn"]
 
     plot_object = get_plotting_class(plot_type)
 
