@@ -23,6 +23,7 @@ data_folder = os.path.join(figureflow_folder, "data")
 input_folder = os.path.join(data_folder,figure_folder_name)
 
 figure = Figure(input_folder,number=5,dpi=600,width=5)
+figure.show_panels("D")
 
 figure.create_panel("A", increase_size_fac=1, hor_alignment="right",
                     vert_alignment="center",
