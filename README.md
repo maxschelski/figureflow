@@ -1,4 +1,6 @@
 # FigureFlow
+[![Documentation Status](https://readthedocs.org/projects/figureflow/badge/?version=latest)](https://figureflow.readthedocs.io/en/latest/?badge=latest)
+
 A Python package to allow fast, modular and reproducible generation of publication quality scientific figures and movies with only a few lines of code. <br/>
 <br/>
 Figureflow was used to generate all 26 figures (10 main, 16 supplementary) and 22 movies for Schelski and Bradke 2022:<br/>
