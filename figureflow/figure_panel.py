@@ -7409,6 +7409,7 @@ class FigurePanel():
                 # convert all values to string to not have problem
                 #  of type differences
                 values = [str(value) for value in values]
+
                 new_included_data[column] = new_included_data[column].astype(str)
                 included_indices = None
                 for value in values:
@@ -7417,6 +7418,7 @@ class FigurePanel():
                     else:
                         included_indices = (included_indices |
                                             (new_included_data[column] == value))
+
             new_included_data = new_included_data.loc[included_indices]
 
         return new_included_data
@@ -7717,12 +7719,19 @@ class FigurePanel():
         :param hue_order: list of hue values after applying the changes
                         of hue_labels, determining the order of c values
         :param inclusion_criteria: list of Dictionaries with columns as key
-                                    and list of values
-                                    or one value that the column should match
-                                    as value all matches from each dictionary
-                                    will be concatanated
-                                    BE CAREFUL NOT TO INTRODUCE
-                                    DUPLICATES LIKE THIS!
+            and list of values or one value that the column should match
+            as value all matches from each dictionary will be concatanated
+            If no matches are found (ValueError 'The inclusion criteria [...]
+            did not match with any data') but you expected matches and the
+            matched values are numbers, try to use float numbers instead of int
+            (e.g. 9.0 instead of 9, or 200529.0 instead of 200529). Columns
+            might be converted from int to float if NaN values (e.g. empty
+            cells) are found. This type conversion can also happen if some rows
+            in excel are not complete deleted (some column values are left) or
+            a single cell accidentally was added below the rows - this would be
+            visible as rows added in the csv file which are mostly empty.
+            BE CAREFUL NOT TO INTRODUCE DUPLICATES LIKE THIS!
+
         :param show_legend: Whether to show legend of plot for different values
                             in hue column (will not be shown if there is only
                             one hue value)
@@ -7898,7 +7907,6 @@ class FigurePanel():
         if normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria)
 
-
         # normalization should usually be done before exclusion of data
         # otherwise excluded units would change normalization
         # depending on what is shown
@@ -7907,9 +7915,9 @@ class FigurePanel():
         if normalize:
             data[y] = self._normalize_data(data, y, norm_cats, hue, col, row,
                                           normalize_by)
+
         if not normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria)
-
 
         if len(data) == 0:
             raise ValueError("The inclusion criteria {} that were defined "
