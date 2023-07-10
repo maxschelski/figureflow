@@ -7719,8 +7719,8 @@ class FigurePanel():
         :param hue_order: list of hue values after applying the changes
                         of hue_labels, determining the order of c values
         :param inclusion_criteria: list of Dictionaries with columns as key
-            and list of values or one value that the column should match
-            as value all matches from each dictionary will be concatanated
+            and list of values or one value that the column should match,
+            since value all matches from each dictionary will be concatanated.
             If no matches are found (ValueError 'The inclusion criteria [...]
             did not match with any data') but you expected matches and the
             matched values are numbers, try to use float numbers instead of int
