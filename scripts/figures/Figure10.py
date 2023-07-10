@@ -100,7 +100,7 @@ figure.add_cropping(left=0.2, right=0.15, bottom=0.19, top=0.14, column=[0])
 figure.add_cropping(left=0.2, right=0.15, bottom=0.19, top=0.14, column=[1])
 figure.show_images(frames=[0,29], images=[0,1], channels=[0],
                                       use_same_LUTs=False,
-                                      cmaps=["","viridis"])
+                                      cmaps=["viridis"])
 figure.label_images(texts=["Control","Speedup"])
 figure.add_scale_bar(um_per_px=0.22, lengths_um=[20], position="bottom-left")
 figure.annotate_channel_within_image(["","Tubulin"], only_show_in_rows=[0],
