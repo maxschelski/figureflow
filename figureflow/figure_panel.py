@@ -526,6 +526,7 @@ class FigurePanel():
             sorters["channels"] = self._sort_category_vals_key
 
             extract_info = self._check_if_images_should_be_extracted_from_tif()
+
             if extract_info:
                 #  first pre_identity is constructed without zoom and image_sub
                 #  these properties will be added later
@@ -560,6 +561,7 @@ class FigurePanel():
             
             all_images_by_identity = self._finalize_pre_identity_dicts(all_images_by_pre_identity,
                                                                       self.inv_map, self.dim_val_maps)
+
 
             (all_images_by_identity,
              identity_to_add_zoom_mark_to) = self._add_zoom_images(all_images_by_identity,
@@ -1253,6 +1255,7 @@ class FigurePanel():
         identity_val_map = {}
 
         for img_nb, file_path in enumerate(self.panel_file_paths):
+
             file_name = os.path.basename(file_path)
 
             if (len(self.all_panel_imgs) > 1) & (file_name.find(".csv") != -1):
@@ -1331,6 +1334,7 @@ class FigurePanel():
 
             # check if the current image actually is
             #  only one image and not a multi-tiff
+
             if len(dimension_order_in_props) == 0:
                 # first pre_identity is constructed without zoom and image_sub
                 # these properties will be added later
@@ -2720,8 +2724,9 @@ class FigurePanel():
 
         # create 0 matrix of all identities by using max value of each category
         # of each identity as size of each dimension
-
-        cat_values = self._get_grouped_cat_values_from_identity_list(all_images_by_identity.keys())
+        
+        keys = all_images_by_identity.keys()
+        cat_values = self._get_grouped_cat_values_from_identity_list(keys)
 
         cat_max_values = np.array([max(x) for x in cat_values])
         identity_matrix = np.zeros(tuple(cat_max_values +1))
@@ -4219,6 +4224,12 @@ class FigurePanel():
                 rgb_image_to_show = all_rgb_images[0]
 
             ax.imshow(rgb_image_to_show)
+            # cmap was overwritten by creating rgb image, set cmap again
+            # to create correct colorbars
+            # Thus colorbars for composite images do not work!
+            # would need implementing showing several colorbars next to
+            # each other, for each channel
+            ax.images[0].set_cmap(cmap_for_img)
 
             #  ax.set_axis_off()
             # add plot to all_axs[row]
@@ -4227,6 +4238,7 @@ class FigurePanel():
             if column == None:
                 column = 0
             self.all_axs[(row,column)] = ax
+
         return widths, heights
 
 
@@ -5223,7 +5235,6 @@ class FigurePanel():
                 colorbar = plt.gcf().colorbar(ax.images[0], cax= cax,
                                               orientation=orientation)
 
-
                 # get min and max of image colormap
                 min, max = ax.images[0].get_clim()
 
@@ -5762,6 +5773,7 @@ class FigurePanel():
                                 (if False) or both unit names separated by ":"
                                 (if True)
         """
+
         label_cat = "frames"
         # get frame to annotate automatically
         if texts == None:
