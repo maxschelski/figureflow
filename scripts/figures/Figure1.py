@@ -16,7 +16,9 @@ figure_folder_name = os.path.basename(script_path).replace(".py", "")
 data_folder = os.path.join(figureflow_folder, "data")
 input_folder = os.path.join(data_folder,figure_folder_name)
 
+
 figure = Figure(input_folder,number=1, dpi=600, width=5)
+
 
 figure.create_panel("A", padding=[0.11,0.05], hor_alignment="left")
 figure.add_cropping(left=0.3)
@@ -39,6 +41,7 @@ figure.show_data(x="neurite", y="speed", col="stage", hue=None,
 figure.draw_line_on_images(position = 0, line_width=0.5, 
                             orientation="hor", color="black")
 figure.get_basic_statistics(n_columns=["date", "experiment", "cell"])
+
 
 
 figure.create_panel("C", increase_size_fac=1,vert_alignment="top", 

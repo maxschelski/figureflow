@@ -41,7 +41,7 @@ inclusion_criteria = [{}]
 inclusion_criteria[0]["cycle_threshold"] = [0.2]
 figure.show_data(x="axon", y="cycles/h", col="stage", hue=None,
                   plot_colors=sb.xkcd_palette(["white","white","white"]),
-                    perform_stat_test=True, test="stats.Wilcoxon",
+                    perform_stat_test=True, test="stats.wilcoxon",
                     col_labels=[("2.0", "No axon"), ("3.0", "With axon")],
                     box_pairs=[["Minor\nneurites","Axon"]],#,
                     pair_unit_columns=["date", "neuron"],
@@ -62,14 +62,14 @@ figure.get_basic_statistics()
 
 figure.create_panel("C", increase_size_fac = 1, hor_alignment="center", padding=[None, None])
 figure.add_cropping(bottom=0.2, left=0, right=0.15)
-figure.show_images(frames=[30, 789, 1100],
+figure.show_images(frames=[0,1,2],
                     cmaps="viridis")
 figure.add_colorbars(site="right",font_size_factor=1)
 
-figure.write_on_image("Axon",[209, 73], only_show_in_columns=[2])#Axon
-figure.write_on_image("1",[326, 171], only_show_in_columns=[2])#1
-figure.write_on_image("2",[319, 285], only_show_in_columns=[2])#2
-figure.write_on_image("3",[172, 140], only_show_in_columns=[2])#7
+figure.add_text_within_at_coords("Axon",x=209, y=73, only_show_in_columns=[2])#Axon
+figure.add_text_within_at_coords("1",x=326, y=171, only_show_in_columns=[2])#1
+figure.add_text_within_at_coords("2",x=319, y=285, only_show_in_columns=[2])#2
+figure.add_text_within_at_coords("3",x=172, y=140, only_show_in_columns=[2])#7
 
 figure.annotate_channel_within_image(channel_names=["Tubulin"], 
                                       position="top-left",
