@@ -128,7 +128,7 @@ figure.show_data(x="manipulation", y="MT-RFmed", col="stage", hue="condition",
                     average_columns=["date", "neuron"],
                   y_tick_interval=0.5,
                    data_plot_kwds={"swarm_plot_size":1.8},
-                  legend_handle_length=1,fliersize=1.5,
+                  legend_handle_length=1,
                   y_range=[-0.05, 2],
                   scale_columns = {"MT-RFmed":-1},
                   )
