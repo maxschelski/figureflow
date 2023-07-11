@@ -43,6 +43,7 @@ class Figure():
 
     def __init__(self,folder,height=1,number=1,dpi=600,padding="DEFAULT",letter_fontsize=9,
                 width=4.75, font_size=7, video = False, name="Figure",
+                 show_panel_letters=True,
                 dark_background = False, panel_str = "panel", relative_height=True):
         """
         The structure of the figure can also be defined in a csv.
@@ -124,6 +125,7 @@ class Figure():
         self.panel_to_edit = None
         self.panel_edit_kwargs = None
         self.change_cropping = False
+        self.show_panel_letters = show_panel_letters
 
         #for videos make sure that the height is defined
         if video & (type(self.height) == type(None)):
@@ -687,13 +689,19 @@ class Figure():
             if "vert_alignment" not in kwargs:
                 kwargs["vert_alignment"] = "center"
 
-        self.current_panel = FigurePanel(self, self.fig, self.fig_width_available,
-                                         self.fig_height_available, self.padding,
+        self.current_panel = FigurePanel(self, self.fig,
+                                         self.fig_width_available,
+                                         self.fig_height_available,
+                                         self.padding,
                                          panel_file_paths, all_panel_imgs,
                                          panel_pptxs, data,
-                                    letter, y, height, x, width, padding=padding,
-                                    letter_fontsize=self.letter_fontsize, size_factor=self.size_factor,
-                                     font_size = self.font_size, video=self.video,
+                                         letter, y, height, x, width,
+                                         padding=padding,
+                                         letter_fontsize=self.letter_fontsize,
+                                         size_factor=self.size_factor,
+                                         font_size = self.font_size,
+                                         video=self.video,
+                                         show_letter = self.show_panel_letters,
                                          **kwargs)
         self.all_panels[letter] = self.current_panel
         return self.current_panel
