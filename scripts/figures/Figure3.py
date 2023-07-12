@@ -90,9 +90,6 @@ figure.show_images(additional_padding=additional_padding,
                     use_same_LUTs=True)
 figure.label_category(category="images", 
                       texts=["Axon\n", "Neurite\n1", "\n2", "\n3", "\n4", "\n5" ])
-figure.annotate_channel_within_image(channel_names=["CAMSAP3"], 
-                                     position="top-right", 
-                                     only_show_in_columns=[0])
 figure.add_y_axis(show_in_columns=[0],  axis_padding=2,
                     axis_title="Time [h]", show_tick_labels=True)
 figure.add_x_axis(show_in_columns=[0], 
@@ -101,6 +98,9 @@ figure.add_x_axis(show_in_columns=[0],
                     tick_length=2.5, tick_width=0.7,
                     tick_color="black",
                     direction="out")
+figure.annotate_channel_within_image(channel_names=["CAMSAP3"], 
+                                     position="top-right", 
+                                     only_show_in_columns=[0])
 figure.draw_line_on_images(position = 348, line_width=2,
                             line_style=(0, (5,2)))
 figure.draw_line_on_images(position=482, line_width=1,
