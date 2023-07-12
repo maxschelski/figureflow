@@ -11,7 +11,7 @@ class BarPlot(GroupPlot):
     def __init__(self, x, y, hue, data, x_order, hue_order, plot_colors,
                  size_factor, ax, plot_type, line_width, swarmplot_point_size = 2,
                  show_data_points=True, connect_paired_data_points = True,
-                 bar_plot_dodge = True, **kwargs):
+                 bar_plot_dodge = False, **kwargs):
         """
         :param bar_plot_dodge: Bool; dodge parameter for barplot, will lead to
                                 stacked barplots if hue is defined
