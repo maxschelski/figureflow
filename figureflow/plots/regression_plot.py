@@ -144,7 +144,7 @@ class RegressionPlot():
             font_height_pt += label_nb * font_size_pt * 0.1
 
             # add one number at end of string, seems that ax extends over the plot area by + 1.5 numbers
-            txt_size_px = self.figure_panel.get_dimension_of_text(txt_label,
+            txt_size_px = self.figure_panel._get_dimension_of_text(txt_label,
                                                               font_size_pt,
                                                               self.ax)
             txt_width_px = txt_size_px[0]
