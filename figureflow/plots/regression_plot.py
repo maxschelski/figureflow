@@ -151,7 +151,7 @@ class RegressionPlot():
 
             self.labels_to_add.append({})
             # create function to get xy position when needed
-            get_xy_of_text = self.figure_panel.get_xy_of_text_from_position
+            get_xy_of_text = self.figure_panel._get_xy_of_text_from_position
             self.labels_to_add[-1]["xy"] = functools.partial(get_xy_of_text,
                                                         txt_label, self.ax,
                                                         position_regression_text,
