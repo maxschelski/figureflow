@@ -10931,21 +10931,42 @@ class FigurePanel():
             text_frame = shape.text_frame
             new_text = {}
             new_text["shape"] = shape
-            new_text["x0"] = (shape.left - pptx_dim["x0"]) / pptx_dim["width"]# + text_frame.margin_left
             # only making tighter from right appears to work,
             #  the rest exposes some text
             # dont know why...
+
+
+            # get rotation, found by Karim Elgazar:
+            xfrm = shape._element.spPr.get_or_add_xfrm()
+            if xfrm.get("rot") is not None:
+                rotation =  (180+ int(xfrm.get("rot")) // 60000)%360
+            else:
+                rotation = None
+            # if rotation is None:
+            new_text["x0"] = (shape.left - pptx_dim["x0"]) / pptx_dim["width"]  # + text_frame.margin_left
+            # new_text["x0"] = (shape.left - pptx_dim["x0"]) / pptx_dim[
+            #     "width"]  # + text_frame.margin_left
             new_text["x1"] = (shape.left + shape.width - pptx_dim["x0"]) / pptx_dim["width"]#  - text_frame.margin_right
             new_text["width"] = new_text["x0"] - new_text["x1"]
             new_text["y0"] = (shape.top- pptx_dim["y0"]) / pptx_dim["height"]# + + text_frame.margin_top
-            new_text["y1"] = (shape.top + shape.height - pptx_dim["y0"]) / pptx_dim["height"] # 
+            new_text["y1"] = (shape.top + shape.height - pptx_dim["y0"]) / pptx_dim["height"] #
             new_text["height"] = new_text["y0"] - new_text["y1"]
+            if rotation in [90, 270]:
+                x0 = new_text["x0"] - new_text["width"]/2 + new_text["height"]/2
+                new_text["x0"] = x0
+                new_text["x1"] = x0 - new_text["height"]
+                y0 = new_text["y0"] + new_text["width"]/2.5
+                new_text["y0"] = y0
+                new_text["y1"] = y0 - new_text["width"]
+
             new_text["text"] = shape.text
             new_text["margin_left"] = text_frame.margin_left / pptx_dim["width"]
             new_text["margin_right"] = text_frame.margin_right / pptx_dim["width"]
             new_text["margin_top"] = text_frame.margin_top / pptx_dim["height"]
             new_text["margin_bottom"] = text_frame.margin_bottom / pptx_dim["height"]
 
+            
+            new_text["rotation"] = rotation
             new_text["alignment"] = str(text_frame.paragraphs[0].alignment)
             new_text["fontsize"] = text_frame.paragraphs[0].runs[0].font.size.pt
             all_texts.append(new_text)
@@ -10983,25 +11004,49 @@ class FigurePanel():
 
         #  draw text in ax again at same position but new size
         for text in all_texts:
+            rotation = text["rotation"]
+            if rotation in [90, 270]:
+                print("change")
+                # text["y0"] = text["y0"] - text["width"]/2.5 + text["width"]/2
+                # text["y1"] = text["y1"] - text["width"]/2.5 + text["width"]/2.5
+
             # for now assumes that alignment of "none" is "left"
             if text["alignment"].find("None") != -1:
                 x0 = text["x0"] # + text["margin_left"]
                 #  y0 = text["y0"] # + text["margin_top"]
-                y0 = text["y1"] + text["height"] / 2
+                if rotation in [90, 270]:
+                    y0 = text["y1"] + text["width"]/2
+                else:
+                    y0 = text["y1"] + text["height"] / 2
                 hor_alignment = "left"
                 vert_alignment = "center"
 
             elif text["alignment"].find("CENTER") != -1:
-                x0 = text["x0"] - text["width"] / 2
-                y0 = text["y1"] + text["height"] / 2
+                if rotation in [90, 270]:
+                    x0 = text["x0"] - text["height"] / 2
+                    y0 = text["y1"] + text["width"] / 2
+                else:
+                    x0 = text["x0"] - text["width"] / 2
+                    y0 = text["y1"] + text["height"] / 2
                 hor_alignment = "center"
                 vert_alignment = "center"
+                
             elif text["alignment"].find("RIGHT") != -1:
                 x0 = text["x1"] # - text["margin_right"]
                 #  y0 = text["y0"] # + text["margin_top"]
-                y0 = text["y1"] + text["height"] / 2
-                hor_alignment = "right"
-                vert_alignment = "center"
+                if rotation in [90, 270]:
+                    if rotation == 270:
+                        x0 = text["x0"]
+                        hor_alignment = "left"
+                    elif rotation==90:
+                        # x0 = text["x0"]
+                        hor_alignment = "right"
+                    y0 = text["y1"] + text["width"] / 2
+                    vert_alignment = "center"
+                else:
+                    y0 = text["y1"] + text["height"] / 2
+                    hor_alignment = "right"
+                    vert_alignment = "center"
 
             text_fontsize = copy.copy(font_size)
 
@@ -11010,9 +11055,10 @@ class FigurePanel():
             else:
                 if not FigurePanel._is_none(font_size_factor):
                     text_fontsize *= font_size_factor
-                    
+
             new_text = ax.text(x0, 1-y0, text["text"],
                                 picker=True,
+                               rotation=text["rotation"],
                                 horizontalalignment=hor_alignment,
                                 verticalalignment=vert_alignment,
                                label="__rescaled_text__",
