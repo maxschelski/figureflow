@@ -11005,10 +11005,6 @@ class FigurePanel():
         #  draw text in ax again at same position but new size
         for text in all_texts:
             rotation = text["rotation"]
-            if rotation in [90, 270]:
-                print("change")
-                # text["y0"] = text["y0"] - text["width"]/2.5 + text["width"]/2
-                # text["y1"] = text["y1"] - text["width"]/2.5 + text["width"]/2.5
 
             # for now assumes that alignment of "none" is "left"
             if text["alignment"].find("None") != -1:
