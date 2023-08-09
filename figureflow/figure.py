@@ -190,7 +190,8 @@ class Figure():
                                    ".jpg",
                                    ".tiff",
                                    ".tif",
-                                   ".pptx")
+                                   ".pptx",
+                                   ".feather")
         if os.path.exists(folder):
             self.all_files = os.listdir(folder)
         else:
@@ -207,6 +208,8 @@ class Figure():
             # of the entire figure
             if (file.lower().find("__figure__") != -1) & (file.lower().find(".csv") != -1):
                 self.figure_csv = Figure._open_csv_with_unknown_seperator(file_path, header= None)
+            elif (file.lower().find("__figure__") != -1) & (file.lower().find(".feather") != -1):
+                self.figure_csv = pd.read_feather(file_path)
 
             #allow folders also
             if os.path.isdir(file_path):
@@ -680,6 +683,8 @@ class Figure():
             if file_name.find(".csv") != -1:
                 data = Figure._open_csv_with_unknown_seperator(panel_file_path)
                 break
+            if file_name.find(".feather") != -1:
+                data = pd.read_feather(panel_file_path)
 
         #for videos set the default to center aligned
         # (for hor and vert)
@@ -705,7 +710,6 @@ class Figure():
                                          **kwargs)
         self.all_panels[letter] = self.current_panel
         return self.current_panel
-
 
     @staticmethod
     def _open_csv_with_unknown_seperator(csv_file, header="infer"):

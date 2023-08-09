@@ -7294,8 +7294,10 @@ class FigurePanel():
         if len(self.panel_file_paths) != 1:
             raise Exception("Only showing data from a single data file "
                             "is supported.")
-        if self.panel_file_paths[0].find(".csv") == -1:
-            raise Exception("Only showing data from a csv file is supported.")
+        if ((self.panel_file_paths[0].find(".csv") == -1) &
+                ((self.panel_file_paths[0].find(".feather") == -1))):
+            raise Exception("Only showing data from a csv or feather file "
+                            "is supported.")
 
     def _remove_unpaired_data(self, data, pair_unit_columns,
                              col, x, hue):
