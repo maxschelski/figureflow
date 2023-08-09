@@ -27,7 +27,7 @@ class GroupPlot():
         self.show_mean_line = False
         self.ax = ax
         self.nb_x_vals = nb_x_vals
-
+        self.kwargs = kwargs
 
         self.show_data_points = show_data_points
         self.connect_paired_data_points = connect_paired_data_points
@@ -57,9 +57,11 @@ class GroupPlot():
                                         show_data_points=
                                              self.show_data_points)
             self.swarm_plot.plot()
-            self.show_outliers = False
+            if self.show_outliers is None:
+                self.show_outliers = False
         else:
-            self.show_outliers = True
+            if self.show_outliers is None:
+                self.show_outliers = True
 
 
     def create_box_plotter(self):

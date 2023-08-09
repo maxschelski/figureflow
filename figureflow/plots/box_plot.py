@@ -8,7 +8,7 @@ class BoxPlot(GroupPlot):
     def __init__(self, x, y, hue, data, x_order, hue_order, plot_colors,
                  size_factor,  ax, plot_type,  swarm_plot_point_size=2,
                  show_data_points=True, connect_paired_data_points = True,
-                 show_mean_line=True, show_outliers=False, fliersize=3,
+                 show_mean_line=True, show_outliers=None, fliersize=3,
                  line_width=1,
                  **kwargs):
         super().__init__(x, y, hue, data, x_order, hue_order, plot_colors,
