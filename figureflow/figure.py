@@ -201,13 +201,14 @@ class Figure():
         #or for being a folder
         #add paths to files / Folders to list
         all_files_filtered = []
+        potential_figure_csvs = []
         for file in self.all_files:
             file_path = os.path.join(self.folder, file)
 
-            #read figure csv that will give the structure
+            # read figure csv that will give the structure
             # of the entire figure
             if (file.lower().find("__figure__") != -1) & (file.lower().find(".csv") != -1):
-                self.figure_csv = Figure._open_csv_with_unknown_seperator(file_path, header= None)
+                potential_figure_csvs.append(file)
             elif (file.lower().find("__figure__") != -1) & (file.lower().find(".feather") != -1):
                 self.figure_csv = pd.read_feather(file_path)
 
@@ -217,6 +218,16 @@ class Figure():
             else:
                 if self._file_has_allowed_extension(file):
                     all_files_filtered.append(file_path)
+
+        # if multiple figure csvs are in the folder, take the one that contains
+        # the number of the figure (if that one exists, otherwise take the
+        # last one in the list)
+        for potential_figure_csv in potential_figure_csvs:
+            if str(self.number) in potential_figure_csv:
+                break
+        file_path = os.path.join(self.folder, potential_figure_csv)
+        self.figure_csv = Figure._open_csv_with_unknown_seperator(file_path,
+                                                                  header= None)
 
         self.all_files = all_files_filtered
         if len(self.all_files) == 0:
