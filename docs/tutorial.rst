@@ -80,6 +80,10 @@ Using the GUI to add/edit elements
 
 If you want to add text, arrows, zooms or cropping to an image in a panel, you can also use the GUI for one panel at the time. The GUI also allows you to adjust the position of elements you added already. 
 
+
+https://github.com/maxschelski/figureflow/assets/44224661/e439ed63-3dc8-47ac-9e82-2a8aa49a3558
+
+
 To use the GUI, right after defining the figure object:
 
 .. code:: sh
