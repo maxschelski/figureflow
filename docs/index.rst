@@ -3,10 +3,18 @@ Figureflow
 
 **Figureflow** is a Python package to allow fast, modular and reproducible generation of publication quality scientific figures and movies with only a few lines of code. 
 
-A lot of the code to plot data and add significance information (in statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.
-
-FigureFlow was used to generate all figures and all movies from Schelski and Bradke 2021 (examples from paper at the bottom of this page):
+Figureflow was used to generate all 26 figures (10 main, 16 supplementary) and 22 movies for Schelski and Bradke 2022:<br/>
+https://www.science.org/doi/10.1126/sciadv.abo2336 <br/>
+FigureFlow was also used to generate all figures and all movies from the corresponding preprint Schelski and Bradke 2021 (examples from preprint at the bottom of this page):<br/>
 https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
+
+
+Figureflow also includes a GUI for image modifications to generate code that can be copy and pasted into the script to apply the modifications:
+
+https://github.com/maxschelski/figureflow/assets/44224661/e439ed63-3dc8-47ac-9e82-2a8aa49a3558
+
+
+A lot of the code to plot data and add significance information (in statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.
 
 For any questions or an introduction of how to use the package please contact me via E-Mail to max.schelski@googlemail.com. I am very happy to help people starting to use the package and I am very open to any feedback. 
 
