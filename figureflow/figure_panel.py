@@ -7665,7 +7665,7 @@ class FigurePanel():
 
     def show_data(self, x=None, y=None, x_labels=[], hue=None, hue_labels=[],
                   col=None, col_labels=[], row=None, row_labels=[],
-                  x_order=None, col_order=None, hue_order=None,
+                  x_order=None, col_order=None, hue_order=None, row_order=None,
                   inclusion_criteria= None,show_legend=None,
                   pair_unit_columns=None,
                   remove_outliers=False, nb_stds_outliers=4,
@@ -7694,36 +7694,48 @@ class FigurePanel():
                     of data to be used for y axis. Multiple y values will be
                     plotted as several rows.
         :param x_labels: list of tuples to change values in x column,
-                        first value in tuple is original name and second value
-                        is what the name should be replaced by
-                        (e.g. [("2", "No axon"), ("3", "With axon")] to replace
-                        "2" and "3" with the respective text)
+            first value in tuple is original name and second value
+            is what the name should be replaced by
+            (e.g. [("2", "No axon"), ("3", "With axon")] to replace
+            "2" and "3" with the respective text).
+            Alternatively each tuple can contain a standard text
+            in which the placeholder __$$__ will be replaced by
+            the column value. The second value in each tuple can be
+            a function that is applied to the column value before
+            replacing it.
+            (e.g. [("Rate value = __$$__", lambda x: round(float(x)))] would
+            mean that each column value is replaced by the defined string
+            with __$$__ replaced by the column value rounded to an int.
         :param hue: column name of data to be used for hue
-        :param hue_labels: list of tuples to change values in hue column,
-                        first value in tuple is original name and second value
-                        is what the name should be replaced by
-                        (e.g. [("2", "No axon"), ("3", "With axon")] to replace
-                        "2" and "3" with the respective text)
+        :param hue_labels: list of tuples to change values in hue column.
+            See description of x_labels for details.
         :param col: column name of data used for plots in different columns
                     (generating a row of plots)
-        :param col_labels: list of tuples to change values in col column,
-                        first value in tuple is original name and second value
-                        is what the name should be replaced by
-                        (e.g. [("2", "No axon"), ("3", "With axon")] to replace
-                        "2" and "3" with the respective text)
+        :param col_labels: list of tuples to change values in col column.
+            See description of x_labels for details.
         :param row: column of data used for plots in different rows
                     (generating a columns of plots)
-        :param row_labels: list of tuples to change values in row column,
-                        first value in tuple is original name and second value
-                        is what the name should be replaced by
-                        (e.g. [("2", "No axon"), ("3", "With axon")] to replace
-                        "2" and "3" with the respective text)
+        :param row_labels: list of tuples to change values in row column.
+            See description of x_labels for details.
         :param x_order: list of x values after applying the changes
-                        of x_labels, determining the order of c values
+            of x_labels, determining the order of x values. Each value
+            has to contain a unique part only present in one column value
+            and not part of multiple different column values and does
+            not need to contain the entire column value.
+            Alternatively, can be a function that takes all unique values
+            of the column and returns an iterable of strings of the unique
+            values that defines the order. Can also be the string "ascending"
+            or "descending" to sort values ascendingly or descendingly,
+            respectively.
         :param col_order: list of col values after applying the changes
-                        of col_labels, determining the order of c values
+            of col_labels, determining the order of col values.
+            For more details see "x_order".
         :param hue_order: list of hue values after applying the changes
-                        of hue_labels, determining the order of c values
+            of hue_labels, determining the order of hue values.
+            For more details see "x_order".
+        :param row_order: list of row values after applying the changes
+            of row_labels, determining the order of row values.
+            For more details see "x_order".
         :param inclusion_criteria: list of Dictionaries with columns as key
             and list of values or one value that the column should match,
             since value all matches from each dictionary will be concatanated.
@@ -7890,6 +7902,10 @@ class FigurePanel():
             self.hue_labels = hue_labels
             self.col_labels = col_labels
             self.row_labels = row_labels
+            self.x_order = x_order
+            self.hue_order = hue_order
+            self.col_order = col_order
+            self.row_order = row_order
             self.inclusion_criteria = inclusion_criteria
             self.scale_columns = scale_columns
             self.norm_cats = norm_cats
@@ -7936,7 +7952,6 @@ class FigurePanel():
         if len(data) == 0:
             return
 
-
         data = self._group_and_average_data(average_columns, data)
 
         if remove_outliers:
@@ -7969,17 +7984,29 @@ class FigurePanel():
             if column != None:
                 data[column] = data[column].apply(str)
 
-
         data = self._exclude_data_with_column_vals_not_in_all_groups(columns_same_in_groups,
                                                                     data, x,
                                                                     hue, col)
-
 
         # remove baseline from values before processing numbers further
         data[y] = data[y] - baseline
 
         data[y] = self._smoothen_data(data, y, ["hue", "col", "row"],
                                      smoothing_rad, hue, col, row)
+
+        all_ordered_vals = {}
+        all_ordered_vals[x] = self.x_order
+        all_ordered_vals[hue] = self.hue_order
+        all_ordered_vals[col] = self.col_order
+        all_ordered_vals[row] = self.row_order
+
+        sorted_ordered_vals = self._get_sorted_ordered_vals(data, 
+                                                            all_ordered_vals)
+
+        self.x_order = sorted_ordered_vals[x]
+        self.hue_order = sorted_ordered_vals[hue]
+        self.col_order = sorted_ordered_vals[col]
+        self.row_order = sorted_ordered_vals[row]
 
         # only replace row values now
         # this is needed since the row_value
@@ -7989,7 +8016,6 @@ class FigurePanel():
         strs_to_replace = {}
         strs_to_replace[row] = row_labels
         data = self._replace_strs_in_data(data, strs_to_replace)
-
 
         #  apply data transformations
         for transformation in self.data_transformations:
@@ -8022,6 +8048,13 @@ class FigurePanel():
                     show_legend = True
 
 
+        # correct ordered vals to actual column values
+        ordered_vals = {}
+        ordered_vals[row] = self.row_order
+
+        ordered_vals = self._correct_ordered_vals(data, ordered_vals)
+        self.row_order = ordered_vals[row]
+
         #  create facet plot made out of several sub figure panels
         #  within the current figure panel
         #  based on values in the "row" column
@@ -8049,6 +8082,17 @@ class FigurePanel():
         data = self._replace_strs_in_data(data, strs_to_replace)
 
         data = self._rename_column_values(data, renaming_dicts)
+
+        # correct ordered vals to actual column values
+        ordered_vals = {}
+        ordered_vals[x] = self.x_order
+        ordered_vals[hue] = self.hue_order
+        ordered_vals[col] = self.col_order
+
+        ordered_vals = self._correct_ordered_vals(data, ordered_vals)
+        x_order = ordered_vals[x]
+        hue_order = ordered_vals[hue]
+        col_order = ordered_vals[col]
 
         # first remove all data defined through the _order variables
         property_names = ["col", "x", "hue"]
@@ -8093,10 +8137,13 @@ class FigurePanel():
         else:
             all_y = [self.y]
 
-        if FigurePanel._is_none(self.row):
+        if self.row is None:
             row_values = [None]
+        elif self.row_order is not None:
+            row_values = self.row_order
         else:
             row_values = self.data[self.row].drop_duplicates().values
+
 
         # if there is only one hue value
         group_cols = []
@@ -8594,7 +8641,6 @@ class FigurePanel():
         else:
             label_width_diff = 0
 
-
         # measure y axis width
         # and add difference to maximum to label_width_diff
         # which will equalize plot width using this value
@@ -8687,7 +8733,10 @@ class FigurePanel():
                                          hue=self.hue,
                                          hue_labels=self.hue_labels,
                                          col=self.col,
-                                        col_labels=self.col_labels, row=None,
+                                        col_labels=self.col_labels,
+                                         x_order=self.x_order,
+                                         hue_order=self.hue_order,
+                                         col_order=self.col_order, row=None,
                                         inclusion_criteria=new_inclusion_criteria,
                                         baseline=0, row_label_text=row_value,
                                         add_background_lines=False,
@@ -9101,6 +9150,42 @@ class FigurePanel():
             group_index = tuple(group_values)
         return group_index
 
+    @staticmethod
+    def _get_sorted_ordered_vals(data, all_ordered_vals):
+        """
+        Sort unique values of column in data instead of receiving
+        a list with column values in defined order.
+        Args:
+            data:
+            all_ordered_vals:
+
+        Returns:
+
+        """
+        corrected_ordered_vals = {}
+        for ordered_col, sort_func in all_ordered_vals.items():
+            if sort_func is None:
+                corrected_ordered_vals[ordered_col] = None
+                continue
+
+            if (not callable(sort_func)) & (type(sort_func) != str):
+                corrected_ordered_vals[ordered_col] = sort_func
+                continue
+            unique_vals = data[ordered_col].drop_duplicates().values
+            if not callable(sort_func):
+                if sort_func == "ascending":
+                    reverse = False
+                elif sort_func == "descending":
+                    reverse = True
+                else:
+                    raise ValueError("If the _order parameter for the "
+                                     f"column {ordered_col} is a string, it "
+                                     f"must be 'ascending' or 'descending'. "
+                                     f"Instead it is {sort_func}.")
+                sort_func = lambda x: map(str, sorted(map(float, x),
+                                                      reverse=reverse))
+            corrected_ordered_vals[ordered_col] = sort_func(unique_vals)
+        return corrected_ordered_vals
 
     @staticmethod
     def _replace_strs_in_data(data, strs_to_replace):
@@ -9112,15 +9197,113 @@ class FigurePanel():
         :param data: as dataframe, must contain all keys
                     in strs_to_replace as columns
         """
+        raise_error = False
         for column in strs_to_replace:
-            if type(column) != type(None):
-                labels = strs_to_replace[column]
-                for label in labels:
+            if column is None:
+                continue
+            labels = strs_to_replace[column]
+            for label in labels:
+                if type(label) not in [tuple, list]:
+                    raise_error = True
+                    break
+                if label[0].find("__$$__") != -1:
+                    all_column_vals = data[column].drop_duplicates().values
+                    for val in all_column_vals:
+                        # if there is a second element in label
+                        # it is a transform function that should be applied to
+                        # the column value (label)
+                        if len(label) > 1:
+                            decimal_missing = False
+                            if callable(label[1]):
+                                transform_func = label[1]
+                            elif type(label[1]) in [tuple, list]:
+                                if label[1][0] != "round":
+                                    raise ValueError("As standard method for "
+                                                     "transforming values only "
+                                                     "'round is implemented. "
+                                                     f"{label[1][0]} used for "
+                                                     f"column {column} is not "
+                                                     f"allowed.")
+                                if len(label[1]) == 1:
+                                    raise ValueError("For the standard method "
+                                                     "'round' for "
+                                                     "transforming values there"
+                                                     " must be a second element"
+                                                     " in the tuple where "
+                                                     "'round' is defined "
+                                                     "(for the column {column}"
+                                                     "), "
+                                                     "which corresponds to the "
+                                                     "decimals rounded to.")
+                                transform_func = lambda x: round(float(x),
+                                                                 label[1][1])
+                            else:
+                                    raise ValueError("To process labels before "
+                                                     "putting them into the "
+                                                     "defined string, only a "
+                                                     "function or a tuple/list "
+                                                     "with 'round' as first "
+                                                     "value and decimals "
+                                                     "as second value is "
+                                                     "allowed for the second "
+                                                     "element in the label "
+                                                     "tuple. The type "
+                                                     f"{type(label[1])} used "
+                                                     f"for column {column} is "
+                                                     f"not allowed.")
+                            transformed_val = transform_func(val)
+                        new_label = label[0].replace("__$$__", 
+                                                     str(transformed_val))
+                        data[column] = data[column].str.replace(val,
+                                                                new_label,
+                                                                regex=False)
+                else:
                     data[column] = data[column].str.replace(label[0],
                                                             label[1],
                                                             regex=False)
+            if raise_error:
+                raise ValueError(f"The label {str(label)} for the "
+                                 f"column {column} should be a tuple or"
+                                 f" list instead of a {str(type(label))}.")
+
         return data
 
+    @staticmethod
+    def _correct_ordered_vals(data, all_ordered_vals):
+        """
+        Correct ordered vals by checking column values in data that
+        contain the ordered val and then replacing the incomplete
+        (but unique) value in ordered vals with the complete value
+        Args:
+            all_ordered_vals: dict where keys are column names and values
+                are lists of oredered column values
+
+        Returns: corrected ordered vals
+
+        """
+        all_new_ordered_vals = {}
+        for ordered_col, ordered_vals in all_ordered_vals.items():
+            if ordered_vals is None:
+                all_new_ordered_vals[ordered_col] = None
+                continue
+            new_ordered_vals = []
+            for val in ordered_vals:
+                all_col_vals = data[ordered_col].drop_duplicates().values
+                match_found = False
+                for col_val in all_col_vals:
+                    if val in col_val:
+                        match_found = True
+                        break
+                if not match_found:
+                    print(f"WARNING: For the ordered values for the "
+                                     f"column {ordered_col}, the value "
+                                     f"{val} was not found in any column "
+                                     f"value in the data and therefore "
+                          f"excluded.")
+                else:
+                    new_ordered_vals.append(col_val)
+            all_new_ordered_vals[ordered_col] = new_ordered_vals
+        return all_new_ordered_vals
 
     def _rename_column_values(self, data, renaming_dicts):
         #  renaming dict is a list of dicts
