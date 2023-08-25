@@ -7667,6 +7667,7 @@ class FigurePanel():
                   col=None, col_labels=[], row=None, row_labels=[],
                   x_order=None, col_order=None, hue_order=None, row_order=None,
                   inclusion_criteria= None,show_legend=None,
+                  round_columns=None,round_digits=0,
                   pair_unit_columns=None,
                   remove_outliers=False, nb_stds_outliers=4,
                     scale_columns=None, norm_cats=None, normalize_by="mean",
@@ -7700,12 +7701,10 @@ class FigurePanel():
             "2" and "3" with the respective text).
             Alternatively each tuple can contain a standard text
             in which the placeholder __$$__ will be replaced by
-            the column value. The second value in each tuple can be
-            a function that is applied to the column value before
-            replacing it.
-            (e.g. [("Rate value = __$$__", lambda x: round(float(x)))] would
+            the column value.
+            (e.g. [["Rate value = __$$__"]] would
             mean that each column value is replaced by the defined string
-            with __$$__ replaced by the column value rounded to an int.
+            with __$$__ replaced by the column value.
         :param hue: column name of data to be used for hue
         :param hue_labels: list of tuples to change values in hue column.
             See description of x_labels for details.
@@ -7907,6 +7906,8 @@ class FigurePanel():
             self.col_order = col_order
             self.row_order = row_order
             self.inclusion_criteria = inclusion_criteria
+            self.round_columns = round_columns
+            self.round_digits = round_digits
             self.scale_columns = scale_columns
             self.norm_cats = norm_cats
             self.smoothing_rad = smoothing_rad
@@ -7993,6 +7994,8 @@ class FigurePanel():
 
         data[y] = self._smoothen_data(data, y, ["hue", "col", "row"],
                                      smoothing_rad, hue, col, row)
+
+        data = self._round_data(data, round_columns, round_digits)
 
         all_ordered_vals = {}
         all_ordered_vals[x] = self.x_order
@@ -9150,6 +9153,24 @@ class FigurePanel():
             group_index = tuple(group_values)
         return group_index
 
+    def _round_data(self, data, round_columns, round_digits):
+        special_columns = {"__x__":self.x,
+                           "__hue__":self.hue,
+                           "__col__":self.col,
+                           "__row__":self.row}
+        if round_columns is None:
+            return data
+        for round_column in round_columns:
+            if round_column in special_columns.keys():
+                round_column = special_columns[round_column]
+            data[round_column] = data[round_column].astype(float)
+            if round_digits == 0:
+                data[round_column] = data[round_column].astype(int)
+            else:
+                data[round_column] = data[round_column].round(round_digits)
+            data[round_column] = data[round_column].apply(str)
+        return data
+
     @staticmethod
     def _get_sorted_ordered_vals(data, all_ordered_vals):
         """
@@ -9203,57 +9224,12 @@ class FigurePanel():
                 continue
             labels = strs_to_replace[column]
             for label in labels:
-                if type(label) not in [tuple, list]:
-                    raise_error = True
-                    break
+                if (type(label) not in [tuple, list]):
+                    label = [label]
                 if label[0].find("__$$__") != -1:
                     all_column_vals = data[column].drop_duplicates().values
                     for val in all_column_vals:
-                        # if there is a second element in label
-                        # it is a transform function that should be applied to
-                        # the column value (label)
-                        if len(label) > 1:
-                            decimal_missing = False
-                            if callable(label[1]):
-                                transform_func = label[1]
-                            elif type(label[1]) in [tuple, list]:
-                                if label[1][0] != "round":
-                                    raise ValueError("As standard method for "
-                                                     "transforming values only "
-                                                     "'round is implemented. "
-                                                     f"{label[1][0]} used for "
-                                                     f"column {column} is not "
-                                                     f"allowed.")
-                                if len(label[1]) == 1:
-                                    raise ValueError("For the standard method "
-                                                     "'round' for "
-                                                     "transforming values there"
-                                                     " must be a second element"
-                                                     " in the tuple where "
-                                                     "'round' is defined "
-                                                     "(for the column {column}"
-                                                     "), "
-                                                     "which corresponds to the "
-                                                     "decimals rounded to.")
-                                transform_func = lambda x: round(float(x),
-                                                                 label[1][1])
-                            else:
-                                    raise ValueError("To process labels before "
-                                                     "putting them into the "
-                                                     "defined string, only a "
-                                                     "function or a tuple/list "
-                                                     "with 'round' as first "
-                                                     "value and decimals "
-                                                     "as second value is "
-                                                     "allowed for the second "
-                                                     "element in the label "
-                                                     "tuple. The type "
-                                                     f"{type(label[1])} used "
-                                                     f"for column {column} is "
-                                                     f"not allowed.")
-                            transformed_val = transform_func(val)
-                        new_label = label[0].replace("__$$__", 
-                                                     str(transformed_val))
+                        new_label = label[0].replace("__$$__", val)
                         data[column] = data[column].str.replace(val,
                                                                 new_label,
                                                                 regex=False)
@@ -9261,10 +9237,10 @@ class FigurePanel():
                     data[column] = data[column].str.replace(label[0],
                                                             label[1],
                                                             regex=False)
-            if raise_error:
-                raise ValueError(f"The label {str(label)} for the "
-                                 f"column {column} should be a tuple or"
-                                 f" list instead of a {str(type(label))}.")
+            # if raise_error:
+            #     raise ValueError(f"The label {str(label)} for the "
+            #                      f"column {column} should be a tuple or"
+            #                      f" list instead of a {str(type(label))}.")
 
         return data
 
