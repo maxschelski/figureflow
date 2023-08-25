@@ -45,6 +45,7 @@ import importlib
 importlib.reload(statannot)
 from pprint import pprint
 
+
 """
 Features to add:
 -allow adding title to categories labeled!
@@ -7348,7 +7349,7 @@ class FigurePanel():
 
         return paired_data
 
-    def show_data_columns(self, nb_vals = 10):
+    def show_data_columns(self, nb_vals = 10, show_min_max=True):
         """
         Show type and some values for all columns of the data file.
 
@@ -7361,13 +7362,16 @@ class FigurePanel():
         data_columns = data.columns
         for column in data_columns:
             unique_values = data[column].drop_duplicates().dropna()[:nb_vals]
+            min = data[column].min()
+            max = data[column].max()
             type_str = "(" + str(type(unique_values.values[0])) +")"
             unique_values = [str(unique_value)
                              for unique_value in unique_values]
             prefix =column+" : "
             wrapper = textwrap.TextWrapper(initial_indent=prefix, width=90,
                                 subsequent_indent=" " * len(prefix))
-            unique_values_str = ", ".join(unique_values)
+            unique_values_str = str(min) + " to " + str(max) + "; "
+            unique_values_str += ", ".join(unique_values)
             unique_values_str += type_str
             print(wrapper.fill(unique_values_str))
 
@@ -8065,7 +8069,6 @@ class FigurePanel():
         else:
             data = self._remove_unpaired_data(data, pair_unit_columns,
                                              col, x, hue)
-
         (axs_by_position,
          ax_annot) = self._plot_simple_row(data, x, y, hue, col, for_measuring,
                                           increase_padding_above,
