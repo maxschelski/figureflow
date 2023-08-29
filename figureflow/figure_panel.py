@@ -7406,17 +7406,20 @@ class FigurePanel():
         for column, values in inclusion_criteria_dict.items():
             if column in excluded_keys:
                 continue
-
             # if values is only one value convert to list to make it iterable
             if type(values) not in [list, tuple]:
                 final_query = column + values
                 included_indices = new_included_data.query(final_query).index
             else:
-                # convert all values to string to not have problem
-                #  of type differences
-                values = [str(value) for value in values]
-
-                new_included_data[column] = new_included_data[column].astype(str)
+                # convert all values to to correct type if types differ
+                if new_included_data[column].dtype != type(values[0]):
+                    type_conv = type(new_included_data[column].iloc[0])
+                    values = [type_conv(value) for value in values]
+                # start = time.time()
+                # new_included_data[column] = new_included_data[column].astype(str)
+                # new_included_data[column] = new_included_data[column].values.astype(str)#.astype(str)
+                # print(new_included_data[column])
+                # print(11121, time.time() - start)
                 included_indices = None
                 for value in values:
                     if type(included_indices) == type(None):
@@ -7424,7 +7427,6 @@ class FigurePanel():
                     else:
                         included_indices = (included_indices |
                                             (new_included_data[column] == value))
-
             new_included_data = new_included_data.loc[included_indices]
 
         return new_included_data
@@ -7846,7 +7848,6 @@ class FigurePanel():
                         and adding annotations, passed to function
                         statannot.plot_and_add_stat_annotation.
         """
-        
         if self._is_none(self.x) & self._is_none(x):
             raise ValueError("A column for 'x' must be supplied "
                              "or set beforehand.")
@@ -7930,6 +7931,7 @@ class FigurePanel():
         if normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria)
 
+
         # normalization should usually be done before exclusion of data
         # otherwise excluded units would change normalization
         # depending on what is shown
@@ -7995,16 +7997,18 @@ class FigurePanel():
         data[y] = self._smoothen_data(data, y, ["hue", "col", "row"],
                                      smoothing_rad, hue, col, row)
 
-        data = self._round_data(data, round_columns, round_digits)
+        data, round_columns = self._round_data(data, round_columns,
+                                               round_digits)
 
         all_ordered_vals = {}
         all_ordered_vals[x] = self.x_order
         all_ordered_vals[hue] = self.hue_order
         all_ordered_vals[col] = self.col_order
         all_ordered_vals[row] = self.row_order
-
-        sorted_ordered_vals = self._get_sorted_ordered_vals(data, 
-                                                            all_ordered_vals)
+        sorted_ordered_vals = self._get_sorted_ordered_vals(data,
+                                                            all_ordered_vals,
+                                                            round_columns,
+                                                            round_digits)
 
         self.x_order = sorted_ordered_vals[x]
         self.hue_order = sorted_ordered_vals[hue]
@@ -8116,6 +8120,7 @@ class FigurePanel():
         else:
             data = self._remove_unpaired_data(data, pair_unit_columns,
                                              col, x, hue)
+
         (axs_by_position,
          ax_annot) = self._plot_simple_row(data, x, y, hue, col, for_measuring,
                                           increase_padding_above,
@@ -8861,7 +8866,6 @@ class FigurePanel():
                                                                   data, x, col,
                                                                   fig_height,
                                                                   **kwargs)
-
         (axs_by_position,
          ax_annot) = self._plot_results(data, x, y, inner_border,
                                        hue=hue, col=col,
@@ -9159,20 +9163,23 @@ class FigurePanel():
                            "__col__":self.col,
                            "__row__":self.row}
         if round_columns is None:
-            return data
+            return data, round_columns
+        correct_round_columns = []
         for round_column in round_columns:
             if round_column in special_columns.keys():
                 round_column = special_columns[round_column]
+            correct_round_columns.append(round_column)
             data[round_column] = data[round_column].astype(float)
             if round_digits == 0:
                 data[round_column] = data[round_column].astype(int)
             else:
                 data[round_column] = data[round_column].round(round_digits)
             data[round_column] = data[round_column].apply(str)
-        return data
+        return data, correct_round_columns
 
     @staticmethod
-    def _get_sorted_ordered_vals(data, all_ordered_vals):
+    def _get_sorted_ordered_vals(data, all_ordered_vals, round_columns,
+                                 round_digits):
         """
         Sort unique values of column in data instead of receiving
         a list with column values in defined order.
@@ -9203,9 +9210,17 @@ class FigurePanel():
                                      f"column {ordered_col} is a string, it "
                                      f"must be 'ascending' or 'descending'. "
                                      f"Instead it is {sort_func}.")
-                sort_func = lambda x: map(str, sorted(map(float, x),
-                                                      reverse=reverse))
-            corrected_ordered_vals[ordered_col] = sort_func(unique_vals)
+                sort_func = lambda x: list(map(str, sorted(map(float, x),
+                                                      reverse=reverse)))
+                sorted_values = sort_func(unique_vals)
+                # since float was applied to the data column
+                # make sure to round appropriately afterwards again
+                # (might only be important for digits==0 actually
+                if (ordered_col in round_columns) & (round_digits == 0):
+                    sorted_values = map(str,
+                                        map(int, map(float, sorted_values)))
+
+            corrected_ordered_vals[ordered_col] = sorted_values
         return corrected_ordered_vals
 
     @staticmethod
@@ -9317,6 +9332,7 @@ class FigurePanel():
 
         size_factor = self.size_factor * self.increase_size_fac
         # get box dicts of one group and plot data of that group
+
         output = statannot.plot_and_add_stat_annotation(data = data,
                                                         x=x, y=y, fig=self.fig,
                                                       letter=self.letter,
