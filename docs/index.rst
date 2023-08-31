@@ -14,7 +14,7 @@ Figureflow
 
 .. raw:: html
 
-   <iframe width="560" height="315" src="https://github.com/maxschelski/figureflow/assets/44224661/36a852ad-19cc-44f6-9030-ab82f737e62e" frameborder="0" allowfullscreen></iframe>
+   <iframe width="800" height="485" src="https://github.com/maxschelski/figureflow/assets/44224661/36a852ad-19cc-44f6-9030-ab82f737e62e" frameborder="0" allowfullscreen></iframe>
 
 
 
