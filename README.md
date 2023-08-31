@@ -11,7 +11,7 @@ https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 Figureflow also includes a GUI for image modifications (add zoom, arrow, text etc.) to generate code that can be copied and pasted into the script to apply the modifications:
 
 
-https://github.com/maxschelski/figureflow/assets/44224661/36b5a528-aa6f-455a-be32-6e22a06cbe50
+https://github.com/maxschelski/figureflow/assets/44224661/36a852ad-19cc-44f6-9030-ab82f737e62e
 
 
 A lot of the code to plot data and add significance information (in statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
