@@ -878,10 +878,19 @@ class Figure():
         # y_min = actual_height_figure#fig_size[1] - actual_height_figure/2 - self.padding[0] * 3
         # y_max = fig_size[1] + actual_height_figure/2#fig_size[1] + actual_height_figure/2 - self.padding[0] #fig_size[1]#max(np.abs(fig_size[1] - actual_height_figure),actual_height_figure)
 
+
+        
         bbox_inches = Bbox([[x_min, bbox_inches.y0 - self.padding[1]], [x_max, bbox_inches.y1 + self.padding[1] ]])
+        
+        kwargs = {}
+        if figure_path.endswith(".pdf"):
+            kwargs["resolution"] = self.dpi
+        else:
+            kwargs["dpi"] = self.dpi
         self.fig.savefig(figure_path,
-                         dpi=self.fig.dpi, facecolor=self.fig.get_facecolor(),
-                         bbox_inches=bbox_inches, pad_inches=0#self.padding[0]
+                         facecolor=self.fig.get_facecolor(),
+                         bbox_inches=bbox_inches, pad_inches=0,
+                         **kwargs#self.padding[0]
                          # bbox_inches=Bbox([[x_min, y_min],[x_max,y_max]])
                          )
 
