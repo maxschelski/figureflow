@@ -4200,7 +4200,8 @@ class FigurePanel():
                 cmap_for_img = self.cmaps_for_position[position][composite_img_nb]
 
                 im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range,
-                               alpha=1)#,
+                               alpha=1,
+                               interpolation=self.interpolate_images)#,
                                # interpolation=self.interpolate_images)
 
                 # get rgb image for additive blending
@@ -4224,7 +4225,8 @@ class FigurePanel():
             else:
                 rgb_image_to_show = all_rgb_images[0]
 
-            ax.imshow(rgb_image_to_show)
+            ax.imshow(rgb_image_to_show, 
+                      interpolation=self.interpolate_images)
             # cmap was overwritten by creating rgb image, set cmap again
             # to create correct colorbars
             # Thus colorbars for composite images do not work!
