@@ -1194,8 +1194,15 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
                             borderpad=0, handletextpad=legend_spacing,
                             borderaxespad=borderaxespad_, title=legend_title,
                             handlelength=legend_handle_length)
+        if legend_title is not None:
+            if (legend_title.startswith("$")) & ((legend_title.endswith("$"))):
+                fontsize_points_title = fontsize_points * 1.4
+            else:
+                fontsize_points_title = fontsize_points
+        else:
+            fontsize_points_title = fontsize_points
         # set font size of legend title same as rest of legend
-        plt.setp(legend.get_title(),fontsize=fontsize_points)
+        plt.setp(legend.get_title(),fontsize=fontsize_points_title)
         legend._legend_box.align = "left"
         ax.set_xlabel("")
 
@@ -1213,7 +1220,6 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
             x_start = 1 + borderaxespad_px / ax_width_px
             legend = add_row_label(row_label_text, fontsize_points,
                                    row_label_orientation, ax, x_start)
-
 
     if legend is not None:
         # get width of legend, needed to set width_reduction
@@ -1495,7 +1501,7 @@ def finetune_plot(ax, box_structs, col, col_order, perform_stat_test,
     # to see better to which plot a statistic annotation refers
     fig = plt.gcf()
     y_lim = ax.get_ylim()[1]
-    if perform_stat_test & vertical_lines:
+    if vertical_lines:
         for box_struct in box_structs:
             x = box_struct['x_orig']
             line_x, line_y = [x, x], [0,y_lim]
@@ -2872,7 +2878,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
 
         # plot boxplot and swarmplot and get box_plotter
         # object (necessary to extract information about boxes later)
-        box_plotter, labels_to_add =  plot_data(ax, x, y, plot_hue, hue,
+        box_plotter, labels_to_add = plot_data(ax, x, y, plot_hue, hue,
                                                 col_data, new_x_order,
                                                 new_hue_order, plot_colors,
                                                 line_width, size_factor,
