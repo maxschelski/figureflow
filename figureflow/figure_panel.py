@@ -11220,8 +11220,17 @@ class FigurePanel():
             x1 = int(text["x1"] * image_width)
             y0 = int(text["y0"] * image_height)
             y1 = int(text["y1"] * image_height)
-            image[y0:y1, x0:x1, :] = image[y0-1,x0-1,:]
-            
+            fill_val_arrays = []
+            if y0 > 0:
+                fill_val_arrays.append(image[y0-1,x0:x1,:])
+            if y1 < image.shape[1]-1:
+                fill_val_arrays.append(image[y1+1,x0:x1,:])
+            if x0 > 0:
+                fill_val_arrays.append(image[y0:y1,x0-1,:])
+            if x1 < image.shape[0]-1:
+                fill_val_arrays.append(image[y0:y1,x1+1,:])
+            fill_val = np.median(np.concatenate(fill_val_arrays), axis=[0,1])
+            image[y0:y1, x0:x1, :] = fill_val
             
         ax.images[0]._A = image
         
