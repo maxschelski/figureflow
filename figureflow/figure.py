@@ -43,7 +43,7 @@ class Figure():
 
     def __init__(self,folder,height=1,number=1,dpi=600,padding="DEFAULT",letter_fontsize=9,
                 width=4.75, font_size=7, video = False, name="Figure",
-                 show_panel_letters=True,
+                file_format="png", show_panel_letters=True,
                 dark_background = False, panel_str = "panel", relative_height=True):
         """
         The structure of the figure can also be defined in a csv.
@@ -74,6 +74,13 @@ class Figure():
                     of parameter "number")
         :param video: Whether the Figure object is a video or not. For videos,
                         no panel letters will be added.
+        :param file_format: String of file format to be used in .savefig
+            File format can also be defined when executing figure.save(), but 
+            if one of the file formats is pdf or svg and the other is not,
+            then .rescale_font_size will lead to problems for some 
+            illustrations with text added in powerpoint since for .pdf files
+            a padding needs to be applied around the image to prevent cutoff of
+            edges.
         :param dark_background: Whether the background of the figure should be
                                 dark instead of white. This will also change the
                                 default font color on the background from black
@@ -112,6 +119,7 @@ class Figure():
         self.letter_fontsize = letter_fontsize
         self.all_panels = {}
         self.name = name
+        self.file_format = file_format
         self.current_panel = None
         self.video = video
         self.panel_str = panel_str
@@ -821,15 +829,19 @@ class Figure():
                 target_file = os.path.join(self.folder, new_file_name)
                 shutil.move(source_file, target_file)
 
-    def save(self,format ="png"):
+    def save(self,file_format = None):
         """
         Save entire figure object as figure/image file.
 
-        :param format: Any format that is allowed for the matplotlib safefig
-                        function (e.g. "png", "jpg", "tiff").
-                        However, "pdf" might lead to some errors
-                        as empirically tested. This might be fixed in some
-                        future matplotlib version.
+        :param file_format: Any file_format that is allowed for the matplotlib 
+            safefig function (e.g. "png", "jpg", "tiff"). 
+            But if the format differs 
+            from the file_format defined when creating the Figure object and
+            if one of the file formats is pdf or svg and the other is not,
+            then .rescale_font_size will lead to problems for some 
+            illustrations with text added in powerpoint since for .pdf files
+            a padding needs to be applied around the image to prevent cutoff of
+            edges.
         """
         #remove all placeholder images in figure_panel
 
@@ -842,8 +854,12 @@ class Figure():
         #temp fix, delete after checking below
         plt.style.use("classic")
         sb.set_style("whitegrid")
+        
+        if file_format is None:
+            file_format = self.file_format
 
-        figure_path = os.path.join(self.folder, self.name+str(self.number)+"."+format)
+        figure_path = os.path.join(self.folder, 
+                                   self.name+str(self.number)+"."+file_format)
 
 
         #define borders of bbox to save figure
@@ -856,8 +872,8 @@ class Figure():
         #and then only using the y values of it
 
         #MATPLOTLIB METHOD TO GET BBOX_INCHES FOLLOWS:
-        canvas = self.fig.canvas._get_output_canvas(None, format)
-        print_method = getattr(canvas, 'print_%s' % format)
+        canvas = self.fig.canvas._get_output_canvas(None, file_format)
+        print_method = getattr(canvas, 'print_%s' % file_format)
 
         renderer = backend_bases._get_renderer(
             self.fig,
@@ -880,7 +896,8 @@ class Figure():
 
 
         
-        bbox_inches = Bbox([[x_min, bbox_inches.y0 - self.padding[1]], [x_max, bbox_inches.y1 + self.padding[1] ]])
+        bbox_inches = Bbox([[x_min, bbox_inches.y0 - self.padding[1]], 
+                            [x_max, bbox_inches.y1 + self.padding[1] ]])
         
         kwargs = {}
         if figure_path.endswith(".pdf"):

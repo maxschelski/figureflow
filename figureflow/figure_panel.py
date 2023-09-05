@@ -139,6 +139,9 @@ class FigurePanel():
         self.hue = None
         self.col = None
         self.row = None
+        
+        self.image_padding_y = None
+        self.image_padding_x = None
 
         # save functions to be executed in list
         self.functions_for_video = []
@@ -4227,6 +4230,8 @@ class FigurePanel():
 
             ax.imshow(rgb_image_to_show, 
                       interpolation=self.interpolate_images)
+        
+            
             # cmap was overwritten by creating rgb image, set cmap again
             # to create correct colorbars
             # Thus colorbars for composite images do not work!
@@ -4244,6 +4249,42 @@ class FigurePanel():
 
         return widths, heights
 
+
+    def pad_illustration_for_vector_graphic(self, y_padding_fraction = 40, 
+                          x_padding_fraction=20):
+        """
+        Apply white padding to illustration to prevent cutoff of elements when 
+        saving figure as pdf or svg. Only needed for vector-graphic file format 
+        and illustrations that have elements exactly at or very close 
+        to the border.
+        If rescale_font_size is used, the pad_illustration_for_vector_graphic
+        must be executed after rescale_font_size.
+        :param y_padding_fraction: float of fraction of dpi that the padding 
+            should be in y direction. Default optimized to keep black line at
+            the image border.
+        :param x_padding_fraction: float of fraction of dpi that the padding 
+            should be in the x direction. Default optimized to keep black line
+            at image border.
+
+        """
+        if self.figure.file_format not in ["pdf", "svg"]:
+            print("WARNING: pad_illustration_for_vector_graphic was used,"
+                   "but the file format of the figure object is not pdf or "
+                  "svg. Are you sure you want to add white padding around the "
+                  "image?")
+        image = self.all_axs[0,0].images[0]._A
+        y_pad = int(self.figure.dpi/y_padding_fraction)
+        self.image_padding_y = y_pad
+        y_pad_array = np.full((y_pad,image.shape[1], image.shape[2]),0)
+        image = np.concatenate([y_pad_array , image, y_pad_array ], axis=0)
+
+        x_pad = int(self.figure.dpi/x_padding_fraction)
+        self.image_padding_x = x_pad
+        x_pad_array = np.full((image.shape[0], x_pad, image.shape[2]),0)
+        image = np.concatenate([x_pad_array, image, x_pad_array], axis=1)
+        
+        image = np.uint8(image)
+        self.all_axs[0,0].images[0]._A = image
 
     def _check_if_pos_is_in_row_col_list(self, row, column,
                                         show_axes_in_rows,
@@ -4464,10 +4505,10 @@ class FigurePanel():
         #  # uncomment to see the borders of the panel
         #  # helpful to judge if boxes are properly aligned
         # bg_ax = plt.gcf().add_axes([x0_border,
-        #                        y0_border,
-        #                        x1_border-x0_border,
-        #                        y1_border-y0_border
-        #                        ])
+        #                         y0_border,
+        #                         x1_border-x0_border,
+        #                         y1_border-y0_border
+        #                         ])
 
 
     def _even_out_heights(self, heights, widths, height_rows):
@@ -11167,13 +11208,10 @@ class FigurePanel():
         x_axis = image_alpha.any(0)
         y_axis = image_alpha.any(1)
         # [::-1] reverses the array, still,
-        #  I like np.flip more because its more easily understandably
-        x_slice = slice(x_axis.argmax(),width - np.flip(x_axis).argmax())
-        y_slice = slice(y_axis.argmax(),height - np.flip(y_axis).argmax())
-
+        #  I like np.flip more because its more easily understandable
+        x_slice = slice(x_axis.argmax(),width - np.flip(x_axis).argmax())#; 
+        y_slice = slice(y_axis.argmax(),height - np.flip(y_axis).argmax())#; 
         image = image[y_slice, x_slice]
-
-        ax.images[0]._A = image
 
         image_width = image.shape[-2]
         image_height = image.shape[-3]
@@ -11182,8 +11220,11 @@ class FigurePanel():
             x1 = int(text["x1"] * image_width)
             y0 = int(text["y0"] * image_height)
             y1 = int(text["y1"] * image_height)
-            image[y0:y1, x0:x1, :] = 0
-
+            image[y0:y1, x0:x1, :] = image[y0-1,x0-1,:]
+            
+            
+        ax.images[0]._A = image
+        
         #  draw text in ax again at same position but new size
         for text in all_texts:
             rotation = text["rotation"]
@@ -11236,10 +11277,10 @@ class FigurePanel():
 
             new_text = ax.text(x0, 1-y0, text["text"],
                                 picker=True,
-                               rotation=text["rotation"],
+                                rotation=text["rotation"],
                                 horizontalalignment=hor_alignment,
                                 verticalalignment=vert_alignment,
-                               label="__rescaled_text__",
+                                label="__rescaled_text__",
                                 transform=ax.transAxes,
                                 fontsize=text_fontsize,
                                 linespacing=linespacing)
