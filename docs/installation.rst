@@ -15,17 +15,11 @@ The package was developed in Windows and the exact package versions for the envi
 
   cd figureflow
 
-3. (Recommended on Mac/Linux) Create environment for FigureFlow with Anaconda:
+3. Create environment for FigureFlow with Anaconda:
 
 .. code:: sh 
 
   conda env create -f environment.yml
-
-3. (Recommended on Windows) Create environment for FigureFlow with Anaconda:
-
-.. code:: sh 
-
-  conda env create -f environment_windows.yml
 
 4. Install FigureFlow locally using pip:
 

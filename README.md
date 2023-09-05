@@ -10,7 +10,9 @@ https://www.biorxiv.org/content/10.1101/2021.09.01.458567v1.full <br/>
 
 Figureflow also includes a GUI for image modifications (add zoom, arrow, text etc.) to generate code that can be copied and pasted into the script to apply the modifications:
 
-https://github.com/maxschelski/figureflow/assets/44224661/e439ed63-3dc8-47ac-9e82-2a8aa49a3558
+
+https://github.com/maxschelski/figureflow/assets/44224661/36a852ad-19cc-44f6-9030-ab82f737e62e
+
 
 A lot of the code to plot data and add significance information (in statannot.py) is from statannot https://github.com/webermarcolivier/statannot created by Marc Weber.<br/>
 
@@ -88,10 +90,8 @@ The package was developed in Windows and the exact package versions for the envi
 > git clone https://github.com/maxschelski/figureflow.git
 4. Navigate into the folder of the repository (figureflow):
 > cd figureflow
-5. (Recommended on Mac/Linux) Create environment for Figureflow with Anaconda:
+5. Create environment for Figureflow with Anaconda:
 > conda env create -f environment.yml
-5. (Recommended on Windows) Create environment for Figureflow with Anaconda:
-> conda env create -f environment_windows.yml
 6. Install FigureFlow locally using pip:
 > pip install -e .
 7. You can now import Figureflow and use it to build figures and generate movies as figure objects
