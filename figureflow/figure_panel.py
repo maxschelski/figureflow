@@ -9288,9 +9288,10 @@ class FigurePanel():
                     all_column_vals = data[column].drop_duplicates().values
                     for val in all_column_vals:
                         new_label = label[0].replace("__$$__", val)
-                        data[column] = data[column].str.replace(val,
-                                                                new_label,
-                                                                regex=False)
+                        data.loc[data[column] == val, column] = new_label
+                        # data[column].str.replace(val,
+                        #                                         new_label,
+                        #                                         regex=False)
                 else:
                     data[column] = data[column].str.replace(label[0],
                                                             label[1],
