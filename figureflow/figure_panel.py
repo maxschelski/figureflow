@@ -7487,6 +7487,7 @@ class FigurePanel():
             else:
                 included_data = pd.concat([included_data, new_included_data])
 
+
         if type(included_data) != type(None):
             data = included_data
         return data
@@ -8262,7 +8263,7 @@ class FigurePanel():
         self._set_max_col_for_multi_rows(row_values)
 
         x_padding_rel = self.xpadding[0] / fig_size[0]
-
+        
         if type(self.col) != type(None):
             group_padding = self._from_kwargs_or_statannot_default(kwargs,
                                                                   "group_padding")
@@ -8337,7 +8338,7 @@ class FigurePanel():
                 y_range = [y_min, y_max]
             else:
                 y_range = None
-
+                
             (all_axs,
              height_this_sub_panel) = self._plot_one_row(row_nb, row_value,
                                                         nb_rows, width_per_col,
@@ -8352,7 +8353,6 @@ class FigurePanel():
                                                         max_col_label_height,
                                                         max_width_y_axis,
                                                         x_padding_rel,
-                                                        group_padding,
                                                         group_padding_rel,
                                                         x_range, y_range,
                                                         ax_for_measuring,
@@ -8602,6 +8602,8 @@ class FigurePanel():
         arg_name = "show_col_labels_above"
         if not FigurePanel._from_kwargs_or_statannot_default(kwargs, arg_name):
             return max_col_label_height
+        if self.col is None:
+            return max_col_label_height
         #  get max col_val label
         first_row_data = self.data.loc[self.data[self.row] == row_values[0]]
         first_row_col_values = first_row_data[self.col].drop_duplicates()
@@ -8678,11 +8680,11 @@ class FigurePanel():
                      max_row_label_width, x_tick_overhang_rel,
                      height_x_axis, max_col_label_height,
                      max_width_y_axis, x_padding_rel,
-                     group_padding, group_padding_rel,
+                     group_padding_rel,
                      x_range, y_range,
                      ax_for_measuring,
                      show_legend, **kwargs):
-
+        
         show_row_label = kwargs.get("show_row_label",
                                     self._default_in_statannot("show_row_label"))
         #  add to each inclusion criteria the row criteria
@@ -8690,9 +8692,11 @@ class FigurePanel():
         # a specific row value is used
         new_inclusion_criteria = copy.deepcopy(self.inclusion_criteria)
 
-        if (row_value is not None) & show_row_label:
+        if (row_value is not None):
             for inclusion_criterion in new_inclusion_criteria:
                 inclusion_criterion[self.row] = [row_value]
+            
+        if (row_value is not None) & show_row_label:
                 # [row_label_map.get(row_value, row_value)]
 
             #  measure width of row label
@@ -8804,13 +8808,12 @@ class FigurePanel():
                                          col_order=self.col_order, row=None,
                                         inclusion_criteria=new_inclusion_criteria,
                                         baseline=0, row_label_text=row_value,
-                                        add_background_lines=False,
+                                        # add_background_lines=False,
                                         y_range=y_range,
                                          show_x_axis=show_x_axis,
                                          x_range = x_range,
                                          increase_padding_above=False,
                                         width_y_axis = max_width_y_axis,
-                                         group_padding=group_padding,
                                         auto_scale_group_padding = False,
                                          show_legend=show_legend,
                                         **kwargs)
