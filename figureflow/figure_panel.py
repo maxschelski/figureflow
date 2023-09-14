@@ -7498,6 +7498,10 @@ class FigurePanel():
             normalize_func = lambda x: (x / x.mean())
         elif normalize_by.lower() == "median":
             normalize_func = lambda x: (x / x.mean())
+        elif normalize_by.lower() == "max":
+            normalize_func = lambda x: (x / x.max())
+        elif normalize_by.lower() == "min":
+            normalize_func = lambda x: (x / x.min())
         elif normalize_by.lower() == "first":
             normalize_func = lambda x: (x / x.iloc[0])
         elif normalize_by.lower() == "last":
@@ -7715,10 +7719,12 @@ class FigurePanel():
                   round_columns=None,round_digits=0,
                   pair_unit_columns=None,
                   remove_outliers=False, nb_stds_outliers=4,
-                    scale_columns=None, norm_cats=None, normalize_by="mean",
+                    scale_columns=None, 
+                    norm_y_cats=None, normalize_y_by="mean", normalize_y=False, 
+                    norm_x_cats=None, normalize_x_by="mean", normalize_x=False, 
                     smoothing_rad = None,
                   average_columns = None,
-                  normalize=False, baseline=0, columns_same_in_groups=None,
+                  baseline=0, columns_same_in_groups=None,
                   renaming_dicts = None,
                   width_y_axis = 0, col_labels_every_row = False,
                   sub_padding_y_factor = 0.25, show_y_label_in_all_rows = None,
@@ -7809,7 +7815,7 @@ class FigurePanel():
                                 as column name and value the factor by which
                                 values are scaled (e.g. for changing the unit
                                 of the y column)
-        :param norm_cats: list of categories / data columns from which the groups
+        :param norm_y_cats: list of categories / data columns from which the groups
                     will be build (groupby object)
                     within which it should be normalized 
                     (e.g. to normalize values within neurites)
@@ -7817,9 +7823,12 @@ class FigurePanel():
                     column names that were used for these
                     variables as arguments to the "show_data" function
                     can also be any other column name directly
-        :param normalize_by: value form the group by which the group will be 
+        :param normalize_y_by: value form the group by which the group will be 
                             normalized; any function name that can be performed
                             on a series works
+        :param norm_x_cats: See norm_y_cats, but will be applied to x column
+        :param normalize_x_by: See normalize_y_by, but will be applied to x 
+            column
         :param smoothing_rad: Radius for smoothing y values
         :param average_columns: List of column names;
                                 create new data frame where data will be
@@ -7953,9 +7962,11 @@ class FigurePanel():
             self.round_columns = round_columns
             self.round_digits = round_digits
             self.scale_columns = scale_columns
-            self.norm_cats = norm_cats
             self.smoothing_rad = smoothing_rad
-            self.normalize = normalize
+            self.normalize_y = normalize_y
+            self.normalize_x = normalize_x
+            self.norm_y_cats = norm_y_cats
+            self.norm_x_cats = norm_x_cats
             self.baseline = baseline
             self.columns_same_in_groups = columns_same_in_groups
             self.renaming_dicts = renaming_dicts
@@ -7980,9 +7991,13 @@ class FigurePanel():
         # depending on what is shown
         # normalize values to within cateogiry
         # norm_cats is a list of categories for which normalization
-        if normalize:
-            data[y] = self._normalize_data(data, y, norm_cats, hue, col, row,
-                                          normalize_by)
+        if normalize_y:
+            data[y] = self._normalize_data(data, y, norm_y_cats, hue, col, row,
+                                          normalize_y_by)
+        
+        if normalize_x:
+            data[x] = self._normalize_data(data, x, norm_x_cats, hue, col, row,
+                                          normalize_x_by)
 
         if not normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria)
@@ -8138,7 +8153,6 @@ class FigurePanel():
         ordered_vals[x] = self.x_order
         ordered_vals[hue] = self.hue_order
         ordered_vals[col] = self.col_order
-
         ordered_vals = self._correct_ordered_vals(data, ordered_vals)
         x_order = ordered_vals[x]
         hue_order = ordered_vals[hue]
@@ -9259,11 +9273,12 @@ class FigurePanel():
                 # since float was applied to the data column
                 # make sure to round appropriately afterwards again
                 # (might only be important for digits==0 actually
-                if (ordered_col in round_columns) & (round_digits == 0):
-                    sorted_values = map(str,
-                                        map(int, map(float, sorted_values)))
-
+                if type(round_columns) in [list, tuple]:
+                    if (ordered_col in round_columns) & (round_digits == 0):
+                        sorted_values = map(str,
+                                            map(int, map(float, sorted_values)))
             corrected_ordered_vals[ordered_col] = sorted_values
+            
         return corrected_ordered_vals
 
     @staticmethod
@@ -9376,7 +9391,6 @@ class FigurePanel():
 
         size_factor = self.size_factor * self.increase_size_fac
         # get box dicts of one group and plot data of that group
-
         output = statannot.plot_and_add_stat_annotation(data = data,
                                                         x=x, y=y, fig=self.fig,
                                                       letter=self.letter,
