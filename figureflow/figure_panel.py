@@ -8004,6 +8004,7 @@ class FigurePanel():
         if not normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria)
 
+
         if len(data) == 0:
             raise ValueError("The inclusion criteria {} that were defined "
                              "did not match with "
@@ -9308,13 +9309,8 @@ class FigurePanel():
                     for val in all_column_vals:
                         new_label = label[0].replace("__$$__", val)
                         data.loc[data[column] == val, column] = new_label
-                        # data[column].str.replace(val,
-                        #                                         new_label,
-                        #                                         regex=False)
                 else:
-                    data[column] = data[column].str.replace(label[0],
-                                                            label[1],
-                                                            regex=False)
+                    data.loc[data[column] == label[0], column] = label[1]
             # if raise_error:
             #     raise ValueError(f"The label {str(label)} for the "
             #                      f"column {column} should be a tuple or"
