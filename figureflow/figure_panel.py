@@ -9311,6 +9311,7 @@ class FigurePanel():
                         #                                         new_label,
                         #                                         regex=False)
                 else:
+                    print(label)
                     data[column] = data[column].str.replace(label[0],
                                                             label[1],
                                                             regex=False)
@@ -11241,11 +11242,11 @@ class FigurePanel():
             fill_val_arrays = []
             if y0 > 0:
                 fill_val_arrays.append(image[y0-1,x0:x1,:])
-            if y1 < image.shape[1]-1:
+            if y1 < image.shape[0]-1:
                 fill_val_arrays.append(image[y1+1,x0:x1,:])
             if x0 > 0:
                 fill_val_arrays.append(image[y0:y1,x0-1,:])
-            if x1 < image.shape[0]-1:
+            if x1 < image.shape[1]-1:
                 fill_val_arrays.append(image[y0:y1,x1+1,:])
             fill_val = np.median(np.concatenate(fill_val_arrays), axis=[0,1])
             image[y0:y1, x0:x1, :] = fill_val
