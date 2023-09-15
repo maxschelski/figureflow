@@ -4201,7 +4201,8 @@ class FigurePanel():
                 img_range = all_img_ranges[composite_img_nb]
 
                 cmap_for_img = self.cmaps_for_position[position][composite_img_nb]
-
+                
+                
                 im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range,
                                alpha=1,
                                interpolation=self.interpolate_images)#,
@@ -4227,7 +4228,7 @@ class FigurePanel():
                                                        rgb_image)
             else:
                 rgb_image_to_show = all_rgb_images[0]
-
+            
             ax.imshow(rgb_image_to_show, 
                       interpolation=self.interpolate_images)
         
@@ -9311,7 +9312,6 @@ class FigurePanel():
                         #                                         new_label,
                         #                                         regex=False)
                 else:
-                    print(label)
                     data[column] = data[column].str.replace(label[0],
                                                             label[1],
                                                             regex=False)
