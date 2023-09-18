@@ -1961,12 +1961,10 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
     return ax, all_ax_data,annotated_pairs,y_stack_arr,ann_list
 
 
-def get_x_shift_to_hor_center_plot(ax, col_order, nb_x_vals, total_nb_columns,
+def get_x_shift_to_hor_center_plot(ax, x_shift, col_order, nb_x_vals, total_nb_columns,
                                    outer_border, group_padding,
                                    auto_width_reduction_factor, legend_width,
                                    auto_scale_group_padding, hor_alignment):
-
-    x_shift = 0
 
     ax_coords = ax.get_position()
     fig = plt.gcf()
@@ -1986,12 +1984,16 @@ def get_x_shift_to_hor_center_plot(ax, col_order, nb_x_vals, total_nb_columns,
                                   fig.get_size_inches()[0])
     if auto_scale_group_padding:
         total_width_between_groups *= auto_width_reduction_factor
+
     width_yaxis_text = rel_width_text * ax_coords.width
+
     width_all_plots = (ax_coords.width / nb_x_vals * total_nb_columns +
                        width_yaxis_text +
                        legend_width +
                        total_width_between_groups)
+
     rel_width_reduction = 1
+
     # check whether width of all plots is more than available width
     if available_width > width_all_plots:
         # if it is not more than available,
@@ -2016,12 +2018,12 @@ def get_x_shift_to_hor_center_plot(ax, col_order, nb_x_vals, total_nb_columns,
         # for which width can be reduced
         # legend width and y axis width cannot be reduced due to fixed font size
         total_width_reduction = (width_all_plots - available_width)
-        width_all_plots_reducible = (width_all_plots - width_yaxis_text -
-                                     legend_width)
+        width_all_plots_reducible = (ax_coords.width / nb_x_vals * total_nb_columns)
+                                     # - width_yaxis_text - legend_width)
+
         rel_width_reduction = (width_all_plots_reducible /
                                (width_all_plots_reducible -
                                 total_width_reduction))
-
     return x_shift, rel_width_reduction
 
 
@@ -2058,7 +2060,7 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, ax_labels,
     fig = plt.gcf()
     # get width of all axs together
 
-
+    x_shift = 0
     for plot_nb, col_val in enumerate(col_order):
         ax = all_axs[col_val]
         col_data = data.loc[data[col] == col_val]
@@ -2073,7 +2075,8 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, ax_labels,
                                            col, col_order=[col_val])
 
             (x_shift,
-             rel_width_reduction) = get_x_shift_to_hor_center_plot(ax, col_order,
+             rel_width_reduction) = get_x_shift_to_hor_center_plot(ax, x_shift,
+                                                                   col_order,
                                                                    nb_boxes,
                                                                    total_nb_columns,
                                                                    outer_border,
@@ -2108,6 +2111,7 @@ def move_plot_into_hor_borders_and_center_it(all_axs, ax_annot, ax_labels,
 
         x_shift = hor_center_plot(ax, x_shift, rel_width_reduction)
 
+        # adjust x shift for next plot
         # adjust x_shift to accomodate change in group_padding
         rel_group_padding = group_padding / fig.get_size_inches()[0]
         if auto_scale_group_padding:
@@ -2417,8 +2421,6 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                                                  use_fixed_offset,
                                                  show_data_points)
     return ax_annot, all_axs, test_result_list
-
-
 
 def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  x_order=[], hue_order=[], col_order=[],
@@ -2808,7 +2810,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     all_x_tick_overhangs = {}
     all_labels_to_add = []
     for col_nb, col_val in enumerate(col_order):
-
         col_data = data.loc[data[col] == col_val]
 
         # get number of x values that will be plotted (defines width of subplot)
