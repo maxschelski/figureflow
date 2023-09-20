@@ -7448,6 +7448,7 @@ class FigurePanel():
         if type(excluded_keys) == type(None):
             excluded_keys = []
         for column, values in inclusion_criteria_dict.items():
+            values_str = [str(value_for_str) for value_for_str in values]
             if column in excluded_keys:
                 continue
             # if values is only one value convert to list to make it iterable
@@ -7471,6 +7472,11 @@ class FigurePanel():
                     else:
                         included_indices = (included_indices |
                                             (new_included_data[column] == value))
+                if len(new_included_data.loc[included_indices]) == 0:
+                    raise ValueError (f"None of the values "
+                                      f"'{', '.join(values_str)}' "
+                                      f"found in the column '{column}' "
+                                      f"for the inclusion criteria.")
             new_included_data = new_included_data.loc[included_indices]
 
         return new_included_data
@@ -7717,6 +7723,7 @@ class FigurePanel():
     def show_data(self, x=None, y=None, x_labels=[], hue=None, hue_labels=[],
                   col=None, col_labels=[], row=None, row_labels=[],
                   x_order=None, col_order=None, hue_order=None, row_order=None,
+                  order_vals_before_changing_vals=False,
                   inclusion_criteria= None,show_legend=None,
                   round_columns=None,round_digits=0,
                   pair_unit_columns=None,
@@ -7770,7 +7777,10 @@ class FigurePanel():
         :param row_labels: list of tuples to change values in row column.
             See description of x_labels for details.
         :param x_order: list of x values after applying the changes
-            of x_labels, determining the order of x values. Each value
+            of x_labels, if order_vals_before_changing_vals is False.
+            If order_vals_before_changing_vals is True, x values should be
+            the original values before applying the changes of x_labels.
+            Determines the order of x values. Each value
             has to contain a unique part only present in one column value
             and not part of multiple different column values and does
             not need to contain the entire column value.
@@ -7780,14 +7790,34 @@ class FigurePanel():
             or "descending" to sort values ascendingly or descendingly,
             respectively.
         :param col_order: list of col values after applying the changes
-            of col_labels, determining the order of col values.
+            of col_labels, if order_vals_before_changing_vals is False.
+            If order_vals_before_changing_vals is True, col values should be
+            the original values before applying the changes of col_labels.
+            Determines the order of col values.
+            Can also be a nested list in which case, the columns will be split
+            in one row per nested list (e.g. [[1,2,3],[2,3,4],[5,6,7]], will
+            be split into three rows, the first with the col values 1, 2 and 3.
+            In that case, the values in the order must be the values before
+            changes through col_labels are applied.
             For more details see "x_order".
         :param hue_order: list of hue values after applying the changes
-            of hue_labels, determining the order of hue values.
+            of hue_labels, if order_vals_before_changing_vals is False.
+            If order_vals_before_changing_vals is True, hue values should be
+            the original values before applying the changes of hue_labels.
+            Determines the order of hue values.
             For more details see "x_order".
         :param row_order: list of row values after applying the changes
-            of row_labels, determining the order of row values.
+            of row_labels, if order_vals_before_changing_vals is False.
+            If order_vals_before_changing_vals is True, row values should be
+            the original values before applying the changes of row_labels.
+            Determines the order of row values.
             For more details see "x_order".
+        :param order_vals_before_changing_vals: Whether the _order parameters
+            (e.g. x_order, hue_order, etc) include values before changing values
+            with the _labels parameters or not. Default to allow compatibility
+            with previous scripts is False (use values after replacing with
+            _labels). This will be done automatically for col_order though when
+            using nested lists for col_order to plot cols in different rows.
         :param inclusion_criteria: list of Dictionaries with columns as key
             and list of values or one value that the column should match,
             since value all matches from each dictionary will be concatanated.
@@ -7946,6 +7976,23 @@ class FigurePanel():
         # it will be changed multiple frames
         inner_border = copy.copy(self.inner_border)
 
+        use_nested_cols = False
+
+        if col_order is not None:
+            if type(col_order[0]) in [tuple, list]:
+                self.row = "__group__"
+                row = self.row
+                self.data[self.row] = np.nan
+                row_order = []
+                for row_nb, row_list in enumerate(col_order):
+                    for col_value in row_list:
+                        self.data.loc[self.data[col] == col_value, row] = str(row_nb)
+                    row_order.append(str(row_nb))
+                col_order = [col_val
+                             for col_list in col_order
+                             for col_val in col_list]
+                use_nested_cols = True
+
         # only overwrite,
         # if the current iteration is not just done
         # for measuring
@@ -7987,7 +8034,6 @@ class FigurePanel():
         if normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria)
 
-
         # normalization should usually be done before exclusion of data
         # otherwise excluded units would change normalization
         # depending on what is shown
@@ -8003,7 +8049,6 @@ class FigurePanel():
 
         if not normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria)
-
 
         if len(data) == 0:
             raise ValueError("The inclusion criteria {} that were defined "
@@ -8058,8 +8103,11 @@ class FigurePanel():
         data[y] = self._smoothen_data(data, y, ["hue", "col", "row"],
                                      smoothing_rad, hue, col, row)
 
-        data, round_columns = self._round_data(data, round_columns,
-                                               round_digits)
+        (data, round_columns,
+         inclusion_criteria) = self._round_data(data, inclusion_criteria,
+                                                round_columns, round_digits)
+
+        self.inclusion_criteria = inclusion_criteria
 
         all_ordered_vals = {}
         all_ordered_vals[x] = self.x_order
@@ -8115,13 +8163,35 @@ class FigurePanel():
                 elif (nb_hue > 1) & (not show_x_axis):
                     show_legend = True
 
-
         # correct ordered vals to actual column values
         ordered_vals = {}
         ordered_vals[row] = self.row_order
 
         ordered_vals = self._correct_ordered_vals(data, ordered_vals)
         self.row_order = ordered_vals[row]
+
+        if use_nested_cols | order_vals_before_changing_vals:
+            all_ordered_vals = {}
+            # when using nested columns to plot them in several rows
+            # but in general order vals should not be before changing vals
+            # through the _labels parameters, only use col_order values before
+            # changing vals through col_labels.
+            all_ordered_vals[col] = self.col_order
+            if order_vals_before_changing_vals:
+                all_ordered_vals[x] = self.x_order
+                all_ordered_vals[hue] = self.hue_order
+                all_ordered_vals[row] = self.row_order
+            strs_to_replace = {}
+            strs_to_replace[x] = x_labels
+            strs_to_replace[hue] = hue_labels
+            strs_to_replace[col] = col_labels
+            all_ordered_vals = self._replace_strs_in_orders(all_ordered_vals,
+                                                            strs_to_replace)
+            self.col_order = all_ordered_vals[col]
+            if order_vals_before_changing_vals:
+                self.x_order = all_ordered_vals[x]
+                self.hue_order = all_ordered_vals[hue]
+                self.row_order = all_ordered_vals[row]
 
         #  create facet plot made out of several sub figure panels
         #  within the current figure panel
@@ -8134,10 +8204,8 @@ class FigurePanel():
             # in addition, saves time since processing only has to be done once
             # and not for every row
             self.data = data
-
             self._plot_multi_rows(inner_border,  show_legend, **kwargs)
             return None
-
 
         # replace everything except the row values
         # for each row separately
@@ -8160,19 +8228,19 @@ class FigurePanel():
         x_order = ordered_vals[x]
         hue_order = ordered_vals[hue]
         col_order = ordered_vals[col]
-
         # first remove all data defined through the _order variables
         property_names = ["col", "x", "hue"]
         column_infos = zip([col, x, hue], [col_order,
                                            x_order, hue_order])
         for prop_nb, (column_name, column_order) in enumerate(column_infos):
-            if (column_name is not None) & (column_order is not None):
-                kwargs[property_names[prop_nb] + "_order"] = column_order
-                included_data_list = []
-                for column_val in column_order:
-                    included_data_list.append(data.loc[data[column_name] ==
-                                                       column_val])
-                data = pd.concat(included_data_list)
+            if (column_name is None) | (column_order is None):
+                continue
+            kwargs[property_names[prop_nb] + "_order"] = column_order
+            included_data_list = []
+            for column_val in column_order:
+                included_data_list.append(data.loc[data[column_name] ==
+                                                   column_val])
+            data = pd.concat(included_data_list)
 
         # without paired data do not connect data points
         if type(pair_unit_columns) == type(None):
@@ -8211,7 +8279,6 @@ class FigurePanel():
             row_values = self.row_order
         else:
             row_values = self.data[self.row].drop_duplicates().values
-
 
         # if there is only one hue value
         group_cols = []
@@ -8340,7 +8407,8 @@ class FigurePanel():
                 y_range = [y_min, y_max]
             else:
                 y_range = None
-                
+
+
             (all_axs,
              height_this_sub_panel) = self._plot_one_row(row_nb, row_value,
                                                         nb_rows, width_per_col,
@@ -8697,6 +8765,8 @@ class FigurePanel():
         if (row_value is not None):
             for inclusion_criterion in new_inclusion_criteria:
                 inclusion_criterion[self.row] = [row_value]
+            if len(new_inclusion_criteria) == 0:
+                new_inclusion_criteria = [{self.row:[row_value]}]
             
         if (row_value is not None) & show_row_label:
                 # [row_label_map.get(row_value, row_value)]
@@ -8727,8 +8797,6 @@ class FigurePanel():
                                                       nb_rows, nb_col_vals,
                                                       group_padding_rel,
                                                       x_tick_overhang_rel)
-
-
 
         if (show_legend is not None) and show_legend:
             kwargs["leave_space_for_legend"] = True
@@ -8844,15 +8912,30 @@ class FigurePanel():
                               nb_col_vals, group_padding_rel,
                               x_tick_overhang_rel):
         nb_col_vals = 1
-        if type(self.col) != type(None):
+        if self.col is not None :
             # calculate width of current row
             # based on how many col plots go there
             # in order to keep the width of all col plots the same
-            if type(row_value) != type(None):
+            if row_value is not None:
                 all_col_vals = self.data.loc[self.data[self.row] == row_value,
                                              self.col].drop_duplicates()
             else:
                 all_col_vals = self.data[self.col].drop_duplicates()
+
+            if self.col_order is not None:
+                all_new_col_vals = []
+                for col_val in all_col_vals:
+                    # if col val is string, check whether string is present
+                    # in any of the order strings
+                    if type(col_val) == str:
+                        for col_order_val in self.col_order:
+                            if col_val in col_order_val:
+                                all_new_col_vals.append(col_val)
+                                break
+                    else:
+                        if col_val in self.col_order:
+                            all_new_col_vals.append(col_val)
+                all_col_vals = all_new_col_vals
             nb_col_vals = len(all_col_vals)
 
         # no idea why this shouldnt be considered...
@@ -8861,7 +8944,6 @@ class FigurePanel():
                             label_width_diff)
 
         width_this_panel += group_padding_rel * (nb_col_vals - 1)
-
         #for all rows except the last
         #reduce width by overhang of x tick labels
         #since those labels are only present in the last row and will
@@ -9219,17 +9301,27 @@ class FigurePanel():
             group_index = tuple(group_values)
         return group_index
 
-    def _round_data(self, data, round_columns, round_digits):
+    def _round_data(self, data, inclusion_criteria,
+                    round_columns, round_digits):
         special_columns = {"__x__":self.x,
                            "__hue__":self.hue,
                            "__col__":self.col,
                            "__row__":self.row}
         if round_columns is None:
-            return data, round_columns
+            return data, round_columns, inclusion_criteria
         correct_round_columns = []
         for round_column in round_columns:
             if round_column in special_columns.keys():
                 round_column = special_columns[round_column]
+            for inclusion_criteria_dict in inclusion_criteria:
+                if round_column not in inclusion_criteria_dict:
+                    continue
+                allowed_col_vals = inclusion_criteria_dict[round_column]
+                if round_digits == 0:
+                    allowed_col_vals = [int(val) for val in allowed_col_vals]
+                else:
+                    allowed_col_vals = list(np.round(allowed_col_vals))
+                inclusion_criteria_dict[round_column] = allowed_col_vals
             correct_round_columns.append(round_column)
             data[round_column] = data[round_column].astype(float)
             if round_digits == 0:
@@ -9237,7 +9329,8 @@ class FigurePanel():
             else:
                 data[round_column] = data[round_column].round(round_digits)
             data[round_column] = data[round_column].apply(str)
-        return data, correct_round_columns
+
+        return data, correct_round_columns, inclusion_criteria
 
     @staticmethod
     def _get_sorted_ordered_vals(data, all_ordered_vals, round_columns,
@@ -9275,16 +9368,57 @@ class FigurePanel():
                 sort_func = lambda x: list(map(str, sorted(map(float, x),
                                                       reverse=reverse)))
                 sorted_values = sort_func(unique_vals)
+
                 # since float was applied to the data column
                 # make sure to round appropriately afterwards again
                 # (might only be important for digits==0 actually
                 if type(round_columns) in [list, tuple]:
                     if (ordered_col in round_columns) & (round_digits == 0):
-                        sorted_values = map(str,
-                                            map(int, map(float, sorted_values)))
+                        sorted_values = list(map(str,
+                                            map(int, map(float, sorted_values))))
             corrected_ordered_vals[ordered_col] = sorted_values
             
         return corrected_ordered_vals
+
+    @staticmethod
+    def _replace_strs_in_orders(orders, strs_to_replace):
+        """
+        replace strs in data, taking strings from dict strs_to_replace
+        :param strs_to_replace: dict with columns as keys
+                                and as values list in shape of
+                                [(str1,str1_replaced),(str2,str2_replaced)]
+        :param orders: dict of all "order" lists
+        """
+        raise_error = False
+        for column, order_vals in orders.items():
+            if order_vals is None:
+                continue
+            if column not in strs_to_replace:
+                continue
+            new_order_vals = []
+            labels = strs_to_replace[column]
+            for val in order_vals:
+                val_replaced = False
+                for label in labels:
+                    if (type(label) not in [tuple, list]):
+                        label = [label]
+                    if label[0].find("__$$__") != -1:
+                        new_label = label[0].replace("__$$__", val)
+                        new_order_vals.append(new_label)
+                        val_replaced = True
+                        break
+                    else:
+                        if label[0] != val:
+                            continue
+                        new_order_vals.append(label[1])
+                        val_replaced = True
+                        break
+                if not val_replaced:
+                    # if val was not changed by any label
+                    # add val unchanged
+                    new_order_vals.append(val)
+            orders[column] = new_order_vals
+        return orders
 
     @staticmethod
     def _replace_strs_in_data(data, strs_to_replace):
@@ -9352,6 +9486,22 @@ class FigurePanel():
                           f"excluded.")
                 else:
                     new_ordered_vals.append(col_val)
+            if len(new_ordered_vals) != len(set(new_ordered_vals)):
+                raise ValueError("While trying to correct the values in the "
+                                 f"_order parameter for the column "
+                                 f"{ordered_col} for errors, at least one "
+                                 f"_order value was found at least twice "
+                                 f"in the data column values: "
+                                 f"{new_ordered_vals}. Probably the supplied "
+                                 f"value/s that occur/s more than once is "
+                                 f"part of another column value and therefore "
+                                 f"was found to be present more than once. "
+                                 f"Please use unique values for the _order "
+                                 f"parameters. Keep in mind that the _order "
+                                 f"values should be data column values before "
+                                 f"the _labels parameter is applied if "
+                                 f"the paramter order_vals_before_changing_vals"
+                                 f" is True.")
             all_new_ordered_vals[ordered_col] = new_ordered_vals
         return all_new_ordered_vals
 
@@ -9388,7 +9538,7 @@ class FigurePanel():
         return data
 
     def _plot_results(self, data, x, y, inner_border, for_measuring, **kwargs):
-
+        
         size_factor = self.size_factor * self.increase_size_fac
         # get box dicts of one group and plot data of that group
         output = statannot.plot_and_add_stat_annotation(data = data,
