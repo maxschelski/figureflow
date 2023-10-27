@@ -92,10 +92,17 @@ The package was developed in Windows and the exact package versions for the envi
 > cd figureflow
 5. Create environment for Figureflow with Anaconda:
 > conda env create -f environment.yml
-6. Install FigureFlow locally using pip:
+6. Activate environment with Anaconda:
+> conda activate figureflow
+7. Install FigureFlow locally using pip:
 > pip install -e .
-7. You can now import Figureflow and use it to build figures and generate movies as figure objects
+8. Optional: If needed, install spyder to create, edit and run scripts:
+> conda install spyder
+9. Optional: start spyder
+> spyder
+10. You can now import Figureflow and use it to build figures and generate movies as figure objects
 > from figureflow.figure import Figure
+11. Open and execute example scripts from repository under figureflow\figures or figureflow\movies
 
 For any questions feel free to contact me via E-Mail to max.schelski@googlemail.com.
 
