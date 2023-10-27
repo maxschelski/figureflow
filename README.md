@@ -100,9 +100,9 @@ The package was developed in Windows and the exact package versions for the envi
 > conda install spyder
 9. Optional: start spyder
 > spyder
-10. You can now import Figureflow and use it to build figures and generate movies as figure objects
+10. You can now import Figureflow and use it to build figures and generate movies as figure objects:
 > from figureflow.figure import Figure
-11. Open and execute example scripts from repository under figureflow\figures or figureflow\movies
+11. Open and execute example scripts from repository in the folders figureflow\scripts\figures and figureflow\scripts\movies.
 
 For any questions feel free to contact me via E-Mail to max.schelski@googlemail.com.
 
