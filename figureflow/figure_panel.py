@@ -23,6 +23,8 @@ from tifffile import TiffFile
 from matplotlib import patches
 from scipy import ndimage
 
+import cv2
+
 import functools
 import seaborn as sb
 from PIL.TiffTags import TAGS as tiff_tags_dict
@@ -556,7 +558,6 @@ class FigurePanel():
             #  (won't even work since identities have too few values)
             all_images_by_pre_identity = self._add_categories_to_pre_identities(all_images_by_pre_identity,
                                                                              self.sub_category_map)
-
 
             self.dim_val_maps = self._get_category_maps(all_images_by_pre_identity,
                                                         self.inv_map, sorters,
@@ -4175,7 +4176,7 @@ class FigurePanel():
                     if type(cmaps_to_use) == str:
                         cmap_for_img = cmaps_to_use
                     else:
-                        cmap_for_img = cmaps_to_use[0]
+                        cmap_for_img = cmaps_to_use[0   ]
                     img_range = [0,0]
                 all_img_ranges.append(img_range)
                 cmaps_for_img.append(cmap_for_img)
@@ -4228,9 +4229,9 @@ class FigurePanel():
                                                        rgb_image)
             else:
                 rgb_image_to_show = all_rgb_images[0]
-            
-            ax.imshow(rgb_image_to_show, 
-                      interpolation=self.interpolate_images)
+
+            ax.imshow(rgb_image_to_show,
+                      interpolation=self.interpolate_images,)
         
             
             # cmap was overwritten by creating rgb image, set cmap again
@@ -7406,18 +7407,21 @@ class FigurePanel():
         data_columns = data.columns
         for column in data_columns:
             unique_values = data[column].drop_duplicates().dropna()[:nb_vals]
-            min = data[column].min()
-            max = data[column].max()
-            type_str = "(" + str(type(unique_values.values[0])) +")"
-            unique_values = [str(unique_value)
-                             for unique_value in unique_values]
-            prefix =column+" : "
-            wrapper = textwrap.TextWrapper(initial_indent=prefix, width=90,
-                                subsequent_indent=" " * len(prefix))
-            unique_values_str = str(min) + " to " + str(max) + "; "
-            unique_values_str += ", ".join(unique_values)
-            unique_values_str += type_str
-            print(wrapper.fill(unique_values_str))
+            if len(unique_values) == 0:
+                print("Column : NO NON-NAN VALUES!")
+            else:
+                min = data[column].min()
+                max = data[column].max()
+                type_str = "(" + str(type(unique_values.values[0])) +")"
+                unique_values = [str(unique_value)
+                                 for unique_value in unique_values]
+                prefix =column+" : "
+                wrapper = textwrap.TextWrapper(initial_indent=prefix, width=90,
+                                    subsequent_indent=" " * len(prefix))
+                unique_values_str = str(min) + " to " + str(max) + "; "
+                unique_values_str += ", ".join(unique_values)
+                unique_values_str += type_str
+                print(wrapper.fill(unique_values_str))
 
 
     def add_data_transformation(self, function):
@@ -7431,6 +7435,7 @@ class FigurePanel():
 
     @staticmethod
     def _get_rows_matching_criteria(data, inclusion_criteria_dict,
+                                    digits_round_all_columns=None,
                                    excluded_keys = None):
         """
         in a dataframe, get all rows for which values of certain columns match
@@ -7465,6 +7470,13 @@ class FigurePanel():
                 # new_included_data[column] = new_included_data[column].values.astype(str)#.astype(str)
                 # print(new_included_data[column])
                 # print(11121, time.time() - start)
+                data_type = new_included_data[column].dtype
+                if ((digits_round_all_columns is not None) &
+                        (data_type is not str)):
+                    column_vals = new_included_data[column]
+                    rounded_vals = column_vals.round(digits_round_all_columns)
+                    new_included_data[column] = rounded_vals
+
                 included_indices = None
                 for value in values:
                     if type(included_indices) == type(None):
@@ -7472,6 +7484,7 @@ class FigurePanel():
                     else:
                         included_indices = (included_indices |
                                             (new_included_data[column] == value))
+
                 if len(new_included_data.loc[included_indices]) == 0:
                     raise ValueError (f"None of the values "
                                       f"'{', '.join(values_str)}' "
@@ -7482,12 +7495,13 @@ class FigurePanel():
         return new_included_data
 
 
-    def _exclude_data(self, data, inclusion_criteria):
+    def _exclude_data(self, data, inclusion_criteria, digits_round_all_columns):
         included_data = None
         for inclusion_criteria_dict in inclusion_criteria:
             get_matching_rows = FigurePanel._get_rows_matching_criteria
             new_included_data = get_matching_rows(data,
-                                                  inclusion_criteria_dict)
+                                                  inclusion_criteria_dict,
+                                                  digits_round_all_columns)
 
             if type(included_data) == type(None):
                 included_data = new_included_data
@@ -7740,6 +7754,7 @@ class FigurePanel():
                   normalize_after_data_exclusion=True,
                   video_frame=None,
                   use_same_y_ranges=True, increase_padding_above = True,
+                  digits_round_all_columns=4,
                   for_measuring=False,
                   **kwargs):
         """
@@ -7798,7 +7813,9 @@ class FigurePanel():
             in one row per nested list (e.g. [[1,2,3],[2,3,4],[5,6,7]], will
             be split into three rows, the first with the col values 1, 2 and 3.
             In that case, the values in the order must be the values before
-            changes through col_labels are applied.
+            changes through col_labels are applied. Each row must have the
+            same number of columns to allow the same size for each plot,
+            otherwise plots in the row with fewer elements will be wider.
             For more details see "x_order".
         :param hue_order: list of hue values after applying the changes
             of hue_labels, if order_vals_before_changing_vals is False.
@@ -7924,6 +7941,9 @@ class FigurePanel():
         :param increase_padding_above: Whether to increase padding above plots
                                         can sometimes be useful to improve
                                         layout
+        :param digits_round_all_columns: Number of digits all columns for
+            excluding data should be rounded to. Prevents floating point
+            imprecisions that lead to mismatching during excluding data.
         :param for_measuring: INTERNAL PARAMETER, used when plots are plotted
                                 to measure dimensions for perfect alignment,
                                 while the plot is removed afterwards
@@ -8032,7 +8052,8 @@ class FigurePanel():
         data = self.data
 
         if normalize_after_data_exclusion:
-            data = self._exclude_data(data, inclusion_criteria)
+            data = self._exclude_data(data, inclusion_criteria,
+                                      digits_round_all_columns)
 
         # normalization should usually be done before exclusion of data
         # otherwise excluded units would change normalization
@@ -8047,8 +8068,10 @@ class FigurePanel():
             data[x] = self._normalize_data(data, x, norm_x_cats, hue, col, row,
                                           normalize_x_by)
 
+
         if not normalize_after_data_exclusion:
-            data = self._exclude_data(data, inclusion_criteria)
+            data = self._exclude_data(data, inclusion_criteria,
+                                      digits_round_all_columns)
 
         if len(data) == 0:
             raise ValueError("The inclusion criteria {} that were defined "
@@ -8944,6 +8967,7 @@ class FigurePanel():
                             label_width_diff)
 
         width_this_panel += group_padding_rel * (nb_col_vals - 1)
+
         #for all rows except the last
         #reduce width by overhang of x tick labels
         #since those labels are only present in the last row and will
