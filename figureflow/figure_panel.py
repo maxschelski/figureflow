@@ -7472,7 +7472,7 @@ class FigurePanel():
                 # print(11121, time.time() - start)
                 data_type = new_included_data[column].dtype
                 if ((digits_round_all_columns is not None) &
-                        (data_type is not str)):
+                        (data_type != str) & (data_type != object)):
                     column_vals = new_included_data[column]
                     rounded_vals = column_vals.round(digits_round_all_columns)
                     new_included_data[column] = rounded_vals
@@ -8132,6 +8132,13 @@ class FigurePanel():
 
         self.inclusion_criteria = inclusion_criteria
 
+        if scale_columns == None:
+            scale_columns = {}
+
+        for column, scaling_factor in scale_columns.items():
+            data[column] = data[column].astype(float)
+            data[column] *= scaling_factor
+
         all_ordered_vals = {}
         all_ordered_vals[x] = self.x_order
         all_ordered_vals[hue] = self.hue_order
@@ -8141,7 +8148,6 @@ class FigurePanel():
                                                             all_ordered_vals,
                                                             round_columns,
                                                             round_digits)
-
         self.x_order = sorted_ordered_vals[x]
         self.hue_order = sorted_ordered_vals[hue]
         self.col_order = sorted_ordered_vals[col]
@@ -8160,12 +8166,6 @@ class FigurePanel():
         for transformation in self.data_transformations:
             data[y] = transformation(data[y])
 
-        if scale_columns == None:
-            scale_columns = {}
-
-        for column, scaling_factor in scale_columns.items():
-            data[column] = data[column].astype(float)
-            data[column] *= scaling_factor
 
         # check whether multiple columns for y were provided
         multiple_y = False
@@ -8192,7 +8192,7 @@ class FigurePanel():
 
         ordered_vals = self._correct_ordered_vals(data, ordered_vals)
         self.row_order = ordered_vals[row]
-
+        
         if use_nested_cols | order_vals_before_changing_vals:
             all_ordered_vals = {}
             # when using nested columns to plot them in several rows
@@ -9465,8 +9465,9 @@ class FigurePanel():
                 if label[0].find("__$$__") != -1:
                     all_column_vals = data[column].drop_duplicates().values
                     for val in all_column_vals:
-                        new_label = label[0].replace("__$$__", val)
-                        data.loc[data[column] == val, column] = new_label
+                        new_label = label[0].replace("__$$__", str(val))
+                        data[column] = data[column].astype(str)
+                        data.loc[data[column] == str(val), column] = new_label
                 else:
                     data.loc[data[column] == label[0], column] = label[1]
             # if raise_error:

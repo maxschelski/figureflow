@@ -176,7 +176,7 @@ class Figure():
 
         letter_fontsize_inch = self.letter_fontsize / 72
         if padding == "DEFAULT":
-            # divide by two to have half of the padding on each side of the plot
+        #     divide by two to have half of the padding on each side of the plot
             self.padding = [letter_fontsize_inch / 2,
                             letter_fontsize_inch / 2]
 
@@ -230,9 +230,21 @@ class Figure():
         # if multiple figure csvs are in the folder, take the one that contains
         # the number of the figure (if that one exists, otherwise take the
         # last one in the list)
+        figure_csv_found = False
         for potential_figure_csv in potential_figure_csvs:
             if str(self.number) in potential_figure_csv:
+                figure_csv_found = True
                 break
+
+        if not figure_csv_found:
+            raise ValueError("No csv file for figure layout found. Please "
+                             "create a csv file with the name '__figure__X' "
+                             "with X being the number of the figure and the "
+                             "required layout to define the position and size"
+                             " of panels. Check example figure layout files on"
+                             " the github repository in the folder "
+                             "'data' if needed.")
+
         file_path = os.path.join(self.folder, potential_figure_csv)
         self.figure_csv = Figure._open_csv_with_unknown_seperator(file_path,
                                                                   header= None)
