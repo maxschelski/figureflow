@@ -7406,19 +7406,26 @@ class FigurePanel():
 
         data_columns = data.columns
         for column in data_columns:
-            unique_values = data[column].drop_duplicates().dropna()[:nb_vals]
+            unique_values = data[column].drop_duplicates().dropna()
             if len(unique_values) == 0:
                 print("Column : NO NON-NAN VALUES!")
             else:
-                min = data[column].min()
-                max = data[column].max()
+                # for object columns min and max sometimes dont work
+                # since different file formats collide (e.g. strings with None)
+                if data[column].dtype == object:
+                    min = unique_values.values[0]
+                    max = unique_values.values[-1]
+                else:
+                    min = data[column].min()
+                    max = data[column].max()
                 type_str = "(" + str(type(unique_values.values[0])) +")"
                 unique_values = [str(unique_value)
-                                 for unique_value in unique_values]
+                                 for unique_value in unique_values[:nb_vals]]
                 prefix =column+" : "
                 wrapper = textwrap.TextWrapper(initial_indent=prefix, width=90,
                                     subsequent_indent=" " * len(prefix))
-                unique_values_str = str(min) + " to " + str(max) + "; "
+                unique_values_str = ""
+                unique_values_str += str(min) + " to " + str(max) + "; "
                 unique_values_str += ", ".join(unique_values)
                 unique_values_str += type_str
                 print(wrapper.fill(unique_values_str))
@@ -8126,6 +8133,23 @@ class FigurePanel():
         data[y] = self._smoothen_data(data, y, ["hue", "col", "row"],
                                      smoothing_rad, hue, col, row)
 
+
+        # make sure that round columns can be converted to numeric values
+        # otherwise, remove round column
+        special_columns = {"__x__":self.x,
+                           "__hue__":self.hue,
+                           "__col__":self.col,
+                           "__row__":self.row}
+        for round_column in round_columns:
+            column_name = special_columns.get(round_column, round_column)
+            try:
+                data[column_name].astype(float)
+            except:
+                round_columns.remove(round_column)
+                print(f"WARNING: The column {column_name} was removed from the "
+                      f"parameter 'round_columns' since this column could not be "
+                      f"converted to a numerical datatype.")
+            
         (data, round_columns,
          inclusion_criteria) = self._round_data(data, inclusion_criteria,
                                                 round_columns, round_digits)
@@ -9389,9 +9413,18 @@ class FigurePanel():
                                      f"column {ordered_col} is a string, it "
                                      f"must be 'ascending' or 'descending'. "
                                      f"Instead it is {sort_func}.")
+
                 sort_func = lambda x: list(map(str, sorted(map(float, x),
-                                                      reverse=reverse)))
-                sorted_values = sort_func(unique_vals)
+                                                          reverse=reverse)))
+
+                try:
+                    sorted_values = sort_func(unique_vals)
+                except:
+                    raise ValueError(f"The column {ordered_col} is not numeric "
+                                     f"and therefore can't be sorted. Please "
+                                     f"remove the parameter hue_order or change"
+                                     f" it to an explicit order of values.")
+
 
                 # since float was applied to the data column
                 # make sure to round appropriately afterwards again
