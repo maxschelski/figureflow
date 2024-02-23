@@ -23,8 +23,6 @@ from tifffile import TiffFile
 from matplotlib import patches
 from scipy import ndimage
 
-import cv2
-
 import functools
 import seaborn as sb
 from PIL.TiffTags import TAGS as tiff_tags_dict
@@ -7514,7 +7512,6 @@ class FigurePanel():
                 included_data = new_included_data
             else:
                 included_data = pd.concat([included_data, new_included_data])
-
 
         if type(included_data) != type(None):
             data = included_data
