@@ -8,7 +8,7 @@ tifffile
 scipy
 seaborn
 pyqt5
-tkinter
+tk
 moviepy
 python-pptx
 scikit-posthocs
