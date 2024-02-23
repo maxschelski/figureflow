@@ -18,7 +18,7 @@ import sys
 # -- Project information -----------------------------------------------------
 
 project = 'Figureflow'
-copyright = '2022, Max Schelski'
+copyright = '2024, Max Schelski'
 author = 'Max Schelski'
 
 
