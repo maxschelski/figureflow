@@ -12,8 +12,7 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join('..','figureflow')))
-import figureflow
+sys.path.insert(0, os.path.abspath(os.path.join('..')))
 
 
 # -- Project information -----------------------------------------------------
