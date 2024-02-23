@@ -8,7 +8,6 @@ tifffile
 scipy
 seaborn
 pyqt5
-opencv
 tkinter
 moviepy
 python-pptx
