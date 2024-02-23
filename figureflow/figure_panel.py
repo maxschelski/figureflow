@@ -37,8 +37,8 @@ import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 import matplotlib.text
 from math import sqrt, pow, sin, cos
-import tkinter as tk
-from tkinter import font
+# import tkinter as tk
+# from tkinter import font
 import textwrap
 # reloading is necessary to load changes made in the other script since the editor was started
 import importlib
@@ -10330,10 +10330,10 @@ class FigurePanel():
             ax_padding = ax_width * padding * 2
         font_size = starting_font_size
         while True:
-            root = tk.Tk()
-            font_size_px = int (font_size * fig.dpi/72)
-            font_to_measure_width = font.Font(family="DejaVu Sans",
-                                              size= -font_size_px)
+            # root = tk.Tk()
+            # font_size_px = int (font_size * fig.dpi/72)
+            # font_to_measure_width = font.Font(family="DejaVu Sans",
+            #                                   size= -font_size_px)
             max_text_width = 0
             for text in all_texts:
                 text_width,_ = FigurePanel._get_dimension_of_text(text,
@@ -10865,15 +10865,14 @@ class FigurePanel():
         standard_x_position = "right"
         standard_y_position = "top"
 
-
         fig = plt.gcf()
         font_size_pt = int(FontProperties(size=font_size).get_size_in_points())
-        root = tk.Tk()
+        # root = tk.Tk()
         # need to set font size in px since dpi in tkinter
         #  is different from dpi in figure
-        font_size_px = int (font_size_pt * fig.dpi/72)
-        font_to_measure_width = font.Font(family="DejaVu Sans",
-                                          size= -font_size_px)
+        # font_size_px = int (font_size_pt * fig.dpi/72)
+        # font_to_measure_width = font.Font(family="DejaVu Sans",
+        #                                   size= -font_size_px)
 
         # track all frames annotated
         all_frames = []
