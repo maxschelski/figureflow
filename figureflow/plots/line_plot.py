@@ -11,6 +11,7 @@ class LinePlot():
 
         self.data = data
         self.x = x
+        self.hue = hue
         self.hue_order = hue_order
         self.ax = ax
         self.x_range = x_range
@@ -27,16 +28,19 @@ class LinePlot():
         self.variables = {}
         self.variables["x"] = x
         self.variables["y"] = y
-        self.variables["hue"] = hue
+        if hue is not None:
+            self.variables["hue"] = hue
 
     def plot(self):
-
+        # sns.lineplot(data=self.data, x=self.x, y=self.variables["y"],
+        #              ax=self.ax)
         plot = sns.relational._LinePlotter(
                 data=self.data, variables=self.variables,
                 estimator=None, ci=None, n_boot=None, seed=None,
                 sort=None, err_style="band", err_kws=None, legend="full")
+        
         plot.map_hue(palette=self.plot_colors, order=self.hue_order, norm=None)
-
+        
         plot._attach(self.ax)
 
         # only set x range if x_range is not fixed
@@ -45,5 +49,10 @@ class LinePlot():
             max_x = self.data[self.x].max()
             self.ax.set_xlim(min_x, max_x)
 
-        plot.plot(self.ax,{})
+        if self.hue is None:
+            kws = {"color": self.plot_colors[0]}
+        else:
+            kws = {}
+
+        plot.plot(self.ax,kws)
         return plot, []

@@ -2905,7 +2905,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                                 pair_unit_columns,
                                                 connect_paired_data_points,
                                                 data_plot_kwds)
-
         ax.set_ylim(y_range[0], y_range[1])
 
         all_labels_to_add = [*all_labels_to_add, *labels_to_add]
