@@ -448,7 +448,7 @@ def get_axis_tick_labels_overhang(ax, axis):
         tick_value = tick_label.get_text()
         # only try to convert tick label to float
         # if the value is not nothing
-        if tick_value != "":
+        if (tick_value != "") & (tick_value.isnumeric()):
             tick_value = float(tick_value)
             if tick_value <= max_val:
                 break
@@ -583,7 +583,7 @@ def plot_data(ax, x, y, plot_hue, hue_column, data, x_order, hue_order,
                           connect_points_hue=hue_column,
                           figure_panel=figure_panel,
                           **data_plot_kwds)
-
+    
     plot, labels_to_add = plotter.plot()
 
     return plot, labels_to_add
@@ -1205,7 +1205,6 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
         plt.setp(legend.get_title(),fontsize=fontsize_points_title)
         legend._legend_box.align = "left"
         ax.set_xlabel("")
-
     else:
         ax.set_xlabel("")
 
@@ -1236,11 +1235,11 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
         if ((plot_nb != len(col_order)) |
                 (len(handles) < 2) |
                 (not show_legend)):
-            if not (type(ax.legend_) == type(None)):
+            if ax.legend_ is not None:
                 show_legend = False
         if not show_legend:
             ax.legend_.remove()
-            if not leave_space_for_legend:
+            if (not leave_space_for_legend) | (len(handles) < 2):
                 legend_width = 0
 
     # remove y axis label and title for all subplots except the first one
@@ -2455,11 +2454,12 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  x_tick_label_rotation=False,
                                  leave_space_for_x_tick_overhang=False,
                                  y_range = None,
+                                 y_scale = "linear",
                                  show_y_axis=True,
                                  neg_y_vals=True,
                                  y_axis_label=None,y_tick_interval=None,
                                  show_y_minor_ticks=False,
-                                 y_ticks=None,
+                                 x_ticks=None, y_ticks=None,
                                  axis_padding=10,
                                  hor_alignment ="left",
                                  use_fixed_offset=False,
@@ -2617,6 +2617,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                             for these overhangs in the last row
                                             in the other rows.
     :param y_range: List of minimum and maximum y value
+    :param y_scale: Scale on y_axis (e.g. "linear" or "log")
     :param show_y_axis: Whether to show the y axis
     :param neg_y_vals: are there data points below zero, if not lowest y axis
                         value is 0 (margin settings will make it lower
@@ -2771,7 +2772,13 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     # set y_range
     # allow for y lim being manually set
     # used to unify ylim when row is defined for showing data in figure_panel
-    if type(y_range) == type(None):
+    get_yrange = False
+    if y_range is None:
+        get_yrange = True
+    elif (y_range[0] is None) | (y_range[1] is None):
+        get_yrange = True
+
+    if get_yrange:
         # ax needs to be created in same position as it will be afterwards
         # that way the realistic y range can be determined
         # and also that way no other data will be overlapped by plot
@@ -2787,9 +2794,17 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                   line_width, size_factor, plot_type, nb_x_vals, figure_panel,
                   x_range, show_data_points, pair_unit_columns,
                   connect_paired_data_points, data_plot_kwds)
-        y_range = ax.get_ylim()
+        measured_y_range = ax.get_ylim()
         ax.remove()
 
+    if y_range is None:
+        y_range = measured_y_range
+    elif (y_range[0] is None):
+        y_range[0] = measured_y_range[0]
+    elif (y_range[1] is None):
+        y_range[1] = measured_y_range[1]
+
+    # if (y_range[0] is not None) & (y_range[1] is not None):
     yrange = y_range[1] - y_range[0]
     # use offsets based on highest yrange for all plots
     max_yrange = yrange
@@ -2806,9 +2821,9 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         nb_lines_col_val = len(col_val.split("\n"))
         max_nb_col_val_lines = max(max_nb_col_val_lines, nb_lines_col_val)
 
-
     all_x_tick_overhangs = {}
     all_labels_to_add = []
+
     for col_nb, col_val in enumerate(col_order):
         col_data = data.loc[data[col] == col_val]
 
@@ -2875,8 +2890,9 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         else:
             width_reduction_by_changing_box_size = 0
             auto_width_reduction_factor = 0
-
-
+        
+        ax.set_yscale(y_scale)
+        
         # plot boxplot and swarmplot and get box_plotter
         # object (necessary to extract information about boxes later)
         box_plotter, labels_to_add = plot_data(ax, x, y, plot_hue, hue,
@@ -2890,6 +2906,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                                 connect_paired_data_points,
                                                 data_plot_kwds)
 
+        ax.set_ylim(y_range[0], y_range[1])
         all_labels_to_add = [*all_labels_to_add, *labels_to_add]
 
         rel_height_change = 0
@@ -3030,7 +3047,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         # if more than one row was plotted
         # the row value will be updated in a separate dict
         axs_by_position[(0, col_nb)] = ax
-
+        
     # add ax_annot again with same position to make it appear on top of all other plots
     ax_annot = add_annotation_subplot(letter+"_new",outer_border,ax_annot)
 
@@ -3102,7 +3119,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     # set lower ylim as slightly below 0
     # so that no points are cut off
     # this will be overwritten when supplying a y_range
-    if not neg_y_vals:
+    # print(ax.get_ylim(), y_range)
+    if (not neg_y_vals) & (y_range[0] < -0.05):
         for ax in all_axs.values():
             ax.set_ylim(-0.05, ax.get_ylim()[1])
 
@@ -3113,6 +3131,11 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     if y_ticks is not None:
         for ax in all_axs.values():
             ax.set_yticks(y_ticks)
+
+
+    if x_ticks is not None:
+        for ax in all_axs.values():
+            ax.set_xticks(x_ticks)
 
     # move plot to within outer_border horizontally (axes labeling is outside of ax and thereby of outer_border)
     # center the plot then horizontally
