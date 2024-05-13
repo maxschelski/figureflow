@@ -5,7 +5,7 @@ class LinePlot():
     CONTINUOUS_X = True
 
     def __init__(self, x, y, hue, data, hue_order, plot_colors, ax,
-                 x_range, **kwargs):
+                 x_range, ci=95, **kwargs):
         data[x] = pd.to_numeric(data[x])
         data.sort_values(x, inplace=True)
 
@@ -15,6 +15,7 @@ class LinePlot():
         self.hue_order = hue_order
         self.ax = ax
         self.x_range = x_range
+        self.ci = ci
 
         if type(hue) == type(None):
             nb_colors = 1
@@ -36,7 +37,7 @@ class LinePlot():
         #              ax=self.ax)
         plot = sns.relational._LinePlotter(
                 data=self.data, variables=self.variables,
-                estimator=None, ci=None, n_boot=None, seed=None,
+                estimator="mean", ci=self.ci, n_boot=1000, seed=None,
                 sort=None, err_style="band", err_kws=None, legend="full")
         
         plot.map_hue(palette=self.plot_colors, order=self.hue_order, norm=None)
