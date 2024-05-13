@@ -604,7 +604,7 @@ class Figure():
                                   }
         self.panel_edit_kwargs.update(kwargs)
 
-    def create_panel(self, letter=None, x=0, y=0,  width=1,
+    def create_panel(self, letter=None, x=None, y=None,  width=None,
                      height=None, padding = None, **kwargs):
         """
         Create panel with defined letter.
@@ -666,8 +666,8 @@ class Figure():
         #check if dimensions should be taken from csv
         #therefore from self.panel_dimensions
         #only one value has to be None to get ALL values from csv
-        if (FigurePanel._is_none(x) | FigurePanel._is_none(y) |
-            FigurePanel._is_none(width) | FigurePanel._is_none(height)):
+        print(self.panel_dimensions)
+        if ((x is None) | (y is None) | (width is None) | (height is None)):
             if len(list(self.panel_dimensions)) == 0:
                 raise ValueError("Not all necessary parameters for the panel "
                                  "{} were supplied."
@@ -678,10 +678,14 @@ class Figure():
             if letter not in self.panel_dimensions:
                 raise ValueError("The panel {} was not found in the csv".format(letter))
             panel_dimension = self.panel_dimensions[letter]
-            x = panel_dimension["x0"]
-            y = panel_dimension["y0"]
-            width = panel_dimension["width"]
-            height = panel_dimension["height"]
+            if x is None:
+                x = panel_dimension["x0"]
+            if y is None:
+                y = panel_dimension["y0"]
+            if width is None:
+                width = panel_dimension["width"]
+            if height is None:
+                height = panel_dimension["height"]
 
         self.max_height = max(self.max_height, y + height)
 
