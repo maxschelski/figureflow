@@ -2867,7 +2867,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                            str(for_measuring) +
                                            str(max(data[x]))))
 
-        ax.set_ylim(y_range[0], y_range[1])
+        # ax.set_ylim(y_range[0], y_range[1])
 
         set_y_ticks(ax, y_tick_interval, show_y_minor_ticks)
         set_x_ticks(ax, x_tick_interval, x_range)
@@ -2907,6 +2907,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                                 data_plot_kwds)
 
         ax.set_ylim(y_range[0], y_range[1])
+
         all_labels_to_add = [*all_labels_to_add, *labels_to_add]
 
         rel_height_change = 0
