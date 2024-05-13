@@ -28,7 +28,7 @@ class GroupPlot():
         self.ax = ax
         self.nb_x_vals = nb_x_vals
         self.kwargs = kwargs
-        self.show_outlier = None
+        self.show_outliers = None
 
         self.show_data_points = show_data_points
         self.connect_paired_data_points = connect_paired_data_points
