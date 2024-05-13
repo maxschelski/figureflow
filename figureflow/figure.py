@@ -666,7 +666,6 @@ class Figure():
         #check if dimensions should be taken from csv
         #therefore from self.panel_dimensions
         #only one value has to be None to get ALL values from csv
-        print(self.panel_dimensions)
         if ((x is None) | (y is None) | (width is None) | (height is None)):
             if len(list(self.panel_dimensions)) == 0:
                 raise ValueError("Not all necessary parameters for the panel "
