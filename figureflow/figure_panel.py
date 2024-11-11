@@ -22,7 +22,7 @@ from collections import OrderedDict
 from tifffile import TiffFile
 from matplotlib import patches
 from scipy import ndimage
-import cv2
+# import cv2
 
 import functools
 import seaborn as sb
