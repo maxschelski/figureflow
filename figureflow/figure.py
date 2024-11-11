@@ -743,6 +743,7 @@ class Figure():
                                          show_letter = self.show_panel_letters,
                                          **kwargs)
         self.all_panels[letter] = self.current_panel
+
         return self.current_panel
 
     @staticmethod
@@ -859,6 +860,10 @@ class Figure():
             edges.
         """
         #remove all placeholder images in figure_panel
+
+        if self.panel_to_edit is not None:
+            if self.panel_to_edit in self.all_panels.keys():
+                self.edit_this_panel(**self.panel_edit_kwargs)
 
         for figure_panel in self.all_panels.values():
             if hasattr(figure_panel, "pos_to_pre_identity_map"):
@@ -1180,6 +1185,7 @@ class Figure():
                                 (for fps=2 of 2s!)
         """
 
+
         if self.name == "":
             self.name = "Video"
 
@@ -1236,6 +1242,7 @@ class Figure():
         data_video_path = self._create_video(animate_data,
                                             nb_frames,
                                             bitrate=bitrate)
+
         all_videos.append(editor.VideoFileClip(data_video_path))
 
         #copy video file as often as there are repeats - 1
@@ -1283,6 +1290,7 @@ class Figure():
 
         video.save(video_path, writer=video_writer)
 
+
         return video_path
 
 
@@ -1307,51 +1315,55 @@ class Figure():
                    frames_to_show_longer,
                    additional_videoframes,
                     frame):
-            if type(frames_to_show_longer) != type(None):
-                for frame_to_show_longer in frames_to_show_longer:
-                    #if the current frame is larger than
-                    #the frame to show longer but smaller than
-                    #the frame plus the amount of videoframes it should be shown
-                    #then set frame as frame to show longer
-                    if ((frame >= frame_to_show_longer) &
-                            (frame < (frame_to_show_longer + additional_videoframes))):
-                        frame = frame_to_show_longer
-                    elif frame >= (frame_to_show_longer + additional_videoframes):
-                        frame -= (additional_videoframes - 1)
+        if type(frames_to_show_longer) != type(None):
+            for frame_to_show_longer in frames_to_show_longer:
+                #if the current frame is larger than
+                #the frame to show longer but smaller than
+                #the frame plus the amount of videoframes it should be shown
+                #then set frame as frame to show longer
+                if ((frame >= frame_to_show_longer) &
+                        (frame < (frame_to_show_longer + additional_videoframes))):
+                    frame = frame_to_show_longer
+                elif frame >= (frame_to_show_longer + additional_videoframes):
+                    frame -= (additional_videoframes - 1)
 
-            #start animation of video
-            print("Rendering frame {}".format(frame))
-            #go through each added figure_panel
-            for figure_panel in self.all_panels.values():
-                # even for not animated panels the first timeframe
-                # should be shown
-                if (not figure_panel.animate_panel) & (frame > 0):
-                    continue
+        #start animation of video
+        print("Rendering frame {}".format(frame))
+        #go through each added figure_panel
+        for figure_panel in self.all_panels.values():
+            # even for not animated panels the first timeframe
+            # should be shown
+            if (not figure_panel.animate_panel) & (frame > 0):
+                continue
 
-                figure_panel.data = figure_panel.data_orig
-                #delete all labels in self.label_axs[site] (for each site)
-                for label_site in figure_panel.label_axs:
-                    for label_ax in figure_panel.label_axs[label_site]:
-                        label_ax.remove()
-                #delete all plots in self.all_axs
-                for img_ax in figure_panel.all_axs.values():
-                    if type(img_ax.figure) != type(None):
-                        img_ax.remove()
+            figure_panel.data = figure_panel.data_orig
+            #delete all labels in self.label_axs[site] (for each site)
+            for label_site in figure_panel.label_axs:
+                for label_ax in figure_panel.label_axs[label_site]:
+                    label_ax.remove()
+            #delete all plots in self.all_axs
+            for img_ax in figure_panel.all_axs.values():
+                if type(img_ax.figure) != type(None):
+                    img_ax.remove()
 
-                # for colorbar_ax in figure_panel.all_colorbars.values():
-                    # if type(colorbar_ax.ax.figure) != type(None):
-                    #     colorbar_ax.remove()
+            # for colorbar_ax in figure_panel.all_colorbars.values():
+                # if type(colorbar_ax.ax.figure) != type(None):
+                #     colorbar_ax.remove()
 
-                figure_panel.cropped_positions = {}
+            figure_panel.cropped_positions = {}
 
-                #go through and execute each function in function_for_video list
-                for function_name, function, args, kwargs in figure_panel.functions_for_video:
-                    # print("FUNCTION FOR VIDEO: ", function_name)
-                    #for show_image modify the "frames" parameter
-                    if function_name == "show_images":
-                        if "frames" in kwargs:
-                            #frames should be the frame'th option in video_frames of the figure_panel
-                            kwargs["frames"] = [figure_panel.video_frames[frame]]
-                    if function_name == "show_data":
-                        kwargs["video_frame"] = self.all_video_frames[frame]
-                    function(*args, **kwargs)
+            #go through and execute each function in function_for_video list
+            for function_name, function, args, kwargs in figure_panel.functions_for_video:
+                # print("FUNCTION FOR VIDEO: ", function_name)
+                #for show_image modify the "frames" parameter
+                if function_name == "show_images":
+                    if "frames" in kwargs:
+                        #frames should be the frame'th option in video_frames of the figure_panel
+                        kwargs["frames"] = [figure_panel.video_frames[frame]]
+                if function_name == "show_data":
+                    kwargs["video_frame"] = self.all_video_frames[frame]
+                function(*args, **kwargs)
+
+        if self.panel_to_edit is not None:
+            if self.panel_to_edit in self.all_panels.keys():
+                self.edit_this_panel(**self.panel_edit_kwargs)
