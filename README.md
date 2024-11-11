@@ -83,12 +83,12 @@ The name of files for a specific panel starts with "panel" followed by the upper
 # Installation
 
 Installation via Mamba (using the conda-forge channel) is recommended, since Mamba is a much faster version of Anaconda.
-
 <br/>
 1. If you don't already have Mamba installed: Download and install Mamba from https://github.com/conda-forge/miniforge.
 2. If you don't already have git installed: Download and install git from https://git-scm.com/downloads
 3. Open a terminal, navigate to the folder where you want to put Figureflow and clone the Figureflow repository:
 > git clone https://github.com/maxschelski/figureflow.git
+> 
 4. Navigate into the folder of the repository (figureflow):
 > cd figureflow
 5. Create environment for Figureflow with Mamba:
