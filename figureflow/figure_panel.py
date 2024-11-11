@@ -7469,7 +7469,17 @@ class FigurePanel():
                 # convert all values to to correct type if types differ
                 if new_included_data[column].dtype != type(values[0]):
                     type_conv = type(new_included_data[column].iloc[0])
-                    values = [type_conv(value) for value in values]
+                    # if due to the values in the column, a numeric type was
+                    # assumed but the actual type is a string, then conversion
+                    # from string to numeric most often wont work.
+                    # in those cases, convert the column instead of the values.
+                    # This might in turn lead to the correct error that the
+                    # defined values cannot be found if all values were
+                    # strings but the column numeric.
+                    try:
+                        values = [type_conv(value) for value in values]
+                    except:
+                        new_included_data[column] = new_included_data[column].astype(type(values[0]))
                 # start = time.time()
                 # new_included_data[column] = new_included_data[column].astype(str)
                 # new_included_data[column] = new_included_data[column].values.astype(str)#.astype(str)
@@ -7988,6 +7998,9 @@ class FigurePanel():
             y = self.y
         else:
             self.y = y
+            
+        if round_columns is None:
+            round_columns = []
 
         # get plot_type, needed for get_basic_statistics
         # to know if it is a continuous data plot type
@@ -8076,6 +8089,14 @@ class FigurePanel():
         if not normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria,
                                       digits_round_all_columns)
+
+        if type(hue) in [tuple, list]:
+            new_hue = "_".join(hue)
+            data[new_hue] = ""
+            for sub_hue in hue:
+                data[new_hue] += data[sub_hue].astype(str)
+            hue = new_hue
+            self.hue = new_hue
 
         if len(data) == 0:
             raise ValueError("The inclusion criteria {} that were defined "
@@ -8292,7 +8313,7 @@ class FigurePanel():
         else:
             data = self._remove_unpaired_data(data, pair_unit_columns,
                                              col, x, hue)
-
+        
         (axs_by_position,
          ax_annot) = self._plot_simple_row(data, x, y, hue, col, for_measuring,
                                           increase_padding_above,
