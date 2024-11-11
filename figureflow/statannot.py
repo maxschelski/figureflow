@@ -3127,6 +3127,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         add_grid_lines(ax, y_range, plot_type, line_width, line_width_thin,
                        show_y_minor_ticks)
 
+    set_y_ticks(ax, y_tick_interval, show_y_minor_ticks)
+
     if y_ticks is not None:
         for ax in all_axs.values():
             ax.set_yticks(y_ticks)
