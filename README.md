@@ -118,6 +118,9 @@ However, since the package was developed in Windows, the exact package versions 
 
 # General Usage
 
+The following explains the general structure of scripts using figureflow. </br>
+However, it does not provide executable code. For executable code check the python files in the "scripts" folder of the repository. The upper section "Usage Examples" provides more details about the different provided examples.
+
 In general you first create a figure object.
 
 > figure = Figure(...)
@@ -157,7 +160,7 @@ Widths and heights can be defined by two possible ways:
 
 If you want to add text, arrows, zooms or cropping to an image in a panel, you can also use the GUI for one panel at the time. The GUI also allows you to adjust the position of elements you added already. With the GUI you don't need to check in ImageJ at which coordinates you want to add an arrow or text.
 
-To use the GUI, right after defining the figure object:
+To use the GUI, right after defining the figure object (non executable code):
 
 > Figure(...)
   
@@ -173,7 +176,8 @@ Adding arrows or text on images which will be cropped should only be done with s
 
 Otherwise, the image is shown without cropping applied and therefore the relative size of arrows or text compared to the image will be different than after cropping is applied.
 
-After you are done adding and modifying the elements you want, you have to press the "Print code" button, which will print the code for the elements in your Python console. You can then copy and paste the code into the script of the figure/movie, making sure you paste each command at the right spot (before or after show_images and to the right panel). 
+After you are done adding and modifying the elements you want, you have to press the "Print code" button, which will print the code for the elements in your Python console. You can then copy and paste the code into the script for the figure/movie, making sure you paste each command at the right spot (before or after show_images and to the right panel). </br>
+Note, if some annotations were already present before adding annotations, the code for the annotations that were already present will also be printed. The reason is that those annotations might have been moved around and therefore changed.
 
 # Examples
 Examples are not displayed to scale on this website but were all generated with 4.75 inch width.<br/>
