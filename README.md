@@ -95,7 +95,7 @@ Installation via Mamba (using the conda-forge channel) is recommended, since Mam
 > mamba env create -f environment.yml
 6. Activate environment with mamba:
 > mamba activate figureflow
-7. Install FigureFlow locally using pip:
+7. Install FigureFlow locally using pip (also include the "." in the command):
 > pip install -e .
 8. Optional: If needed, install spyder to create, edit and run scripts:
 > mamba install spyder
