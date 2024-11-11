@@ -22,8 +22,8 @@ figure_folder_name = os.path.basename(script_path).replace(".py", "")
 data_folder = os.path.join(figureflow_folder, "data")
 input_folder = os.path.join(data_folder,figure_folder_name)
 
-figure = Figure(input_folder,number=5,dpi=600,width=5)
-figure.show_panels("D")
+figure = Figure(input_folder,number=5,dpi=200,width=5)
+# figure.show_panels("D")
 
 figure.create_panel("A", increase_size_fac=1, hor_alignment="right",
                     vert_alignment="center",
@@ -83,7 +83,7 @@ inclusion_criteria.append({
                             "date" : [200529],
                             "neurite": [0,1,2,7]
                             })
-figure.create_panel("D",y=1, increase_size_fac=1,
+figure.create_panel("D", increase_size_fac=1,
                     padding=[[0.08, 0.02],None])
 figure.show_data(y="int_norm", x="time",
                   plot_type="line", 
@@ -129,4 +129,4 @@ figure.show_data(x="MT-RFmed_neg", y="cycles/h", col=None,
                     scale_columns={"MT-RFmed_neg":-1})
 
 
-figure.save("png")
+# figure.save("png")
