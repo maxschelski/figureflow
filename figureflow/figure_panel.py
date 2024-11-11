@@ -9914,7 +9914,7 @@ class FigurePanel():
                 direction_pos = direction
 
             fig = plt.gcf()
-            allowed_styles = ["arrow","*"]
+            allowed_styles = ["arrow","*", "circle"]
             if style not in allowed_styles:
                 raise ValueError("Style of drawn shape has to be one of "
                                  "the following for now: {}. More shapes will "
@@ -10017,6 +10017,7 @@ class FigurePanel():
                     ax._stale_viewlim_x = False
                     ax._stale_viewlim_y = False
 
+
                 elif style == "*":
                     # use half dX since the size of the marker is the radius
                     # therefore position should be ad half than what it should be
@@ -10030,6 +10031,15 @@ class FigurePanel():
                     y_img_px = y_inch / ax_height_inch * height
                     ax.plot(x_img_px, y_img_px, marker="*",
                             markersize=size, mew=size/100, c=color)
+
+                elif style =="circle":
+                    
+                    circle1 = plt.Circle((new_target[0],
+                                          new_target[1]), size,
+                                         edgecolor=color,
+                                         fill=False
+                                         )
+                    ax.add_patch(circle1)
 
 
     def _get_possible_direction_strings(self, direction_from_head_to_tail):
