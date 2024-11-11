@@ -82,22 +82,23 @@ The name of files for a specific panel starts with "panel" followed by the upper
 
 # Installation
 
-The package was developed in Windows and the exact package versions for the environment in Windows are available for Anaconda.
+Installation via Mamba (using the conda-forge channel) is recommended, since Mamba is a much faster version of Anaconda.
+
 <br/>
-1. If you don't already have Anaconda installed: Download and install Anaconda from https://www.anaconda.com/.
+1. If you don't already have Mamba installed: Download and install Mamba from https://github.com/conda-forge/miniforge.
 2. If you don't already have git installed: Download and install git from https://git-scm.com/downloads
 3. Open a terminal, navigate to the folder where you want to put Figureflow and clone the Figureflow repository:
 > git clone https://github.com/maxschelski/figureflow.git
 4. Navigate into the folder of the repository (figureflow):
 > cd figureflow
-5. Create environment for Figureflow with Anaconda:
-> conda env create -f environment.yml
-6. Activate environment with Anaconda:
-> conda activate figureflow
+5. Create environment for Figureflow with Mamba:
+> mamba env create -f environment.yml
+6. Activate environment with mamba:
+> mamba activate figureflow
 7. Install FigureFlow locally using pip:
 > pip install -e .
 8. Optional: If needed, install spyder to create, edit and run scripts:
-> conda install spyder
+> mamba install spyder
 9. Optional: start spyder
 > spyder
 10. You can now import Figureflow and use it to build figures and generate movies as figure objects:
@@ -112,6 +113,8 @@ For updating Figureflow on your machine, open a terminal, navigate into the fold
 
 This will download all new files on GitHub (if there are some).
 
+Note:
+However, since the package was developed in Windows, the exact package versions for the environment in Windows are also available (environment_windows.yml) for Anaconda (using the default Anaconda channels).
 
 # General Usage
 
