@@ -22,6 +22,7 @@ from collections import OrderedDict
 from tifffile import TiffFile
 from matplotlib import patches
 from scipy import ndimage
+import cv2
 
 import functools
 import seaborn as sb
@@ -2369,6 +2370,7 @@ class FigurePanel():
                 identity,
                 image_to_be_enlarged,
                 cats_can_be_different)
+
             if similar:
                 continue
 
@@ -4200,8 +4202,47 @@ class FigurePanel():
                 img_range = all_img_ranges[composite_img_nb]
 
                 cmap_for_img = self.cmaps_for_position[position][composite_img_nb]
-                
-                
+
+                # Source for rotating images: ChatGPT
+                # # Define the rotated rectangle
+                # center = (144, 98)  # Center of the rectangle
+                # size = (32, 30)  # Width and height of the rectangle
+                # angle = 20  # Angle of rotation
+                #
+                # # Create the rotated rectangle
+                # rotated_rect = (
+                # (center[0], center[1]), (size[0], size[1]), angle)
+                #
+                # # Get the four points of the rotated rectangle
+                # box_points = cv2.boxPoints(rotated_rect)
+                # box_points = np.int0(box_points)
+                #
+                # # Draw the rotated rectangle on the image (optional, for visualization)
+                # cv2.drawContours(single_image, [box_points], 0, (0, 255, 0), 2)
+                #
+                # # Get the rotation matrix to align the rectangle
+                # rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+                #
+                # # Perform the affine transformation to rotate the entire image
+                # height, width = single_image.shape[:2]
+                # rotated_image = cv2.warpAffine(single_image, rotation_matrix,
+                #                                (width, height))
+                #
+                # # Crop the aligned rectangle from the rotated image
+                # # Define the bounding box in the aligned (rotated) image
+                # aligned_rect_x, aligned_rect_y = int(
+                #     center[0] - size[0] / 2), int(center[1] - size[1] / 2)
+                # aligned_rect_w, aligned_rect_h = size
+                #
+                # # Crop the content of the rectangle
+                # cropped_content = rotated_image[
+                #                   aligned_rect_y:aligned_rect_y + int(
+                #                       aligned_rect_h),
+                #                   aligned_rect_x:aligned_rect_x + int(
+                #                       aligned_rect_w)]
+                #
+                # # single_image = single_image[83:113, 128:160]
+
                 im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range,
                                alpha=1,
                                interpolation=self.interpolate_images)#,
@@ -7464,7 +7505,9 @@ class FigurePanel():
             # if values is only one value convert to list to make it iterable
             if type(values) not in [list, tuple]:
                 final_query = column + values
-                included_indices = new_included_data.query(final_query).index
+                print(final_query)
+                # included_indices = new_included_data.query(final_query).index
+                included_indices = new_included_data.eval(final_query).index
             else:
                 # convert all values to to correct type if types differ
                 if new_included_data[column].dtype != type(values[0]):
@@ -9600,7 +9643,8 @@ class FigurePanel():
             #  except in the excluded keys
             matched_data = FigurePanel._get_rows_matching_criteria(data,
                                                                   renaming_dict,
-                                                                  excluded_keys)
+                                                                  excluded_keys=
+                                                                   excluded_keys)
 
             mached_indices = matched_data.index.values
             column = renaming_dict["__target-column__"]
