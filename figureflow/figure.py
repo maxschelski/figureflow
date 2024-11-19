@@ -631,7 +631,7 @@ class Figure():
             # and does not have placeholder images
             self.current_panel._remove_placeholder_images()
 
-        if self.panel_to_edit is not None:
+        if (self.panel_to_edit is not None) & (not self.video):
             if self.panel_to_edit in self.all_panels.keys():
                 self.edit_this_panel(**self.panel_edit_kwargs)
 
@@ -802,7 +802,7 @@ class Figure():
                                                     position in the axis
                                                     (e.g. top left of axis)
         """
-        panel_to_edit = self.current_panel
+        panel_to_edit = self.all_panels[self.panel_to_edit]
 
         if hasattr(panel_to_edit, "pos_to_pre_identity_map"):
             # panel with data plots do not have the attribute
