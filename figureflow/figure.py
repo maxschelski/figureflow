@@ -39,6 +39,8 @@ importlib.reload(figure_panel)
 FigurePanel = figure_panel.FigurePanel
 FigureEditorGUI = figure_editor_gui.FigureEditorGUI
 
+import time
+
 class Figure():
 
     def __init__(self,folder,height=1,number=1,dpi=600,padding="DEFAULT",letter_fontsize=9,
@@ -1262,9 +1264,31 @@ class Figure():
         else:
             bitrate = str(bitrate)
 
-        complete_video.write_videofile(video_path,
-                                       fps=max(self.fps,min_final_fps),
-                                       remove_temp=True, bitrate=bitrate)
+        print(min_final_fps, self.fps)
+
+        try:
+            complete_video.write_videofile(video_path,
+                                           fps=max(self.fps,min_final_fps),
+                                           remove_temp=True, bitrate=bitrate)
+        except IndexError:
+            print("\n\nCRITICAL WARNING: "
+                  "The combination of repeats and fps leads to a "
+                  "floating point error in the 'moviepy' package. "
+                  "\nTHE LAST FRAME OF THE MOVIE WAS REMOVED to still save the "
+                  "movie. If the last frame should not be removed, change the "
+                  "fps or the number of repeats. Even very small changes are "
+                  "usually sufficient.\n")
+            # Short by one frame, so get rid on the last frame:
+            complete_video = complete_video.subclip(
+                t_end=(complete_video.duration - 1.0 / complete_video.fps))
+            complete_video.write_videofile(video_path,
+                                           fps=max(self.fps,min_final_fps),
+                                           remove_temp=True, bitrate=bitrate)
+
+        # complete_video.write_videofile(video_path,
+        #                                fps=max(self.fps,min_final_fps),
+        #                                remove_temp=True, bitrate=bitrate)
+
 
         shutil.rmtree(self.tmp_video_folder)
 
