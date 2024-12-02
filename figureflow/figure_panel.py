@@ -114,7 +114,6 @@ class FigurePanel():
         self.tick_scales = [1,1]
         self.video = video
 
-
         self.dark_background = figure.dark_background
         # if animate_panel is not set, make it true if figure panel is
         # part of video, otherwise false
@@ -123,9 +122,16 @@ class FigurePanel():
                 animate_panel = True
             else:
                 animate_panel = False
+
         self.animate_panel = animate_panel
         self.panel_file_paths = panel_file_paths
         self.all_panel_imgs = all_panel_imgs
+
+        # maintain a backup of all file paths and images
+        # if the file paths are changed for the batch mode
+        self.panel_file_paths_orig = panel_file_paths
+        self.all_panel_imgs_orig = all_panel_imgs
+
         self.panel_pptxs = panel_pptxs
         self.show_letter = show_letter
         self.data = data
@@ -174,9 +180,9 @@ class FigurePanel():
             else:
                 self.padding = [[padding, padding],
                                 [padding, padding]]
+
         self.xpadding = self.padding[0]
         self.ypadding = self.padding[1]
-
 
         # if the set context is None, the font_scale will immideately be applied
         #  to all figures (even those plotted already)
@@ -1302,6 +1308,7 @@ class FigurePanel():
                     # rewrite data_dict with keys slices rewritten as frames
                     data_dict = {("frames" if (k == "slices")
                                   else k):v for k,v in data_dict.items()}
+
 
             for dimension, value in data_dict.items():
                 if dimension in dimensions:

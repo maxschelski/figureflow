@@ -1139,9 +1139,22 @@ class Figure():
             if ((function_name in show_functions)  &
                 (self.current_panel.animate_panel == True)):
                 # self.current_panel.show_function_called = True
-                if "frames" in kwargs:
-                    self.current_panel.video_frames = kwargs["frames"]
-                    self.all_video_frames = kwargs["frames"]
+                if "frames" not in kwargs:
+
+                    all_nb_frames = []
+                    for file_path in self.current_panel.panel_file_paths:
+                        # update video frames for figure panel
+                        # so that when no frames are supplied,
+                        # the maximum number of frames is displayed in movie
+                        data_dict, img_width, img_height = self.current_panel._get_image_properties(
+                            file_path)
+                        if "frames" in data_dict:
+                            all_nb_frames.append(int(data_dict["frames"]))
+                        else:
+                            all_nb_frames.append((data_dict["slices"]))
+                    kwargs["frames"] = list(range(min(all_nb_frames)))
+                self.current_panel.video_frames = kwargs["frames"]
+                self.all_video_frames = kwargs["frames"]
             if ((function_name.find("vid_") == -1) &
                     (self.current_panel.show_function_called)):
                 #instead save the function with arguments in panel
@@ -1161,7 +1174,8 @@ class Figure():
                    repeats = 1,
                    frames_to_show_longer=None,
                    seconds_to_show_frames=1,
-                   min_final_fps=10):
+                   min_final_fps=10,
+                   batch_mode = False):
         """
         Save entire figure object as video.
 
@@ -1201,95 +1215,108 @@ class Figure():
 
         video_name = self.name + "S" + str(self.number)
 
-        self.tmp_video_folder = os.path.join(self.folder, video_name + "_tmp")
-        if not os.path.exists(self.tmp_video_folder ):
-            os.mkdir(self.tmp_video_folder)
-
-        all_videos = []
-        #if there should be a title page with text
-        #increase the number of frames
-        #by the duration multiplied by fps
-        if self.title_page_text != "":
-            nb_frames_title_page = int(self.duration_title_page * self.fps)
-            title_video_path = self._create_video(self._animate_title_page,
-                                                 nb_frames_title_page,
-                                                 bitrate = bitrate,
-                                                 name = "title")
-            all_videos.append(editor.VideoFileClip(title_video_path))
-            self.title_page.remove()
-
-        for figure_panel in self.all_panels.values():
-            #length of video_frames is the number of timepoints available
-            nb_frames = max(nb_frames, len(figure_panel.video_frames))
-
-        #if frames should be shown longer
-        #add number of frames to use
-        additional_videoframes = 0
-        if type(frames_to_show_longer) != type(None):
-            #sort to have ascending frames
-            frames_to_show_longer.sort()
-            for frame_to_show_longer in frames_to_show_longer:
-                additional_videoframes = int(seconds_to_show_frames * fps)
-                #round additional videoframes to ints
-                additional_videoframes = int(additional_videoframes)
-                #add one frame less since there is already one videoframe
-                # of the frame
-                nb_frames += additional_videoframes - 1
-
-        #give paramters to animate_video function
-        animate_data = functools.partial(self._animate_video,
-                                         frames_to_show_longer,
-                                         additional_videoframes)
-
-        data_video_path = self._create_video(animate_data,
-                                            nb_frames,
-                                            bitrate=bitrate)
-
-        all_videos.append(editor.VideoFileClip(data_video_path))
-
-        #copy video file as often as there are repeats - 1
-        for repeat in range(1, repeats):
-            new_data_video_path= data_video_path.replace(".mp4", "_" + str(repeat) + ".mp4")
-            shutil.copyfile(data_video_path, new_data_video_path)
-            all_videos.append(editor.VideoFileClip(new_data_video_path))
-
-        complete_video = editor.concatenate_videoclips(all_videos)
-        video_file_name = video_name + ".mp4"
-        video_path = os.path.join(self.folder, video_file_name)
-
-        #set bitrate to None (automatically determine)
-        #for moviepy
-        if bitrate == -1:
-            bitrate = None
+        if batch_mode:
+            all_nb_files = []
+            for figure_panel in self.all_panels.values():
+                all_nb_files.append(len(figure_panel.panel_file_paths_orig))
+            max_nb_files = max(all_nb_files)
+            all_batches = list(range(max_nb_files))
         else:
-            bitrate = str(bitrate)
-        # Manual  workaround for floating point error in the package "moviepy".
-        # Fix by Aidas Liaudanskas (https://github.com/Zulko/moviepy/issues/646)
-        try:
-            complete_video.write_videofile(video_path,
-                                           fps=max(self.fps,min_final_fps),
-                                           remove_temp=True, bitrate=bitrate)
-        except IndexError:
-            print("\n\nCRITICAL WARNING: "
-                  "The combination of repeats and fps leads to a "
-                  "floating point error in the 'moviepy' package. "
-                  "\nTHE LAST FRAME OF THE MOVIE WAS REMOVED to still save the "
-                  "movie. If the last frame should not be removed, change the "
-                  "fps or the number of repeats. Even very small changes are "
-                  "usually sufficient.\n")
-            # Short by one frame, so get rid on the last frame:
-            complete_video = complete_video.subclip(
-                t_end=(complete_video.duration - 1.0 / complete_video.fps))
-            complete_video.write_videofile(video_path,
-                                           fps=max(self.fps,min_final_fps),
-                                           remove_temp=True, bitrate=bitrate)
+            all_batches = [None]
 
-        # complete_video.write_videofile(video_path,
-        #                                fps=max(self.fps,min_final_fps),
-        #                                remove_temp=True, bitrate=bitrate)
+        for batch_nb in all_batches:
+
+            self.tmp_video_folder = os.path.join(self.folder,
+                                                 video_name + "_tmp")
+            if not os.path.exists(self.tmp_video_folder):
+                os.mkdir(self.tmp_video_folder)
+
+            all_videos = []
+            #if there should be a title page with text
+            #increase the number of frames
+            #by the duration multiplied by fps
+            if self.title_page_text != "":
+                nb_frames_title_page = int(self.duration_title_page * self.fps)
+                title_video_path = self._create_video(self._animate_title_page,
+                                                     nb_frames_title_page,
+                                                     bitrate = bitrate,
+                                                     name = "title")
+                all_videos.append(editor.VideoFileClip(title_video_path))
+                self.title_page.remove()
+
+            for figure_panel in self.all_panels.values():
+                #length of video_frames is the number of timepoints available
+                nb_frames = max(nb_frames, len(figure_panel.video_frames))
+
+            #if frames should be shown longer
+            #add number of frames to use
+            additional_videoframes = 0
+            if type(frames_to_show_longer) != type(None):
+                #sort to have ascending frames
+                frames_to_show_longer.sort()
+                for frame_to_show_longer in frames_to_show_longer:
+                    additional_videoframes = int(seconds_to_show_frames * fps)
+                    #round additional videoframes to ints
+                    additional_videoframes = int(additional_videoframes)
+                    #add one frame less since there is already one videoframe
+                    # of the frame
+                    nb_frames += additional_videoframes - 1
+
+            #give paramters to animate_video function
+            animate_data = functools.partial(self._animate_video,
+                                             frames_to_show_longer,
+                                             additional_videoframes,
+                                             batch_nb=batch_nb)
+
+            data_video_path = self._create_video(animate_data,
+                                                nb_frames,
+                                                bitrate=bitrate)
+
+            all_videos.append(editor.VideoFileClip(data_video_path))
+
+            #copy video file as often as there are repeats - 1
+            for repeat in range(1, repeats):
+                new_data_video_path= data_video_path.replace(".mp4", "_" + str(repeat) + ".mp4")
+                shutil.copyfile(data_video_path, new_data_video_path)
+                all_videos.append(editor.VideoFileClip(new_data_video_path))
+
+            complete_video = editor.concatenate_videoclips(all_videos)
+            video_file_name = video_name
+            if batch_nb is not None:
+                video_file_name += "_"+str(batch_nb)
+            video_file_name += ".mp4"
+            video_path = os.path.join(self.folder, video_file_name)
+
+            #set bitrate to None (automatically determine)
+            #for moviepy
+            if (bitrate == -1) | (bitrate is None):
+                bitrate = None
+            else:
+                bitrate = str(bitrate)
+
+            # Manual  workaround for floating point error in the package "moviepy".
+            # Fix by Aidas Liaudanskas (https://github.com/Zulko/moviepy/issues/646)
+            try:
+                complete_video.write_videofile(video_path,
+                                               fps=max(self.fps,min_final_fps),
+                                               remove_temp=True, bitrate=bitrate)
+            except IndexError:
+                print("\n\nCRITICAL WARNING: "
+                      "The combination of repeats and fps leads to a "
+                      "floating point error in the 'moviepy' package. "
+                      "\nTHE LAST FRAME OF THE MOVIE WAS REMOVED to still save the "
+                      "movie. If the last frame should not be removed, change the "
+                      "fps or the number of repeats. Even very small changes are "
+                      "usually sufficient.\n")
+                # Short by one frame, so get rid on the last frame:
+                complete_video = complete_video.subclip(
+                    t_end=(complete_video.duration - 1.0 / complete_video.fps))
+                complete_video.write_videofile(video_path,
+                                               fps=max(self.fps,min_final_fps),
+                                               remove_temp=True, bitrate=bitrate)
 
 
-        shutil.rmtree(self.tmp_video_folder)
+            shutil.rmtree(self.tmp_video_folder)
 
     def _create_video(self, animate_function, nb_frames,
                      bitrate=-1, name=""):
@@ -1337,7 +1364,7 @@ class Figure():
     def _animate_video(self,
                    frames_to_show_longer,
                    additional_videoframes,
-                    frame):
+                    frame, batch_nb = None):
         if type(frames_to_show_longer) != type(None):
             for frame_to_show_longer in frames_to_show_longer:
                 #if the current frame is larger than
@@ -1358,6 +1385,14 @@ class Figure():
             # should be shown
             if (not figure_panel.animate_panel) & (frame > 0):
                 continue
+
+            if batch_nb is not None:
+                if len(figure_panel.panel_file_paths_orig) > batch_nb:
+                    figure_panel.panel_file_paths = [figure_panel.panel_file_paths_orig[batch_nb]]
+                    figure_panel.all_panel_imgs = [figure_panel.all_panel_imgs_orig[batch_nb]]
+                else:
+                    figure_panel.panel_file_paths = [figure_panel.panel_file_paths_orig[0]]
+                    figure_panel.all_panel_imgs = [figure_panel.all_panel_imgs_orig[0]]
 
             figure_panel.data = figure_panel.data_orig
             #delete all labels in self.label_axs[site] (for each site)
