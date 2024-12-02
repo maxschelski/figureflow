@@ -1263,9 +1263,8 @@ class Figure():
             bitrate = None
         else:
             bitrate = str(bitrate)
-
-        print(min_final_fps, self.fps)
-
+        # Manual  workaround for floating point error in the package "moviepy".
+        # Fix by Aidas Liaudanskas (https://github.com/Zulko/moviepy/issues/646)
         try:
             complete_video.write_videofile(video_path,
                                            fps=max(self.fps,min_final_fps),
