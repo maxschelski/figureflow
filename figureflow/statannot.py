@@ -1629,9 +1629,9 @@ def get_annotated_text_dict(p_values,pvalue_format_string,test_short_name,
                     .format(test_short_name, pval))
         elif type(text_format) == type(None):
             text = None
-        elif text_format is 'star':
+        elif text_format == 'star':
             text = pval_annotation_text(pval, pvalue_thresholds)
-        elif text_format is 'simple':
+        elif text_format == 'simple':
             test_short_name = show_test_name and test_short_name or ""
             text = simple_text(pval, simple_format_string,
                                pvalue_thresholds, test_short_name)
