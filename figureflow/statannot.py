@@ -2694,7 +2694,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     if test is None:
         test = ["stats.kruskal", "posthocs.posthoc_dunn"]
 
-    start = time.time()
     plot_object = get_plotting_class(plot_type)
 
     data_is_continuous = plot_object.CONTINUOUS_X
@@ -2734,8 +2733,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
      total_nb_columns) = process_col_and_hue(data, col, x, hue,
                                              x_order, col_order, hue_order)
 
-    print(10, time.time() - start)
-    start = time.time()
     # especially important for facet plots using row parameter in FigurePanel
     # if x_range is defined, it will be the same between all
     if type(x_range) != type(None):
@@ -2783,8 +2780,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     elif (y_range[0] is None) | (y_range[1] is None):
         get_yrange = True
 
-    print(11, time.time() - start)
-    start = time.time()
     if get_yrange:
         # ax needs to be created in same position as it will be afterwards
         # that way the realistic y range can be determined
@@ -2797,20 +2792,14 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         #                            label="y_range_measure_plot")
         # plot data to measure y_lim
         nb_x_vals = len(x_order)
-        print(12, time.time() - start)
-        start = time.time()
         # plot_data(ax, x, y, plot_hue, hue, data, x_order, hue_order, plot_colors,
         #           line_width, size_factor, plot_type, nb_x_vals, figure_panel,
         #           x_range, show_data_points, pair_unit_columns,
         #           connect_paired_data_points, data_plot_kwds)
 
-        print(13, time.time() - start)
-        start = time.time()
         measured_y_range = (data[y].min(), data[y].max())
         # ax.remove()
 
-    print(1, time.time() - start)
-    start = time.time()
 
     if y_range is None:
         y_range = measured_y_range
@@ -2839,8 +2828,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     all_x_tick_overhangs = {}
     all_labels_to_add = []
 
-    print(2, time.time() - start)
-    start = time.time()
     for col_nb, col_val in enumerate(col_order):
         col_data = data.loc[data[col] == col_val]
 
@@ -2884,8 +2871,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                            str(for_measuring) +
                                            str(max(data[x]))))
 
-        print(3, time.time() - start)
-        start = time.time()
+
         ax.set_ylim(y_range[0], y_range[1])
 
         set_y_ticks(ax, y_tick_interval, show_y_minor_ticks)
@@ -2953,8 +2939,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                 label.set_ha("right")
                 label.set_rotation(45)
 
-        print(4, time.time() - start)
-        start = time.time()
         # set the legend as well as axes labels and padding
         (legend_width,
          longest_legend_handles,
@@ -3012,8 +2996,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         rel_height_change = vert_fill_outer_border(ax, y_shift,
                                                    rel_height_change)
 
-        print(5, time.time() - start)
-        start = time.time()
         # shift ax to get padding between groups
         ax_coords = ax.get_position()
         ax.set_position([ax_coords.x0 + x_shift, ax_coords.y0, ax_coords.width,
@@ -3062,8 +3044,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
             all_box_structs_dics[col_val] = box_structs_dic
             all_box_names[col_val] = box_names
 
-        print(6, time.time() - start)
-        start = time.time()
         all_axs[col_val] = ax
         all_x_tick_overhangs[col_val] = x_axis_tick_overhang_rel
         # first position is row
@@ -3072,8 +3052,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         # the row value will be updated in a separate dict
         axs_by_position[(0, col_nb)] = ax
 
-    print(7, time.time() - start)
-    start = time.time()
     # add ax_annot again with same position to make it appear on top of all other plots
     ax_annot = add_annotation_subplot(letter+"_new",outer_border,ax_annot)
 
@@ -3123,8 +3101,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
             ax.set_position([coords.x0, coords.y0, coords.width,
                                  coords.height - col_label_height])
 
-    print(8, time.time() - start)
-    start = time.time()
     overhanging_axis_tick_labels_into_inner_border(all_x_tick_overhangs,
                                                    all_axs, ax_annot,
                                                    ax_labels)
@@ -3167,8 +3143,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         for ax in all_axs.values():
             ax.set_xticks(x_ticks)
 
-    print(9, time.time() - start)
-    start = time.time()
     # move plot to within outer_border horizontally (axes labeling is outside of ax and thereby of outer_border)
     # center the plot then horizontally
     # if the whole plot is wider than the available space (the axs fill up the outer border space),
@@ -3192,6 +3166,4 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         add_background_grid_lines_to_plots(all_axs, col_order,
                                            line_width, letter)
 
-    print(10, time.time() - start)
-    start = time.time()
     return axs_by_position, ax_annot, test_result_list
