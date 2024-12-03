@@ -6,6 +6,7 @@ Created on Fri Feb  7 14:15:34 2020
 
 import os
 import re
+import glob
 import copy
 import numpy as np
 import pandas as pd
@@ -44,8 +45,12 @@ import time
 class Figure():
 
     def __init__(self,folder,height=1,number=1,dpi=600,padding="DEFAULT",letter_fontsize=9,
-                width=4.75, font_size=7, video = False, name="Figure",
+                width=4.75, font_size=7, video = False,
+                 video_batch_mode=False, batch_mode_folder_depth=0,
+                 save_batch_in_sub_folder=True,
+                 name="Figure", name_from_folder=False, name_from_file=False,
                 file_format="png", show_panel_letters=True,
+
                 dark_background = False, panel_str = "panel", relative_height=True):
         """
         The structure of the figure can also be defined in a csv.
@@ -76,6 +81,34 @@ class Figure():
                     of parameter "number")
         :param video: Whether the Figure object is a video or not. For videos,
                         no panel letters will be added.
+        :param video_batch_mode: Create separate videos for all files. For
+            example, if the same kind of videos should be created for many
+            similar files, this can be done with one set of settings in one
+            single script and only one figure object. All similar files
+            must have a name with the same panel letter. Additional files in
+            other panels can still be added to each video. However, there can
+            only be one file for each of these other panels (that stay the same
+            for each batch). If there is more than one file, the script will
+            assume that these files should also be batched. If there are more
+            files for one panel than for another panel, the script will iterate
+            through the files together. When the end of files is reached for one
+            panel, only the first file will be used for this panel.
+        :param batch_mode_folder_depth: For the video_batch_mode, files don't
+            necessarily have to be in the same folder. They can also be in
+            subfolders with a defined depth. A depth of 0 means that files are
+            only in the main folder. A depth of 1 means that files are in
+            sub-folders in the main folder. A depth of 2 means that files are in
+            sub-folders of sub-folders in the main folder. Importantly, only
+            files at exactly that depth will be used and not all files until
+            this depth.
+        :param save_batch_in_sub_folder: Whether for the video_batch_mode,
+            final files should be saved in the folder in which the batch_file
+            was.
+        :param name_from_folder: Whether the name of the parent folder that
+            the file is in should be used to name the final file (e.g. movie).
+        :param name_from_file: Whether the name of the file (if only one panel
+            with one file was used) should be used for the final file name
+            (e.g. name of movie file).
         :param file_format: String of file format to be used in .savefig
             File format can also be defined when executing figure.save(), but 
             if one of the file formats is pdf or svg and the other is not,
@@ -137,6 +170,12 @@ class Figure():
         self.change_cropping = False
         self.show_panel_letters = show_panel_letters
 
+        self.video_batch_mode = video_batch_mode
+        self.batch_mode_folder_depth = batch_mode_folder_depth
+        self.save_batch_in_sub_folder = save_batch_in_sub_folder
+        self.name_from_folder = name_from_folder
+        self.name_from_file = name_from_file
+
         #for videos make sure that the height is defined
         if video & (type(self.height) == type(None)):
             raise ValueError("For Videos, the height of the figure must be defined"
@@ -192,7 +231,6 @@ class Figure():
             else:
                 self.padding = [padding, padding]
 
-
         self.grid = None
         #Only allow files with one of the following extensions
         self.allowed_extensions = (".csv",
@@ -204,6 +242,13 @@ class Figure():
                                    ".feather")
         if os.path.exists(folder):
             self.all_files = os.listdir(folder)
+            if self.video_batch_mode:
+                if self.batch_mode_folder_depth > 0:
+                    folder_depth = ["*"] * self.batch_mode_folder_depth
+                    deeper_files = glob.glob(os.path.join(self.folder,
+                                                          *folder_depth,
+                                                          "*"))
+                    self.all_files = [*self.all_files, *deeper_files]
         else:
             raise Exception("folder not found")
 
@@ -1174,8 +1219,7 @@ class Figure():
                    repeats = 1,
                    frames_to_show_longer=None,
                    seconds_to_show_frames=1,
-                   min_final_fps=10,
-                   batch_mode = False):
+                   min_final_fps=10):
         """
         Save entire figure object as video.
 
@@ -1214,8 +1258,9 @@ class Figure():
         self.title_page = None
 
         video_name = self.name + "S" + str(self.number)
+        self.video_file_name_details = ""
 
-        if batch_mode:
+        if self.video_batch_mode:
             all_nb_files = []
             for figure_panel in self.all_panels.values():
                 all_nb_files.append(len(figure_panel.panel_file_paths_orig))
@@ -1223,6 +1268,8 @@ class Figure():
             all_batches = list(range(max_nb_files))
         else:
             all_batches = [None]
+
+        self.video_folder = self.folder
 
         for batch_nb in all_batches:
 
@@ -1284,8 +1331,9 @@ class Figure():
             video_file_name = video_name
             if batch_nb is not None:
                 video_file_name += "_"+str(batch_nb)
+            video_file_name += self.video_file_name_details
             video_file_name += ".mp4"
-            video_path = os.path.join(self.folder, video_file_name)
+            video_path = os.path.join(self.video_folder, video_file_name)
 
             #set bitrate to None (automatically determine)
             #for moviepy
@@ -1317,6 +1365,9 @@ class Figure():
 
 
             shutil.rmtree(self.tmp_video_folder)
+            # reset video file name details and the video folder
+            self.video_file_name_details = ""
+            self.video_folder = self.folder
 
     def _create_video(self, animate_function, nb_frames,
                      bitrate=-1, name=""):
@@ -1388,8 +1439,26 @@ class Figure():
 
             if batch_nb is not None:
                 if len(figure_panel.panel_file_paths_orig) > batch_nb:
-                    figure_panel.panel_file_paths = [figure_panel.panel_file_paths_orig[batch_nb]]
-                    figure_panel.all_panel_imgs = [figure_panel.all_panel_imgs_orig[batch_nb]]
+                    batch_file_path = figure_panel.panel_file_paths_orig[
+                        batch_nb]
+                    figure_panel.panel_file_paths = [batch_file_path]
+                    figure_panel.all_panel_imgs = [
+                        figure_panel.all_panel_imgs_orig[batch_nb]]
+                    if self.save_batch_in_sub_folder:
+                        self.video_folder = os.path.dirname(batch_file_path)
+                    if self.name_from_file:
+                        batch_file_name = os.path.basename(batch_file_path)
+                        # remove first part of the batch file name, that
+                        # contains the panel information (e.g. "panelA")
+                        batch_file_name = batch_file_name.split("_")[1:]
+                        batch_file_name = "_".join(batch_file_name)
+                        batch_file_name = batch_file_name.split(".")[:-1]
+                        batch_file_name = ".".join(batch_file_name)
+                        self.video_file_name_details = "_"+batch_file_name
+                    elif self.name_from_folder:
+                        batch_file_folder = os.path.dirname(batch_file_path)
+                        batch_file_folder = os.path.basename(batch_file_folder)
+                        self.video_file_name_details = "_"+batch_file_folder
                 else:
                     figure_panel.panel_file_paths = [figure_panel.panel_file_paths_orig[0]]
                     figure_panel.all_panel_imgs = [figure_panel.all_panel_imgs_orig[0]]
