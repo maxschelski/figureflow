@@ -13,5 +13,5 @@ dependencies:
   - scikit-posthocs=0.7.0
   - scipy=1.6.2
   - seaborn=0.11.1
-  - tifffile=2021.4.8
+  - tifffile=2023.8.12
   - pyarrow
