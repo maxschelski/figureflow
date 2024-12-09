@@ -18,8 +18,10 @@ import itertools
 from skimage import io
 from PIL import Image
 from collections import OrderedDict
-#  from skimage.external.tifffile import TiffFile
+# from skimage.external.tifffile import TiffFile as scikit_tiffFile
 from tifffile import TiffFile
+from tifffile import tifffile
+import struct
 from matplotlib import patches
 from scipy import ndimage
 # import cv2
@@ -1157,11 +1159,14 @@ class FigurePanel():
         # get ranges from tiff file
         #  with TiffFile(file_path) as tif:
         tif = TiffFile(file_path)
-        #  vals = tif.imagej_metadata(
-        #      tif.pages[0].tags[50839].value,
-        #      tif.pages[0].tags[50838].value,  #  IJMetadataByteCounts
-        #      tif.byteorder,
-        #      )
+
+        # vals = tif.imagej_metadata(
+        #  tif.pages[0].tags[50839].value,
+        #  tif.pages[0].tags[50838].value,  #  IJMetadataByteCounts
+        #  tif.byteorder,
+        #  )
+        # print(tif.pages.pages[0].tags[50839].value)
+
         # if image was not yet opened in imageJ
         # it will not have ranges or any imagej metadata
         if type(tif.imagej_metadata) == type(None):
@@ -4144,7 +4149,6 @@ class FigurePanel():
                                                          images_min_max, 
                                                         use_same_LUTs,
                                                         composite_img_nb)
-
                     # replace nan in images by value
                     image[np.isnan(image)] = replace_nan_with
                     # if cmaps was supplied as list, separate by channels
@@ -7420,7 +7424,10 @@ class FigurePanel():
         # NOTE: one group can also contain more than two connected
         # groups for which datapoints will be connected
         if type(hue) != type(None):
-            group_level_columns = [col, x]
+            if col is not None:
+                group_level_columns = [x, col]
+            else:
+                group_level_columns = [x]
             pair_level_column = hue
         elif type(col) != type(None):
             group_level_columns = [col]
@@ -7916,6 +7923,12 @@ class FigurePanel():
         :param show_legend: Whether to show legend of plot for different values
                             in hue column (will not be shown if there is only
                             one hue value)
+        :param round_columns: List of columns for which values should be
+            rounded. Can also choose column for 'x'/'hue'/'y'/'col'/'row' 
+            parameter directly, by flanking the respective name of the parameter
+            with a double underscore - e.g. __x__.
+        :param round_digits: How many digits to round round_columns to. Will
+            only be used if no digits were specified for each round_columns.
         :param pair_unit_columns: list of columns that uniquely identify one
                             set of dependent datapoints (needed to connect
                             paired datapoints and also needed as preprocessing
@@ -8016,6 +8029,7 @@ class FigurePanel():
                         and adding annotations, passed to function
                         statannot.plot_and_add_stat_annotation.
         """
+
         if self._is_none(self.x) & self._is_none(x):
             raise ValueError("A column for 'x' must be supplied "
                              "or set beforehand.")
@@ -8139,7 +8153,7 @@ class FigurePanel():
         if not normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria,
                                       digits_round_all_columns)
-
+        
         if type(hue) in [tuple, list]:
             new_hue = "_".join(hue)
             data[new_hue] = ""
@@ -8311,7 +8325,7 @@ class FigurePanel():
         #  create facet plot made out of several sub figure panels
         #  within the current figure panel
         #  based on values in the "row" column
-        if ((not FigurePanel._is_none(row)) | multiple_y) & (not for_measuring):
+        if ((row is not None) | multiple_y) & (not for_measuring):
 
             # set self.data so that normalization will be done correctly
             # in first execution
@@ -8410,7 +8424,7 @@ class FigurePanel():
             if "leave_space_for_legend" not in kwargs:
                 kwargs["leave_space_for_legend"] = False
 
-
+        start = time.time()
         (axs_for_measuring,
          max_y_axis_width_px,
          max_x_axis_height_px,
@@ -8419,7 +8433,7 @@ class FigurePanel():
                                                                                  row_values,
                                                                                  show_legend,
                                                                                  **kwargs)
-
+        print(time.time() - start)
         fig_size = plt.gcf().get_size_inches()
         max_x_axis_height = max_x_axis_height_px / (fig_size[1] * plt.gcf().dpi)
         height_x_axis = max_x_axis_height / self.fig_height_available
@@ -9126,6 +9140,7 @@ class FigurePanel():
                                                                   data, x, col,
                                                                   fig_height,
                                                                   **kwargs)
+
         (axs_by_position,
          ax_annot) = self._plot_results(data, x, y, inner_border,
                                        hue=hue, col=col,
@@ -9146,6 +9161,7 @@ class FigurePanel():
 
         columns_for_grouping = [column for column in [x,hue,col]
                                 if column != None]
+
         self.grouped_data = self.included_data.groupby(by=columns_for_grouping)
 
         self.all_axs = axs_by_position
@@ -9347,7 +9363,7 @@ class FigurePanel():
             #  always picks up the same value
             # so that each group is identified
             #  by a single set of values in group_columns
-            evaluated_data = evaluated_data.sort_values(by=group_columns)
+            evaluated_data = evaluated_data.sort_values(group_columns)
             evaluated_data = evaluated_data.groupby(by=(unit_columns)).agg(sum_d_mean_dict).reset_index()
 
         # print out units for each group,
@@ -9378,9 +9394,8 @@ class FigurePanel():
             # it might have been removed by adding up values from same unit
             if values not in included_data_indexed.index:
                 continue
-
             one_group_data = included_data_indexed.loc[values]
-            one_group_data = one_group_data.sort_values(by=cols_evaluated,
+            one_group_data = one_group_data.sort_values(cols_evaluated,
                                                         ascending=ascending_vals)
             print(one_group_data.head(nb_vals_to_show)[cols_to_show])
 

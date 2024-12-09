@@ -155,7 +155,7 @@ def validate_arguments(perform_stat_test,test,pvalues,test_short_name,
     return box_pairs
 
 
-def set_pval_arguments(text_format,verbose,pvalue_thresholds,
+def set_pval_arguments(text_format,print_stat_test_results,pvalue_thresholds,
                        pvalue_format_string):
 
 
@@ -176,7 +176,7 @@ def set_pval_arguments(text_format,verbose,pvalue_thresholds,
                                  [1e-3, "0.001"], [1e-2, "0.01"]]
 
 
-    if not (verbose and text_format == 'star'):
+    if not (print_stat_test_results and text_format == 'star'):
         return pvalue_thresholds, pvalue_format_string, simple_format_string
     print("p-value annotation legend:")
     pvalue_thresholds = pd.DataFrame(pvalue_thresholds).sort_values(by=0,
@@ -810,7 +810,7 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                                          stats_params,
                                          pair_unit_columns,pvalue_thresholds,
                                          annotate_nonsignificant,
-                                         verbose):
+                                         print_stat_test_results):
     
     test_short_name = test_short_name if test_short_name is not None else ''
     included_pairs = []
@@ -941,6 +941,7 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
             stat_results = _perform_stat_test(group_data_list, all_data_groups,
                                              test, stats_params, "single")
 
+        print(all_box_pairs)
         for box_pair in all_box_pairs:
             box_pair = tuple(box_pair)
             box1 = box_pair[0]
@@ -980,7 +981,7 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                                          'formatted_output': formatted_output,
                                          'box1': box1,
                                          'box2': box2})
-                if verbose:
+                if print_stat_test_results:
                     print("{} v.s. {}: {}".format(box1, box2, formatted_output))
                 if (pval < pvalue_threshold) | (annotate_nonsignificant):
                     included_pairs.append(box_pair)
@@ -1038,10 +1039,10 @@ def plot_text(ax, text, y, x1, x2, text_offset, fontsize, h,
     if not (use_fixed_offset or got_mpl_error):
         return ann_list, y_top_annot, ax
 
-    if verbose:
-        print("Warning: cannot get the text bounding box. "
-              "Falling back to a fixed"
-              " y offset. Layout may be not optimal.")
+    # if print_stat_test_results:
+    print("Warning: cannot get the text bounding box. "
+          "Falling back to a fixed"
+          " y offset. Layout may be not optimal.")
     # We will apply a fixed offset in points,
     # based on the font size of the anperties(size='medium').get_size_in_points()
     fontsize_pt = FontProperties(size=fontsize).get_size_in_points()
@@ -1227,7 +1228,26 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
         # in move_plot_into_borders_and_center_it function
         # legend_coords =ax.legend_.get_window_extent(fig.canvas.get_renderer())
         legend_width = get_width_of_object(legend, borderaxespad_px, fig)
-
+        #
+        # if show_legend & (plot_nb == (len(col_order))):
+        #     legend = plt.legend(handles[0:nb_labels], hue_order,
+        #                         bbox_to_anchor=(1, 1), loc=2,
+        #                         fontsize=fontsize_points, frameon=False,
+        #                         borderpad=0, handletextpad=legend_spacing,
+        #                         borderaxespad=borderaxespad_, title=legend_title,
+        #                         handlelength=legend_handle_length)
+        #     if legend_title is not None:
+        #         if (legend_title.startswith("$")) & ((legend_title.endswith("$"))):
+        #             fontsize_points_title = fontsize_points * 1.4
+        #         else:
+        #             fontsize_points_title = fontsize_points
+        #     else:
+        #         fontsize_points_title = fontsize_points
+        #     # set font size of legend title same as rest of legend
+        #     plt.setp(legend.get_title(),fontsize=fontsize_points_title)
+        #     legend._legend_box.align = "left"
+        #
+        #     legend_width += get_width_of_object(legend, borderaxespad_px, fig)
     else:
         legend_width = 0
 
@@ -1496,7 +1516,7 @@ def get_axis_dimension(ax, axis, type, baseline):
 def finetune_plot(ax, box_structs, col, col_order, perform_stat_test,
                   line_width, line_width_thin, inner_padding, fontsize,
                   col_val, plot_type, vertical_lines, show_col_labels_below,
-                  always_show_col_label):
+                  always_show_col_label, add_line_above_x_axis_label):
 
     # add vertical light-grey line for each box
     # to see better to which plot a statistic annotation refers
@@ -1512,9 +1532,6 @@ def finetune_plot(ax, box_structs, col, col_order, perform_stat_test,
             line.set_clip_on(False)
             ax.add_line(line)
 
-    if col == "no_col_defined":
-        return ax
-
     # draw line over title below x value
     if len(box_structs) > 1:
         dX = box_structs[1]['x_orig'] - box_structs[0]['x_orig']
@@ -1524,16 +1541,46 @@ def finetune_plot(ax, box_structs, col, col_order, perform_stat_test,
         x0 = box_structs[0]['x_orig'] - 0.4
         x1 = box_structs[0]['x_orig'] + 0.4
 
+    if add_line_above_x_axis_label & (ax.get_xlabel() != ""):
+        x_axis_label = ax.get_xlabel()
+        ax.set_xlabel("")
+
+        y0_ax = ax.get_position().y0
+        text_height = get_axis_dimension(ax, ax.xaxis, "height", y0_ax)
+
+        _, rel_height_text = get_px_size_rel_to_subplot(ax, 0,
+                                                        text_height +
+                                                        (inner_padding *
+                                                         fig.dpi / 72))
+
+        x_axis_ticks = ax.xaxis.get_ticklabel_extents(fig.canvas.get_renderer())
+        label_pad = 0
+        if (x_axis_ticks[0].height > 0):
+            line_x = [x0, x1]
+            line_y_pos = (ax.get_ylim()[0] - rel_height_text *
+                           (y_lim - ax.get_ylim()[0]))
+            line_y = [line_y_pos, line_y_pos]
+
+            # line_y = - rel_height_text
+            ax = draw_line(line_x=line_x, line_y=line_y,
+                           line_width=line_width, color="black", ax=ax)
+            label_pad += line_width + 2 * inner_padding
+
+        ax.set_xlabel(x_axis_label, labelpad=label_pad)
+
+    if col == "no_col_defined":
+        return ax
+
     if (len(col_order) <= 1) & (not always_show_col_label):
         return ax
 
     y0_ax = ax.get_position().y0
     text_height = get_axis_dimension(ax, ax.xaxis, "height", y0_ax)
 
-    _ , rel_height_text = get_px_size_rel_to_subplot(ax, 0,
-                                                     text_height +
-                                                     (inner_padding *
-                                                      fig.dpi / 72) )
+    _, rel_height_text = get_px_size_rel_to_subplot(ax, 0,
+                                                    text_height +
+                                                    (inner_padding *
+                                                     fig.dpi / 72))
 
     # only plot a line if x tick labels are actually there,
     # to show the start of the second level of label
@@ -1541,36 +1588,38 @@ def finetune_plot(ax, box_structs, col, col_order, perform_stat_test,
     if (col_val == "") & (not show_col_labels_below):
         return ax
 
-    x_axis_ticks = ax.xaxis.get_ticklabel_extents(fig.canvas.get_renderer())
-    if (x_axis_ticks[0].height > 0):
-        line_x = [x0, x1]
-        line_y_pos = (ax.get_ylim()[0] - rel_height_text *
-                      (y_lim - ax.get_ylim()[0]))
-        line_y = [line_y_pos, line_y_pos]
 
-        # line_y = - rel_height_text
-        ax = draw_line(line_x=line_x, line_y=line_y,
-                       line_width=line_width, color="black", ax=ax)
+    if show_col_labels_below:
+        x_axis_ticks = ax.xaxis.get_ticklabel_extents(fig.canvas.get_renderer())
+        if (x_axis_ticks[0].height > 0):
+            line_x = [x0, x1]
+            line_y_pos = (ax.get_ylim()[0] - rel_height_text *
+                          (y_lim - ax.get_ylim()[0]))
+            line_y = [line_y_pos, line_y_pos]
+
+            # line_y = - rel_height_text
+            ax = draw_line(line_x=line_x, line_y=line_y,
+                           line_width=line_width, color="black", ax=ax)
 
 
-    title_fontsize = FontProperties(size=fontsize).get_size_in_points()
-    nb_lines_title = len(col_val.split("\n"))
-    if text_height == 0:
-        inner_padding /= 2
+        title_fontsize = FontProperties(size=fontsize).get_size_in_points()
+        nb_lines_title = len(col_val.split("\n"))
+        if text_height == 0:
+            inner_padding /= 2
 
-    _, rel_height_title = get_px_size_rel_to_subplot(ax, 0,
-                                                     height= ((title_fontsize *
-                                                               nb_lines_title +
-                                                               inner_padding) *
-                                                              fig.dpi / 72)
-                                                     )
-    # set title as column for which subplots are created (Sep)
-    # with uppercase start, position below graph (y=)
-    y_pos_title = (ax.get_ylim()[0] -
-                   (rel_height_text + rel_height_title) *
-                   (y_lim - ax.get_ylim()[0]))
-    ax.text(s=str(col_val), x=(x0+x1)/2, y=y_pos_title,
-            fontsize=title_fontsize, ha="center", va="bottom")
+        _, rel_height_title = get_px_size_rel_to_subplot(ax, 0,
+                                                         height= ((title_fontsize *
+                                                                   nb_lines_title +
+                                                                   inner_padding) *
+                                                                  fig.dpi / 72)
+                                                         )
+        # set title as column for which subplots are created (Sep)
+        # with uppercase start, position below graph (y=)
+        y_pos_title = (ax.get_ylim()[0] -
+                       (rel_height_text + rel_height_title) *
+                       (y_lim - ax.get_ylim()[0]))
+        ax.text(s=str(col_val), x=(x0+x1)/2, y=y_pos_title,
+                fontsize=title_fontsize, ha="center", va="bottom")
 
     return ax
 
@@ -2206,7 +2255,7 @@ def set_y_ticks(ax, y_tick_interval, show_y_minor_ticks):
         ax.minorticks_on()
         ax.xaxis.set_tick_params(which='minor', bottom=False)
 
-    if type(y_tick_interval) != type(None):
+    if y_tick_interval is not None:
         new_locator = mplticker.MultipleLocator(base=y_tick_interval)
         ax.yaxis.set_major_locator(new_locator)
 
@@ -2217,6 +2266,41 @@ def set_x_ticks(ax, x_tick_interval, x_range):
 
     if type(x_range) != type(None):
         ax.set_xlim(x_range[0], x_range[1])
+
+
+def _convert_zero_in_axis_to_int(all_axs, axis):
+    """
+    Convert zero value in axis tick labels to int (e.g. 0.0 to 0 or 0.00 to 0)
+
+    Args:
+        axis: string of axis ("x" or "y")
+
+    """
+    for ax in all_axs.values():
+        get_ticks_method = {"x":ax.get_xticklabels,
+                            "y":ax.get_yticklabels}
+        ticks = get_ticks_method[axis]()
+
+        new_tick_labels = []
+        for tick in ticks:
+            tick = tick.get_text()
+            if tick == "":
+                new_tick_labels.append(tick)
+                continue
+            # check if x tick label is numeric
+            try:
+                new_tick = float(tick)
+                if new_tick == 0:
+                    new_tick_labels.append(int(0))
+                else:
+                    new_tick_labels.append(float(tick))
+            except:
+                new_tick_labels.append(tick)
+
+        set_ticks_method = {"x": ax.set_xticklabels,
+                            "y": ax.set_yticklabels}
+        set_ticks_method[axis](new_tick_labels)
+
 
 def add_grid_lines(ax, y_range, plot_type, line_width, line_width_thin,
                    show_y_minor_ticks):
@@ -2282,7 +2366,7 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                            text_format,
                            show_stats_to_control_without_lines,
                            pair_unit_columns, annotate_nonsignificant,
-                           verbose,pvalue_format_string,pvalue_thresholds,
+                           print_stat_test_results,pvalue_format_string,pvalue_thresholds,
                            show_data_points,
                            data, col, col_order, y,  x, x_order, hue,
                            text_offset,use_fixed_offset,loc,
@@ -2321,7 +2405,7 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                                                               pair_unit_columns,
                                                               pvalue_thresholds,
                                                                 annotate_nonsignificant,
-                                                              verbose,
+                                                              print_stat_test_results,
                                                               )
 
     # Build array that contains the x and y_max position
@@ -2440,10 +2524,11 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  annotate_nonsignificant=False,
                                  show_stats_to_control_without_lines=False,
                                  loc='inside',
-                                 verbose=False,
+                                 print_stat_test_results=False,
                                  plot_title = None,
                                  show_col_labels_above = False,
                                  show_col_labels_below=True,
+                                 add_line_above_x_axis_label=False,
                                  always_show_col_label=False,
                                  col_label_padding=4,
                                  show_row_label = False,
@@ -2462,6 +2547,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  y_axis_label=None,y_tick_interval=None,
                                  show_y_minor_ticks=False,
                                  x_ticks=None, y_ticks=None,
+                                 zero_x_tick_as_int=True,
+                                 zero_y_tick_as_int=True,
                                  axis_padding=10,
                                  hor_alignment ="left",
                                  use_fixed_offset=False,
@@ -2587,7 +2674,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                                 if too many lines would be drawn
                                                 otherwise.
     :param loc: location of statistics annotation, "inside" or "outside" of plot
-    :param verbose: Whether all the statistic test information should be printed
+    :param print_stat_test_results: Whether all the statistic test information should be printed
     :param plot_title: String; Title of the plot that will be added
                         above the plot
     :param show_col_labels_above: Whether to show col labels above the plot,
@@ -2627,7 +2714,12 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     :param y_axis_label: Label of y axis
     :param y_tick_interval: Interval between major ticks on y axis
     :param show_y_minor_ticks: Whether to show minor ticks on y axis
-    :param y_ticks: Specific ticks that should be used for y axis
+    :param y_ticks: List of specific tick values that should be used for y axis
+    :param x_ticks: List of specific tick values that should be used for x axis
+    :param zero_y_tick_as_int: Whether to show 0 tick for y axis as integer
+        (0) and not as a float (0.0).
+    :param zero_x_tick_as_int: Whether to show 0 tick for x axis as integer
+        (0) and not as a float (0.0).
     :param axis_padding: padding between plot and y_axis ticks in points
     :param hor_alignment: "right", "left" or "center", horizontal alignment
                             of plots in panel plots always will the entire
@@ -2749,7 +2841,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
 
     (pvalue_thresholds,
      pvalue_format_string,
-     simple_format_string) = set_pval_arguments(text_format, verbose,
+     simple_format_string) = set_pval_arguments(text_format, print_stat_test_results,
                                                 pvalue_thresholds,
                                                 pvalue_format_string)
 
@@ -2796,8 +2888,17 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         #           line_width, size_factor, plot_type, nb_x_vals, figure_panel,
         #           x_range, show_data_points, pair_unit_columns,
         #           connect_paired_data_points, data_plot_kwds)
+        measured_y_range = [data[y].min(), data[y].max()]#
+        # increase range slightly to fit all data in
+        if measured_y_range[0] < 0:
+            measured_y_range[0] *= 1.02
+        else:
+            measured_y_range[0] *= 0.98
 
-        measured_y_range = (data[y].min(), data[y].max())
+        if measured_y_range[1] < 0:
+            measured_y_range[1] *= 0.98
+        else:
+            measured_y_range[1] *= 1.02
         # ax.remove()
 
 
@@ -3070,7 +3171,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                                    show_stats_to_control_without_lines,
                                                    pair_unit_columns,
                                                    annotate_nonsignificant,
-                                                   verbose,
+                                                   print_stat_test_results,
                                                    pvalue_format_string,
                                                    pvalue_thresholds,
                                                     show_data_points,
@@ -3117,7 +3218,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         ax = finetune_plot(ax, box_structs,col, col_order, perform_stat_test,
                             line_width, line_width_thin, inner_padding,
                             fontsize, col_val, plot_type, vertical_lines,
-                           show_col_labels_below, always_show_col_label)
+                           show_col_labels_below, always_show_col_label,
+                           add_line_above_x_axis_label)
 
     # if no neg_y_vals are in the plot
     # set lower ylim as slightly below 0
@@ -3138,10 +3240,24 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         for ax in all_axs.values():
             ax.set_yticks(y_ticks)
 
-
     if x_ticks is not None:
         for ax in all_axs.values():
             ax.set_xticks(x_ticks)
+
+    if zero_x_tick_as_int:
+        _convert_zero_in_axis_to_int(all_axs, "x")
+
+    if zero_y_tick_as_int:
+        _convert_zero_in_axis_to_int(all_axs, "y")
+
+    # y_ticks = ax.get_yticks()
+    # if y_range[0] is not None:
+    #     y_ticks = [y_tick for y_tick in y_ticks
+    #                if (y_tick >= y_range[0])]
+    # if y_range[1] is not None:
+    #     y_ticks = [y_tick for y_tick in y_ticks
+    #                if (y_tick <= y_range[1])]
+    # ax.set_yticks(y_ticks)
 
     # move plot to within outer_border horizontally (axes labeling is outside of ax and thereby of outer_border)
     # center the plot then horizontally
