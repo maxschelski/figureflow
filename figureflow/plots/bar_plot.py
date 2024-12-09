@@ -37,7 +37,7 @@ class BarPlot(GroupPlot):
                                            estimator=np.mean, ci=None,
                                            n_boot=None, units=None, seed=None,
                                            orient=None, color=None,
-                                           saturation=1, errcolor=None,
+                                           saturation=1.0, errcolor=None,
                                            errwidth=0, capsize=None,
                                            dodge=self.bar_plot_dodge)
         # plot = sns.barplot(x=x, y=y, hue=hue, data=data, order=x_order, hue_order=hue_order, palette=plot_colors)
@@ -46,6 +46,8 @@ class BarPlot(GroupPlot):
         gray = mpl.colors.rgb2hex((0, 0, 0))
         plot.gray = gray
         plot.plot(self.ax, {"linewidth":self.line_width,"edgecolor":"black"})
+
         if self.connect_paired_data_points:
             self.add_lines_to_connect_paired_data_points()
+
         return plot, []
