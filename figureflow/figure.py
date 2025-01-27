@@ -6,8 +6,10 @@ Created on Fri Feb  7 14:15:34 2020
 
 import os
 import re
+import sys
 import glob
 import copy
+import string
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -48,9 +50,9 @@ class Figure():
                 width=4.75, font_size=7, video = False,
                  video_batch_mode=False, batch_mode_folder_depth=0,
                  save_batch_in_sub_folder=True,
-                 name="Figure", name_from_folder=False, name_from_file=False,
+                 name="Figure", video_name_from_folder=False, video_name_from_file=False,
+                 script_path=None,
                 file_format="png", show_panel_letters=True,
-
                 dark_background = False, panel_str = "panel", relative_height=True):
         """
         The structure of the figure can also be defined in a csv.
@@ -104,9 +106,9 @@ class Figure():
         :param save_batch_in_sub_folder: Whether for the video_batch_mode,
             final files should be saved in the folder in which the batch_file
             was.
-        :param name_from_folder: Whether the name of the parent folder that
+        :param video_name_from_folder: Whether the name of the parent folder that
             the file is in should be used to name the final file (e.g. movie).
-        :param name_from_file: Whether the name of the file (if only one panel
+        :param video_name_from_file: Whether the name of the file (if only one panel
             with one file was used) should be used for the final file name
             (e.g. name of movie file).
         :param file_format: String of file format to be used in .savefig
@@ -150,6 +152,7 @@ class Figure():
         self.width_inch = width
         self.height = height
         self.folder = os.path.abspath(folder)
+        self.script_path = script_path
         self.font_size = font_size
         self.letter_fontsize = letter_fontsize
         self.all_panels = {}
@@ -173,8 +176,8 @@ class Figure():
         self.video_batch_mode = video_batch_mode
         self.batch_mode_folder_depth = batch_mode_folder_depth
         self.save_batch_in_sub_folder = save_batch_in_sub_folder
-        self.name_from_folder = name_from_folder
-        self.name_from_file = name_from_file
+        self.video_name_from_folder = video_name_from_folder
+        self.video_name_from_file = video_name_from_file
 
         #for videos make sure that the height is defined
         if video & (type(self.height) == type(None)):
@@ -424,6 +427,187 @@ class Figure():
         if video:
             self.fig.canvas.draw()
 
+    def move_panel_and_shift_other_letters(self, letter_from, letter_to):
+        """
+
+        :param moved_letter_map: Dict with the original letter as key and the
+                target letter as value (e.g. {"B":"C", "A":"B"} will change B
+                to C and A to B.
+        """
+        self.rename_panel_letters({letter_from:"tmp"})
+        if ord(letter_from) > ord(letter_to):
+            # if a letter is moved to an earlier letter
+            # shift all letters from the new position until
+            # the original positions - 1
+            self._shift_letters(letter_to, distance = 1,
+                               last_letter = chr(ord(letter_from) - 1))
+        else:
+            # if a letter is moved forward (to a later position)
+            # shift all letters from the original position + 1 to the
+            # new position - 1 one position back
+            self._shift_letters(chr(ord(letter_from) + 1), distance = -1,
+                               last_letter = letter_to)
+
+        self.rename_panel_letters({"tmp":letter_to})
+        self._stop_script_after_renaming_panels()
+
+    def _stop_script_after_renaming_panels(self):
+        print("Files were successfully renamed, "
+              "and the script was successfully changed. The execution of the "
+              "script is stopped, since it would execute the script before "
+              "the change and thus the file names would not match with the "
+              "panels defined in the script.")
+        sys.exit()
+
+    def _reexecute_script(self):
+        if self.script_path is not None:
+            # with open(self.script_path, "r") as script_file:
+            #     script = script_file.read()
+            # exec(script)
+            os.system(self.script_path)
+            sys.exit()
+
+
+    def shift_panels_after_adding_new_panel(self, added_letters):
+        """
+        Shift all panel letters for folder / file names and in the figure
+        script (if the path is defined) if a panel (letter) was removed.
+
+        :param added_letters: String of letter or letter range to add.
+        """
+        # When panels are added, all panels after the added panels
+        # should be shifted forward by then number of panels that were added.
+
+        # create a list of all panel letters to be shifted and the letter
+        # they should be shifted to.
+
+        first_and_last_added_letter = added_letters.split("-")
+        first_letter_added = first_and_last_added_letter[0]
+        if len(first_and_last_added_letter) > 1:
+            last_letter_added = first_and_last_added_letter[1]
+        else:
+            last_letter_added = first_and_last_added_letter[0]
+
+        letter_distance = (ord(last_letter_added) - ord(first_letter_added)) + 1
+        self._shift_letters(first_letter_added, letter_distance)
+        self._stop_script_after_renaming_panels()
+
+
+    def shift_panels_after_removing_panel(self, removed_letters):
+        """
+        Shift all panel letters for folder / file names and in the figure
+        script (if the path is defined) if a panel (letter) was removed.
+
+        :param removed_letters: String of letter or letter range that were
+            removed.
+        """
+        # When a panel is removed, all panels after the removed panels
+        # should be shifted backward by then number of panels that were removed.
+
+        # create a list of all panel letters to be shifted and the letter
+        # they should be shifted to.
+
+        first_and_last_removed_letter = removed_letters.split("-")
+        first_letter_removed = first_and_last_removed_letter[0]
+        if len(first_and_last_removed_letter) > 1:
+            last_letter_removed = first_and_last_removed_letter[1]
+        else:
+            last_letter_removed = first_and_last_removed_letter[0]
+
+        letter_distance = ((ord(last_letter_removed) -
+                            ord(first_letter_removed)) + 1)
+        self._shift_letters(chr(ord(last_letter_removed)+1),
+                            - letter_distance)
+        self._stop_script_after_renaming_panels()
+
+    def _shift_letters(self, first_letter, distance, last_letter=None):
+        # the last letter is set so that after shifting the last letter becomes
+        # Z (the last letter in the alphabet)
+        if last_letter is None:
+            last_letter = chr(ord("Z") - distance)
+        letter_range_to_shift = self._letter_range(first_letter,
+                                                   last_letter)
+        letter_range_shifted = [chr(ord(letter) + distance)
+                                for letter in letter_range_to_shift]
+
+        letter_map = dict(zip(letter_range_to_shift, letter_range_shifted))
+        self.rename_panel_letters(letter_map)
+
+
+    def rename_panel_letters(self, panel_letter_map):
+        """
+        Rename panel letters for the current figure using a map
+        - instead of manually renaming in the file explorer. Renaming will also
+        be done in the script path (if it is defined).
+
+        :param panel_letter_map: Dict with the original letter as key and the
+                target letter as value (e.g. {"B":"C", "A":"B"} will change B
+                to C and A to B.
+
+        """
+        if self.script_path is not None:
+
+            def replace_panel_letters(match):
+                """
+                Replacement of panel letters as defined in the panel_letter_map
+                in the figure script.
+                """
+                entire_match = match.group(0)
+                letter = match.group(1)
+                if letter in panel_letter_map:
+                    return entire_match.replace(letter,
+                                                panel_letter_map[letter])
+                else:
+                    return entire_match
+
+            panel_letter_finder = re.compile('create_panel\(\"([\w])\"')
+            with open(self.script_path, "r+") as script_file:
+                script = script_file.read()
+                # replace all panel letters simultaneously
+                script = panel_letter_finder.sub(replace_panel_letters, script)
+
+            # create a temporary script file that will be used to overwrite
+            # the original file
+            file_extension = self.script_path.split(".")[-1]
+            tmp_file_path = self.script_path.replace("."+file_extension,
+                                                     "___tmp."+file_extension)
+            with open(tmp_file_path, "w+") as tmp_script_file:
+                tmp_script_file.write(script)
+
+            os.replace(tmp_file_path, self.script_path)
+
+        panel_finder = re.compile("panel([\w]+?)_")
+        all_files = os.listdir(self.folder)
+        for panel_file in all_files:
+            path = os.path.join(self.folder, panel_file)
+            # check that the current panel file/folder is actually
+            # a panel file/folder
+            panel_letter = panel_finder.search(panel_file)
+            if panel_letter is None:
+                continue
+            whole_string = panel_letter.group(0)
+            panel_letter = panel_letter.group(1)
+
+            new_panel_letter = ""
+            # go through each string element in case
+            # the panel letter is actually multiple panel letters
+            # add either the original panel letter (if it is not in the map)
+            # or the new panel letter (if it is in the map
+            for letter in panel_letter:
+                # should the panel letter be remapped
+                if letter not in panel_letter_map:
+                    new_panel_letter += letter
+                    continue
+                new_panel_letter += panel_letter_map[letter]
+
+            print(panel_letter, new_panel_letter)
+
+            new_panel_file = panel_file.replace("panel"+panel_letter+"_",
+                                                "panel"+new_panel_letter+"_")
+            new_path = os.path.join(self.folder, new_panel_file)
+            os.rename(path, new_path)
+
+
     def _extract_non_nan_num_array(self, array):
         #generate a matrix with all num values
         rows_of_num_array = []
@@ -469,8 +653,9 @@ class Figure():
             alphabet = "abcdefghijklmnopqrstuvwxyz"
             last_letter_idx = alphabet.find(last_letter.lower())
             if last_letter_idx == len(alphabet) - 1:
-                raise ValueError("There is no letter after 'Z' in the alphabet. "
-                                 "Please add a panel without a letter before adding a panel with the letter Z.")
+                raise ValueError("There is no letter after 'Z' in the alphabet."
+                                 " Please add a panel without a letter before "
+                                 "adding a panel with the letter Z.")
             next_letter = alphabet[last_letter_idx + 1]
             letter = next_letter.upper()
         return letter
@@ -481,7 +666,8 @@ class Figure():
         files_in_separate_folders = False
         # panel_finder = re.compile(self.panel_str+letter)
         # match also multiple letters for one file
-        panel_finder = re.compile(self.panel_str.lower()+f"[A-Za-z]*[{letter.lower()}][A-Za-z]*")
+        panel_finder = re.compile(self.panel_str.lower()+
+                                  f"[A-Za-z]*[{letter.lower()}][A-Za-z]*")
         for file_path in self.all_files:
             file_name = os.path.basename(file_path)
             full_panel_str = (self.panel_str + letter).lower()
@@ -502,7 +688,8 @@ class Figure():
                         panel_files.append(file_path_in_folder)
             else:
                 if files_in_separate_folders:
-                    print("WARNING: Files for panel {} are in separte folder/s and also in main folder.".format(
+                    print("WARNING: Files for panel {} are in separte folder/s "
+                          "and also in main folder.".format(
                         letter))
                 panel_files.append(file_path)
 
@@ -510,7 +697,8 @@ class Figure():
             raise Exception("no files found for panel")
 
         # case insensitive alphanumerical sorting based on filename
-        panel_files.sort(key=lambda panel_file: os.path.basename(panel_file).lower())
+        panel_files.sort(key=lambda
+            panel_file:os.path.basename(panel_file).lower())
 
         return panel_files
 
@@ -540,12 +728,15 @@ class Figure():
         for panel_letter in panels:
             #check whether supplied panel letter is defined
             if not (panel_letter in self.all_panels):
-                error_msg = "The letter '{}' for multi-panel representative data is not a defined panel.".format(panel_letter)
+                error_msg = ("The letter '{}' for multi-panel representative "
+                             "data is not a defined "
+                             "panel.".format(panel_letter))
                 raise ValueError(error_msg)
             panel = self.all_panels[panel_letter]
             #check if representative data was calculated for panel
             if not hasattr(panel,"representative_data"):
-                error_msg = "For the panel '{}' no representative data was calculated yet.".format(panel_letter)
+                error_msg = ("For the panel '{}' no representative data was "
+                             "calculated yet.".format(panel_letter))
                 raise ValueError(error_msg)
             if len(summed_representative_data) == 0:
                 unit_cols = panel.representative_unit_cols
@@ -572,14 +763,34 @@ class Figure():
             data_to_show = data_to_show.sort_values(by="d_mean", ascending=True)
             print(data_to_show.head(nb_vals_to_show)[cols_to_show])
 
+    def _letter_range(self, first_letter, last_letter):
+        new_panel_letters = [chr(letter_nb)
+                             for letter_nb in range(ord(first_letter),
+                                                    ord(last_letter)+1
+                                                    )]
+        return new_panel_letters
+
+
     def show_panels(self, panel_letters):
         """
         Only show panels with the defined panel letters. Even if other
         panels are defined in the script they won't be shown.
 
-        :param panel_letters: list of panel letters to show
+        :param panel_letters: list of panel letters to show or string of range
+            of panel letters (e.g. "A-D")
         """
-        self.panel_letters_to_show = panel_letters
+        all_panel_letters = []
+        for panel_letter in panel_letters:
+            if panel_letter.find("-") != -1:
+                first_letter = panel_letter.split("-")[0]
+                second_letter = panel_letter.split("-")[1]
+                new_panel_letters = self._letter_range(first_letter,
+                                                       second_letter)
+                all_panel_letters = [*all_panel_letters, *new_panel_letters]
+            else:
+                all_panel_letters.append(panel_letter)
+
+        self.panel_letters_to_show = all_panel_letters
 
     def edit_panel(self, panel_letter, change_cropping=True,
                    coord_decimals=2, color="white",
@@ -755,17 +966,22 @@ class Figure():
             if self._file_has_allowed_extension(panel_file_path, [".tif",".jpg", ".png",".gif"]):
                 all_panel_imgs.append(io.imread(panel_file_path))
             if self._file_has_allowed_extension(panel_file_path, [".pptx"]):
-                panel_pptxs.append(pptx.Presentation(panel_file_path))
+                file_name = os.path.basename(panel_file_path)
+                if not file_name.startswith("~$"):
+                    panel_pptxs.append(pptx.Presentation(panel_file_path))
 
         #load data
-        data = None
+        data = []
         for panel_file_path in panel_file_paths:
             file_name = os.path.basename(panel_file_path)
             if file_name.find(".csv") != -1:
-                data = Figure._open_csv_with_unknown_seperator(panel_file_path)
-                break
+                data.append(Figure._open_csv_with_unknown_seperator(panel_file_path))
             if file_name.find(".feather") != -1:
-                data = pd.read_feather(panel_file_path)
+                data.append(pd.read_feather(panel_file_path))
+        if len(data) == 0:
+            data = None
+        else:
+            data = pd.concat(data)
 
         #for videos set the default to center aligned
         # (for hor and vert)
@@ -1268,8 +1484,11 @@ class Figure():
             all_batches = list(range(max_nb_files))
         else:
             all_batches = [None]
+            if self.video_name_from_folder:
+                self.video_file_name_details = os.path.basename(os.path.dirname(self.folder))
 
         self.video_folder = self.folder
+
 
         for batch_nb in all_batches:
 
@@ -1366,7 +1585,6 @@ class Figure():
 
             shutil.rmtree(self.tmp_video_folder)
             # reset video file name details and the video folder
-            self.video_file_name_details = ""
             self.video_folder = self.folder
 
     def _create_video(self, animate_function, nb_frames,
@@ -1446,7 +1664,7 @@ class Figure():
                         figure_panel.all_panel_imgs_orig[batch_nb]]
                     if self.save_batch_in_sub_folder:
                         self.video_folder = os.path.dirname(batch_file_path)
-                    if self.name_from_file:
+                    if self.video_name_from_file:
                         batch_file_name = os.path.basename(batch_file_path)
                         # remove first part of the batch file name, that
                         # contains the panel information (e.g. "panelA")
@@ -1455,7 +1673,7 @@ class Figure():
                         batch_file_name = batch_file_name.split(".")[:-1]
                         batch_file_name = ".".join(batch_file_name)
                         self.video_file_name_details = "_"+batch_file_name
-                    elif self.name_from_folder:
+                    elif self.video_name_from_folder:
                         batch_file_folder = os.path.dirname(batch_file_path)
                         batch_file_folder = os.path.basename(batch_file_folder)
                         self.video_file_name_details = "_"+batch_file_folder
