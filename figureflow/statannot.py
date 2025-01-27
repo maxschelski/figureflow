@@ -8,6 +8,7 @@ from matplotlib import lines
 import matplotlib.transforms as mtransforms
 from matplotlib import ticker as mplticker
 from matplotlib.font_manager import FontProperties
+from matplotlib.legend_handler import HandlerLine2D
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -20,6 +21,7 @@ from matplotlib.patches import PathPatch
 import scipy
 import functools
 import itertools
+import math
 
 import time
 
@@ -119,7 +121,6 @@ def simple_text(pval, pvalue_format, pvalue_thresholds, test_short_name=None):
         pval_text = "p = {}".format(pvalue_format).format(pval)
 
     return text + pval_text
-
 
 
 def validate_arguments(perform_stat_test,test,pvalues,test_short_name,
@@ -941,7 +942,6 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
             stat_results = _perform_stat_test(group_data_list, all_data_groups,
                                              test, stats_params, "single")
 
-        print(all_box_pairs)
         for box_pair in all_box_pairs:
             box_pair = tuple(box_pair)
             box1 = box_pair[0]
@@ -964,7 +964,8 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
 
             if (not use_box_pair) & annotate_nonsignificant:
                 # arbitrarily use a pvalue which is 10% higher than the maximum
-                # significant pvalue
+                # significant pvalue, to annotate it,
+                # since no stat result was saved for this comparison
                 p_values[box_pair] = (pvalue_threshold * 1.1)
             elif use_box_pair:
                 pval = stat_results.loc[stat_column,stat_row]
@@ -981,6 +982,7 @@ def get_stats_and_exclude_nonsignificant(included_data,col,x,y,hue,
                                          'formatted_output': formatted_output,
                                          'box1': box1,
                                          'box2': box2})
+
                 if print_stat_test_results:
                     print("{} v.s. {}: {}".format(box1, box2, formatted_output))
                 if (pval < pvalue_threshold) | (annotate_nonsignificant):
@@ -1003,7 +1005,8 @@ def get_max_ylim_yrange(all_ax_data):
     yrange = max_yrange
     return ylim, yrange
 
-def plot_text(ax, text, y, x1, x2, text_offset, fontsize, h,
+def plot_stat_annot_text(ax, text, y, x1, x2, text_offset, fontsize,
+              stat_star_annot_font_size_factor, h,
               use_fixed_offset, ann_list):
 
     figure = plt.gcf()
@@ -1012,18 +1015,25 @@ def plot_text(ax, text, y, x1, x2, text_offset, fontsize, h,
     if (type(text) == type(None)):
         return ann_list, y_top_annot, ax
 
+    if text.find("*") != -1:
+        fontsize *= stat_star_annot_font_size_factor
+
     fontsize_pt = FontProperties(size=fontsize).get_size_in_points()
+
     if text.find("*") != -1:
         text_offset = text_offset - fontsize_pt / 2
     else:
         text_offset = text_offset - fontsize_pt / 10
+
     ann = ax.annotate(
-        text, xy=(np.mean([x1, x2]), y+h),
+        text, xy=(np.mean([x1, x2]), y+h/2),
         xytext=(0, text_offset), textcoords='offset points',
         xycoords='data', ha='center', va='bottom',
         fontsize=fontsize,fontweight='bold', clip_on=False,
         annotation_clip=False)
     ann_list.append(ann)
+    ylim = ax.get_ylim()
+    # dasd
 
     plt.draw()
     y_top_annot = None
@@ -1148,6 +1158,7 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
                         row_label_text, row_label_orientation,
                         show_legend,
                         borderaxespad_, legend_handle_length,
+                        legend_handle_vert_alignment,
                         show_x_label_in_all_columns,
                         leave_space_for_legend,
                         data_is_continuous,
@@ -1189,14 +1200,44 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
 
     legend = None
 
+    class VertAlignHandler(HandlerLine2D):
+        def __init__(self, vert_alignment = "center", **kwargs):
+            super().__init__(**kwargs)
+            self.vert_alignment = vert_alignment
+
+        def create_artists(self, legend, orig_handle, xdescent, ydescent, width,
+                           height, fontsize, trans):
+            # Adjust the position of the handle using y_offset
+            # print(dir(legend))
+            # print(legend.get_texts())
+            # print(type(orig_handle))
+            # print(height)
+            if self.vert_alignment == "center":
+                y_offset = 0
+            if self.vert_alignment == "top":
+                nb_rows = len(orig_handle.get_label().split("\n"))
+                y_offset = (1.49 * (nb_rows-1)) + 0.28
+
+            line = super().create_artists(
+                legend, orig_handle, xdescent,
+                ydescent - y_offset * height, width, height, fontsize,
+                trans
+            )
+            return line
+
     if not show_row_label:
+
+        # find number of linebreaks
 
         legend = plt.legend(handles[0:nb_labels], hue_order,
                             bbox_to_anchor=(1, 1), loc=2,
                             fontsize=fontsize_points, frameon=False,
                             borderpad=0, handletextpad=legend_spacing,
                             borderaxespad=borderaxespad_, title=legend_title,
-                            handlelength=legend_handle_length)
+                            handlelength=legend_handle_length,
+                            handler_map=
+                            {plt.Line2D:VertAlignHandler(
+                                vert_alignment=legend_handle_vert_alignment)})
         if legend_title is not None:
             if (legend_title.startswith("$")) & ((legend_title.endswith("$"))):
                 fontsize_points_title = fontsize_points * 1.4
@@ -1314,10 +1355,10 @@ def set_axis_label_paddings(inner_padding, axis_padding, ax, plot_nb,
         axis_padding = get_accurate_y_tick_padding(ax, axis_padding,
                                                    size_factor)
 
-    ax.tick_params(axis="both",which="both",pad=axis_padding) # REACTIVATE
+    ax.tick_params(axis="both",which="both",pad=axis_padding, length=0) # REACTIVATE
 
     #remove tick lines from plot
-    ax.tick_params(left=False, bottom=False)
+    ax.tick_params(left=False, bottom=False, length=0)
     # set padding for y, label
     # (is lower than default padding for width
     #  of one position in grid less than about 2 inches)
@@ -1334,7 +1375,7 @@ def get_accurate_y_tick_padding(ax, target_padding, size_factor = None):
     # get x1 position (rightmost border of tick labels) of bbox of tick labels
     # set padding of y-axis zero first to get real difference
     # in position between ticks and ax
-    ax.tick_params(axis="y",which="both",pad=0) # REACTIVATE
+    ax.tick_params(axis="y",which="both",pad=0, length=0) # REACTIVATE
     fig = plt.gcf()
     bbox = ax.yaxis._get_tick_bboxes(ax.yaxis.majorTicks,
                                      fig.canvas.get_renderer())
@@ -1343,7 +1384,10 @@ def get_accurate_y_tick_padding(ax, target_padding, size_factor = None):
     ax_x0 = ax.get_position().x0 * fig.get_size_inches()[0] * fig.dpi #outer_border[0]
     # target padding is the actual distance between tick labels and plot
     target_padding *= size_factor
-    axis_padding = (tick_x1 - ax_x0 + target_padding) * 72 / fig.dpi
+
+    # axis padding should not depend on dpi! Otherwise lower dpi figures
+    # will have higher paddings!
+    axis_padding = (tick_x1 - ax_x0 + target_padding) * 72 / 800#fig.dpi
     return axis_padding
 
 
@@ -1356,7 +1400,7 @@ def get_accurate_x_tick_padding(ax, target_padding, size_factor = None):
     # get y1 position (rightmost border of tick labels) of bbox of tick labels
     # set padding of y-axis zero first
     # to get real difference in position between ticks and ax
-    ax.tick_params(axis="x",which="both",pad=0) # REACTIVATE
+    ax.tick_params(axis="x",which="both",pad=0, length=0) # REACTIVATE
     fig = plt.gcf()
     bbox = ax.xaxis._get_tick_bboxes(ax.xaxis.majorTicks,
                                      fig.canvas.get_renderer())
@@ -1483,14 +1527,21 @@ def get_axis_dimension(ax, axis, type, baseline):
         # box = axis._get_tick_bboxes(axis._update_ticks(),
         # fig.canvas.get_renderer())[0][0]
         box = axis.get_tightbbox(plt.gcf().canvas.renderer)
-        baseline_px_y = baseline * fig.get_size_inches()[1] * fig.dpi
-        # if the label has no text, there is no label
-        # and therefore dont consider its height
-        if axis.get_major_ticks()[0].label.get_text() == "":
-            y0 = baseline_px_y
+        if box is None:
+            dimension = label_size
         else:
-            y0 = box.y0
-        dimension = (baseline_px_y - y0)# + label_size
+            baseline_px_y = baseline * fig.get_size_inches()[1] * fig.dpi
+            # if the label has no text, there is no label
+            # and therefore dont consider its height
+            # only if no content is in the axis (no tick label text
+            # and no label text), set dimension to 0!
+            if (axis.get_major_ticks()[0].label.get_text() == "") & (label_size == 0):
+                y0 = baseline_px_y
+            else:
+                y0 = box.y0
+            dimension = (baseline_px_y - y0)# + label_size
+
+
         # if len(ax.get_xticklabels()) > 1:
         #     print(ax.xaxis)
             # print(dimension)
@@ -1502,13 +1553,16 @@ def get_axis_dimension(ax, axis, type, baseline):
 
     elif type == "width":
         box = axis.get_tightbbox(plt.gcf().canvas.renderer)
-        baseline_px_x = baseline * fig.get_size_inches()[0] * fig.dpi
-        # if the label has no text, there is no label and therefore dont consider its height
-        if axis.get_major_ticks()[0].label.get_text() == "":
-            x0 = baseline_px_x
+        if box is None:
+            dimension = label_size
         else:
-            x0 = box.x0
-        dimension = (baseline_px_x - x0)# + label_size
+            baseline_px_x = baseline * fig.get_size_inches()[0] * fig.dpi
+            # if the label has no text, there is no label and therefore dont consider its height
+            if axis.get_major_ticks()[0].label.get_text() == "":
+                x0 = baseline_px_x
+            else:
+                x0 = box.x0
+            dimension = (baseline_px_x - x0)# + label_size
 
     return dimension
 
@@ -1691,16 +1745,7 @@ def get_annotated_text_dict(p_values,pvalue_format_string,test_short_name,
     return pval_texts
 
 
-def plot_comparison_to_control_within_x(box_pairs_of_x, hue_order, x_val, hue,
-                                        col, pval_texts, all_box_names,
-                                        all_box_structs_dics, ann_list, ax,
-                                        text_offset, y_offset_to_box, fontsize,
-                                        all_ax_data, annotated_pairs,
-                                        y_stack_arr, h, use_fixed_offset, loc):
-
-    # remove box_pairs that involve control in comparison within same x_val,
-    # if hue is defined only
-
+def get_box_pairs_of_x_no_control(box_pairs_of_x):
     box_pairs_of_x_no_control = []
     box_pairs_of_x_control = []
     control_hue = hue_order[0]
@@ -1709,6 +1754,24 @@ def plot_comparison_to_control_within_x(box_pairs_of_x, hue_order, x_val, hue,
             box_pairs_of_x_control.append(box_pair)
         else:
             box_pairs_of_x_no_control.append(box_pair)
+    return box_pairs_of_x_control, box_pairs_of_x_no_control
+
+
+def plot_comparison_to_control_within_x(box_pairs_of_x, hue_order, x_val, hue,
+                                        col, pval_texts, all_box_names,
+                                        all_box_structs_dics, ann_list, ax,
+                                        text_offset, y_offset_to_box,
+                                        fontsize, stat_star_annot_font_size_factor,
+                                        all_ax_data, annotated_pairs,
+                                        y_stack_arr, h, use_fixed_offset, loc,
+                                        y_range):
+
+    # remove box_pairs that involve control in comparison within same x_val,
+    # if hue is defined only
+
+    (box_pairs_of_x_control,
+     box_pairs_of_x_no_control) = get_box_pairs_of_x_no_control(box_pairs_of_x)
+
     box_dict_pairs_of_x_control = build_box_struct_pairs(box_pairs_of_x_control,
                                                          all_box_names,
                                                          all_box_structs_dics,
@@ -1723,9 +1786,10 @@ def plot_comparison_to_control_within_x(box_pairs_of_x, hue_order, x_val, hue,
         x = box_dict['x']
         y = box_dict['ymax'] + y_offset_to_box
         text = pval_texts[box_pair]
-        ann_list, y_top_annot,ax = plot_text(ax, text, y, x, x, text_offset,
-                                             fontsize, h, use_fixed_offset,
-                                             ann_list)
+
+        ann_list, y_top_annot,ax = plot_stat_annot_text(
+            ax, text, y, x, x, text_offset, fontsize,
+            stat_star_annot_font_size_factor, h, use_fixed_offset, ann_list)
 
         (all_ax_data,
          annotated_pairs,
@@ -1733,8 +1797,10 @@ def plot_comparison_to_control_within_x(box_pairs_of_x, hue_order, x_val, hue,
          ax) = update_plot_and_arrays(y_stack_arr, y_top_annot,
                                         x, x, all_ax_data, ax,
                                         annotated_pairs, y,
-                                        text, (box_dict1, box_dict2), loc)
-    # only use box_pairs without contorl
+                                        text, (box_dict1, box_dict2), loc,
+                                      y_range)
+
+    # only use box_pairs without control
     box_pairs_of_x = box_pairs_of_x_no_control
     return (box_pairs_of_x, ann_list, ax, all_ax_data,
             annotated_pairs, y_stack_arr)
@@ -1803,7 +1869,7 @@ def draw_line(line_x,line_y,line_width,color,ax, transform=None):
 
 def update_plot_and_arrays(y_stack_arr, y_top_annot, x1, x2, all_ax_data,
                            ax, annotated_pairs, ymax_in_range,
-                           text, box_dict_pair, loc):
+                           text, box_dict_pair, loc, y_range):
 
     # save annotation
     annotated_pairs[(box_dict_pair[0]['box'],text)] = [ymax_in_range,text]
@@ -1818,14 +1884,17 @@ def update_plot_and_arrays(y_stack_arr, y_top_annot, x1, x2, all_ax_data,
     # Increment the counter of annotations in the y_stack array
     y_stack_arr[2, xi1:xi2 + 1] = y_stack_arr[2, xi1:xi2 + 1] + 1
 
+    # remove buffer since otherwise, the size of the plot is increased more
+    # than needed
     if text.find("*") != -1:
-        buffer_for_text = 0.15
+        buffer_for_text = 0#0.15
     else:
-        buffer_for_text = 0.12
+        buffer_for_text = 0#0.12
     y_stack_max = np.max(y_stack_arr[1,:]) + buffer_for_text
 
     for ax_data in all_ax_data.values():
         ylim = ax_data.get_ylim()
+
         if loc == 'inside':
             if (0.98 * y_stack_max) > (ylim[1]):
                 ax_data.set_ylim((ylim[0], 0.98*y_stack_max))
@@ -1833,23 +1902,34 @@ def update_plot_and_arrays(y_stack_arr, y_top_annot, x1, x2, all_ax_data,
                 ax_data.set_ylim((ylim[0], ylim[1]))
         elif loc == 'outside':
             ax_data.set_ylim((ylim[0], ylim[1]))
+            # get the relative change in height of the panel, instead of
+            # changing the limits of the axis (which would also change the y
+            # axis and move the y axis label)
+            original_range = ylim[1] - ylim[0]
+            new_range = (0.98 * y_stack_max) - ylim[0]
+            relative_change = (new_range/original_range)
+            axis_size = ax_data.get_position()
+            # then set new axis position with reduced height and reduced width
+            ax_data.set_position([axis_size.x0, axis_size.y0,
+                                 axis_size.width,
+                                 axis_size.height/relative_change])
 
-    if loc == 'inside':
-        if (0.98 * y_stack_max) > (ylim[1]):
-            ax.set_ylim((ylim[0], 0.98*y_stack_max))
-        else:
-            ax.set_ylim((ylim[0], ylim[1]))
-    elif loc == 'outside':
-            ax.set_ylim((ylim[0], ylim[1]))
+    # if loc == 'outside':
+    if (0.98 * y_stack_max) > (ylim[1]):
+        ax.set_ylim((ylim[0], 0.98*y_stack_max))
+    else:
+        ax.set_ylim((ylim[0], ylim[1]))
+    # elif loc == 'outside':
+    #         ax.set_ylim((ylim[0], ylim[1]))
 
     return all_ax_data,annotated_pairs,y_stack_arr,ax
 
-
 def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
                             all_ax_data, ax,annotated_pairs, text_offset,
-                            fontsize, h, ann_list, line_width, loc,
+                            fontsize, stat_star_annot_font_size_factor,
+                            h, ann_list, line_width, loc, y_range,
                             y_offset_to_box, y_offset, color, use_fixed_offset,
-                            show_data_points):
+                            show_data_points, data_plot_kwds):
 
     # if show_data_points is False, outliers will be plotted
     # fliersize is the size in pt of these outliers
@@ -1891,10 +1971,11 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
     # if there is only one pair to compare, use smaller h
     if (len(box_struct_pairs) == 1):
         h = h/2
-        y_offset -= h/2
+        # y_offset -= h/2
         # y_offset_to_box -= h/2
 
     h = h / 2
+
     for site in box_struct_pairs_split:
         # set index of box to which comparison is done
         # reference box is box that is more common
@@ -1910,7 +1991,6 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
 
         box_struct_pairs_sorted = box_struct_pairs_split[site]
         # get middle x position of all box significant to often occuring box
-
 
         if site == "left":
             x_outer = box_struct_pairs_sorted[0][box_index]['x']
@@ -1932,11 +2012,14 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
 
         # get start y position
         # Find y maximum for all the y_stacks *in between* the box1 and the box2
-        ymax_in_range_x1_x2 = np.max(y_stack_arr[1, np.where((x1 <= y_stack_arr[0, :]) &
-                                                             (y_stack_arr[0, :] <= x2))
-                                     ])
+        ymax_in_range_x1_x2 = np.max(
+            y_stack_arr[1, np.where((x1 <= y_stack_arr[0, :]) &
+                                    (y_stack_arr[0, :] <= x2))
+            ])
+
         i_ymax_in_range_x1_x2 = np.where(y_stack_arr[1, :] ==
                                          ymax_in_range_x1_x2)[0][0]
+
 
         # Choose the best offset depending on wether there is an annotation below
         # at the x position in the range [x1, x2] where the stack is the highest
@@ -1950,8 +2033,10 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
 
         y = ymax_in_range_x1_x2 + offset
 
+        show_outliers = data_plot_kwds.get("show_outliers", True)
+
         # if fliers are shown in boxplot add additional y offset
-        if show_data_points == False:
+        if (show_data_points == False) & (show_outliers):
             # calculate what the fliersize in pt is in plot dimensions
             # its the fliersize in px divided by the plot height in px
             # and this multiplied by y_lim
@@ -1971,19 +2056,27 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
         # from there go down and draw line from outer to inner significant box
         line_x = [x_box, x_box, x_mid, x_mid, x_outer, x_inner]
         line_y = [y, y + h, y + h, y+h/2,y+h/2,y+h/2]
-        ax = draw_line(line_x, line_y, line_width, color, ax)
 
+        ax = draw_line(line_x, line_y, line_width, color, ax)
+        
         # annotate significance
-        # more label closer to line for stars
+        # move label closer to line for stars
         if pval_text.find("*") != -1:
             y_text = y - y_offset/5
         else:
             y_text = y
 
-        ann_list, y_top_annot, ax = plot_text(ax, pval_text, y_text, x_mid,
-                                             x_box,text_offset,
-                                             fontsize, h, use_fixed_offset,
-                                             ann_list)
+        # if more than one comparison is plotted, increase h for plotting text
+        # which will put the stars closer to the line
+        if len(box_struct_pairs_sorted) > 1:
+            h_text = h * 1.5
+        else:
+            h_text = h
+
+        ann_list, y_top_annot, ax = plot_stat_annot_text(
+            ax, pval_text, y_text, x_mid, x_box, text_offset, fontsize,
+            stat_star_annot_font_size_factor, h_text, use_fixed_offset, ann_list)
+
 
         if (site == "right") | ("right" not in box_struct_pairs_split):
             (all_ax_data,
@@ -1992,22 +2085,26 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
              ax) = update_plot_and_arrays(y_stack_arr, y_top_annot, x1,x2 ,
                                           all_ax_data, ax, annotated_pairs,
                                           ymax_in_range_x1_x2, pval_text,
-                                          box_struct_pair, loc)
-
+                                          box_struct_pair, loc, y_range)
         # if only one pair is in box_struct_pairs_sorted, don't draw line down,
         # there is already a line down to half the height
         # dont understand comment above anymore -
         # only draw line down for plots which were not annotated yet
         # if (len(box_struct_pairs_sorted)== 1) | (both_sites_have_boxes):
         # draw line down for each box
+        # if len(box_struct_pairs_sorted) == 1:
+        #     h_line = h * 2
+        # else:
+        #     h_line = h
+
         for box_struct_pair in box_struct_pairs_sorted:
             box_struct = box_struct_pair[box_index]
             line_x  = [box_struct['x'], box_struct['x']]
-            line_y = [y +h/2, y]
+            line_y = [y + h/2, y]
 
             ax = draw_line(line_x, line_y, line_width, color, ax)
 
-        
+
     return ax, all_ax_data,annotated_pairs,y_stack_arr,ann_list
 
 
@@ -2253,7 +2350,7 @@ def add_labels_within_ax(all_labels_to_add):
 def set_y_ticks(ax, y_tick_interval, show_y_minor_ticks):
     if show_y_minor_ticks:
         ax.minorticks_on()
-        ax.xaxis.set_tick_params(which='minor', bottom=False)
+        ax.xaxis.set_tick_params(which='minor', bottom=False, length=0)
 
     if y_tick_interval is not None:
         new_locator = mplticker.MultipleLocator(base=y_tick_interval)
@@ -2366,21 +2463,25 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                            text_format,
                            show_stats_to_control_without_lines,
                            pair_unit_columns, annotate_nonsignificant,
-                           print_stat_test_results,pvalue_format_string,pvalue_thresholds,
+                           print_stat_test_results,pvalue_format_string,
+                           pvalue_thresholds,
                            show_data_points,
                            data, col, col_order, y,  x, x_order, hue,
                            text_offset,use_fixed_offset,loc,
-                           hue_order, included_data,max_yrange,
-                           y_offset, y_offset_to_box,fontsize,color,
-                           line_height,line_width,
-                           show_test_name):
+                           hue_order, included_data, max_yrange, y_range,
+                           y_offset, y_offset_to_box,
+                           fontsize, stat_star_annot_font_size_factor,
+                           color, line_height, line_width,
+                           show_test_name, data_plot_kwds):
     ann_list = []
     test_result_list = []
     annotated_pairs = {}
+    box_pairs = copy.deepcopy(box_pairs)
     # get all box pairs depending on grouping of data (group, hue)
     # and whether pairs were added
     # get maximum level of pairs for comparison,
     # will determine where statistics will be performed on
+
     all_box_pairs, max_level_of_pairs = get_all_box_pairs(box_pairs, data,
                                                           col, col_order,
                                                           x, x_order,
@@ -2423,8 +2524,13 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                             [0 for box_structs in all_box_structs.values()
                              for i in range(len(box_structs)) ]])
 
+    if y_range is not None:
+        if y_range[1] is not None:
+            for box_nb in range(y_stack_arr.shape[1]):
+                y_stack_arr[1, box_nb] = min(y_stack_arr[1, box_nb], y_range[1])
+
     if loc == 'outside':
-        y_stack_arr[1, :] = ylim[1]
+        y_stack_arr[1, :] = y_range[1]
 
     # within pairs with same x val and
     # pairs with different x val sort separately:
@@ -2435,24 +2541,29 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                                           test_short_name,pvalue_thresholds,
                                           show_test_name,text_format)
 
+    ylim = list(all_axs.values())[0].get_ylim()
+    max_yrange = abs(ylim[1] - ylim[0])
     h = line_height * max_yrange
+
     for x_val, box_pairs_of_x in box_pairs_grouped.items():
         if ((x_val != "different_x") & (hue != "no_hue_defined") &
                 show_stats_to_control_without_lines):
+            #
+            # ylim = list(all_axs.values())[0].get_ylim()
+            # max_yrange = abs(ylim[1] - ylim[0])
+            # h = line_height * max_yrange
+
             (box_pairs_of_x,
              ann_list,
              ax_annot,
              all_axs,
              annotated_pairs,
-             y_stack_arr) = plot_comparison_to_control_within_x(box_pairs_of_x,
-                                            hue_order,x_val,hue, col,
-                                            pval_texts, all_box_names,
-                                                                all_box_structs_dics,
-                                            ann_list, ax_annot, text_offset,
-                                                                y_offset_to_box,
-                                            fontsize, all_axs, annotated_pairs,
-                                            y_stack_arr, h, use_fixed_offset, loc)
-
+             y_stack_arr) = plot_comparison_to_control_within_x(
+                box_pairs_of_x, hue_order,x_val,hue, col, pval_texts,
+                all_box_names, all_box_structs_dics, ann_list, ax_annot,
+                text_offset, y_offset_to_box,
+                fontsize, stat_star_annot_font_size_factor, all_axs, annotated_pairs,
+                y_stack_arr, h, use_fixed_offset, loc, y_range)
 
         (box_counter,
          all_boxes) = count_occurences_of_boxes_in_pairs(box_pairs_of_x,
@@ -2483,12 +2594,14 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                                     sorted(box_struct_pairs_grouped.items(),
                                            key=lambda item:
                                            max_y_groups[item[0]])}
-
         # go through each of the groups ranked by commonly occuring boxes
         for (annot_number,
              (box_tuple,
               box_struct_pairs)) in enumerate(box_struct_pairs_grouped.items()):
 
+            # ylim = list(all_axs.values())[0].get_ylim()
+            # max_yrange = abs(ylim[1] - ylim[0])
+            # h = line_height * max_yrange
             box = box_tuple[0]
             # annotate all box_pairs in a group
             (ax_annot,
@@ -2499,12 +2612,16 @@ def get_and_annotate_stats(all_axs, ax_annot, box_pairs,
                                                  box, y_stack_arr,
                                                  all_axs, ax_annot,
                                                  annotated_pairs, text_offset,
-                                                 fontsize, h, ann_list,
+                                                 fontsize,
+                                                 stat_star_annot_font_size_factor,
+                                                 h, ann_list,
                                                  line_width, loc,
-                                                 y_offset_to_box,
+                                                 y_range, y_offset_to_box,
                                                  y_offset, color,
                                                  use_fixed_offset,
-                                                 show_data_points)
+                                                 show_data_points,
+                                                 data_plot_kwds)
+
     return ax_annot, all_axs, test_result_list
 
 def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
@@ -2518,6 +2635,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  perform_stat_test=True, pvalues=None,
                                  test=None, stats_params=None,
                                  text_format='star', show_test_name=False,
+                                 stat_star_annot_font_size_factor=1.5,
                                  test_short_name=None,
                                  pvalue_format_string=DEFAULT,
                                  pvalue_thresholds=DEFAULT,
@@ -2537,6 +2655,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  x_range = None,show_x_axis=True,
                                  x_axis_label = None,
                                  show_x_label_in_all_columns=True,
+                                 center_x_axis_label_under_all_plots = False,
                                  x_tick_interval=None,
                                  x_tick_label_rotation=False,
                                  leave_space_for_x_tick_overhang=False,
@@ -2547,17 +2666,20 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  y_axis_label=None,y_tick_interval=None,
                                  show_y_minor_ticks=False,
                                  x_ticks=None, y_ticks=None,
+                                 y_tick_labels=None,
+                                 x_tick_labels=None,
                                  zero_x_tick_as_int=True,
                                  zero_y_tick_as_int=True,
                                  axis_padding=10,
                                  hor_alignment ="left",
                                  use_fixed_offset=False,
                                  line_offset_to_box=None, line_offset=None,
-                                 text_offset=1, line_width=0.8,
+                                 text_offset=2, line_width=0.8,
                                  line_width_thin=0.3,
-                                 line_height=0.02,
+                                 line_height=0.1,
                                  legend_title=None,
                                  legend_handle_length=2,
+                                 legend_handle_vert_alignment="top",
                                  legend_spacing = 0.25,
                                  leave_space_for_legend=False,
                                  borderaxespad_ = 0.2,
@@ -2655,6 +2777,9 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                         direct p values.
     :param show_test_name: Whether to show the test name if text_format is
                             "simple"
+    :param stat_star_annot_font_size_factor: Factor by which the fontsize for
+        the annotation of significance with stars will be multiplied. Increase
+        to increase the size of significance stars in plots
     :param test_short_name: Short name of stat test. If show_text_name is True,
                             is displayed in annotation if text_format is "simple"
     :param pvalue_format_string: defaults to `"{.3e}"`
@@ -2696,6 +2821,9 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     :param x_axis_label: Label of x axis.
     :param show_x_label_in_all_columns: Whether to show x axis in all columns
                                         even if they have the same x axis.
+    :param center_x_axis_label_under_all_plots: Whether the x axis label should
+        be plotted once, centered under all plots, instead of being plotted
+        below separate plots.
     :param x_tick_label_rotation: Boolean, Whether the x tick labels
                                     should be rotated by 45 degree
     :param x_tick_interval: Interval between major ticks on x axis
@@ -2726,17 +2854,23 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                             y space but not necessarily the entire x space.
                             therefore alignment in x matters but not in y
     :param use_fixed_offset: Whether to use a fixed distance of stat annotations
-                                (if True) or whether to plot annotations
-                                above highest y datapoint.
+        (if True) or whether to plot annotations above highest y datapoint.
     :param line_offset_to_box: Offset of stat annotation lines to highest point
-                                in data
+        in data
     :param line_offset: Offset of annotation lines to highest annotation lines.
     :param text_offset: Offset of annotation text from annotation line in points
     :param line_width: Width of annotation lines and grid lines in plot
     :param line_width_thin: Width of minor tick grid lines in plot
-    :param line_height: in axes fraction coordinates
+    :param line_height: in arbitrary units
     :param legend_title: Title of legend, displayed above legend.
     :param legend_handle_length: Length of colored bars used in legend
+    :param legend_handle_vert_alignment: Alignment of legend handle relative to
+        text. "center" will align it in the vertical center of the whole legend
+        label, while "top" will align it vertically centered to the first line
+        of the legend label. For a multiline legend label with 4 lines
+        (3 line breaks), "center" will align the legend handle between the
+        second and third line and "top" will align it in the middle of the first
+        line.
     :param legend_spacing: space between legend handles (color boxes)
                             and legend text
     :param leave_space_for_legend: Internal parameter to indicate whether
@@ -2806,6 +2940,18 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
 
     if stats_params is None:
         stats_params = {}
+
+    # if the x axis label should be centered under all plots
+    # replace the original x_axis_label with an empty label with the same
+    # number of lines
+    # and save the original label in separate variable that will be plotted
+    # at the very end
+    if center_x_axis_label_under_all_plots:
+        x_axis_label_centered = x_axis_label
+        nb_lines = len(x_axis_label.split("\n"))
+        empty_x_axis_label = " "
+        empty_x_axis_label += " ".join(["\n"] * (nb_lines - 1))
+        x_axis_label = empty_x_axis_label
 
     # convert all values according to size factor
     # inner_padding *= size_factor
@@ -2972,7 +3118,6 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                            str(for_measuring) +
                                            str(max(data[x]))))
 
-
         ax.set_ylim(y_range[0], y_range[1])
 
         set_y_ticks(ax, y_tick_interval, show_y_minor_ticks)
@@ -3056,6 +3201,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                                        row_label_orientation,
                                                        show_legend, borderaxespad_,
                                                        legend_handle_length,
+                                                         legend_handle_vert_alignment,
                                                        show_x_label_in_all_columns,
                                                        leave_space_for_legend,
                                                        data_is_continuous,
@@ -3096,6 +3242,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
 
         rel_height_change = vert_fill_outer_border(ax, y_shift,
                                                    rel_height_change)
+
 
         # shift ax to get padding between groups
         ax_coords = ax.get_position()
@@ -3145,6 +3292,49 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
             all_box_structs_dics[col_val] = box_structs_dic
             all_box_names[col_val] = box_names
 
+        if y_ticks is not None:
+            ax.set_yticks(y_ticks)
+
+        # transform_func = lambda x: round(1 / x, 2)
+        # old_ax = plt.gca()
+        # old_ax.tick_params(axis="y", length=0)
+        #
+        # old_ticks = old_ax.get_yticks()
+        # y_range = old_ax.get_ylim()
+        #
+        # old_ticks = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
+        #
+        # # rel_positions = [tick / (y_range[1] - y_range[0])
+        # #                  for tick in old_ticks
+        # #                  if ((round(tick,6) <= y_range[1]) &
+        # #                      (round(tick,6) >= y_range[0]))]
+        #
+        # # print(old_ticks, y_range, rel_positions)
+        #
+        # new_ax = old_ax.twinx()
+        # new_ax.set_yticks(old_ticks)
+        # new_ax.set_ylim(y_range)
+        # new_ax.tick_params(axis="y", pad=2, length=0)
+        # labels = [transform_func(tick) for tick in old_ticks
+        #           if ((round(tick,6) <= y_range[1]) &
+        #               (round(tick,6) >= y_range[0]))]
+        # new_ax.set_yticklabels(labels)
+        # # new_ax.grid(None)
+        # new_ax.spines['bottom'].set_color('None')
+        # new_ax.spines['top'].set_color('None')
+        # new_ax.spines['right'].set_color('None')
+        # new_ax.spines['left'].set_color('None')
+        # new_ax.set_ylabel(y_axis_label)
+        # new_ax.set_zorder(2)
+        # new_ax.patch.set_visible(False)
+        #
+        # for line in new_ax.get_ygridlines():
+        #     line.set_zorder(0)  # Ensure grid lines are below everything
+        #     line.set_alpha(0.5)
+        # # new_ax.set_axisbelow(True)
+        # old_ax.set_zorder(1)
+        # dasd
+
         all_axs[col_val] = ax
         all_x_tick_overhangs[col_val] = x_axis_tick_overhang_rel
         # first position is row
@@ -3152,6 +3342,60 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         # if more than one row was plotted
         # the row value will be updated in a separate dict
         axs_by_position[(0, col_nb)] = ax
+
+    # first plot all significances to measure size:
+
+    last_y_lim = list(all_axs.values())[0].get_ylim()
+    last_y_range = abs(last_y_lim[1] - last_y_lim[0])
+    if loc=="inside":
+        for _ in range(6):
+            # add ax_annot again with same position to make it appear on top of all other plots
+            ax_annot = add_annotation_subplot(letter+"_new",outer_border,ax_annot)
+
+            ax_annot.set_ylim(last_y_lim)
+
+            # exclude data based on order given for different columns
+            included_data = exclude_data(data,col,col_order,x,x_order,hue,hue_order)
+
+            test_result_list = []
+            if perform_stat_test & (len(all_box_structs) > 0):
+                (ax_annot, all_axs,
+                 test_result_list) = get_and_annotate_stats(all_axs, ax_annot, box_pairs,
+                                                           all_box_structs,
+                                                           all_box_structs_dics,
+                                                           test, test_short_name,
+                                                            stats_params,
+                                                           all_box_names,text_format,
+                                                           show_stats_to_control_without_lines,
+                                                           pair_unit_columns,
+                                                           annotate_nonsignificant,
+                                                           print_stat_test_results,
+                                                           pvalue_format_string,
+                                                           pvalue_thresholds,
+                                                            show_data_points,
+                                                           data, col, col_order,
+                                                            y, x,
+                                                           x_order, hue, text_offset,
+                                                           use_fixed_offset, loc,
+                                                           hue_order, included_data,
+                                                            max_yrange, y_range,
+                                                           y_offset, y_offset_to_box,
+                                                            fontsize,
+                                                            stat_star_annot_font_size_factor,
+                                                            color,
+                                                            line_height, line_width,
+                                                            show_test_name,
+                                                            data_plot_kwds)
+
+            ax_annot.remove()
+
+            new_y_lim = list(all_axs.values())[0].get_ylim()
+            new_y_range = abs(new_y_lim[1] - new_y_lim[0])
+
+            if new_y_range / last_y_range < 1.1:
+                break
+            last_y_lim = new_y_lim
+            last_y_range = new_y_range
 
     # add ax_annot again with same position to make it appear on top of all other plots
     ax_annot = add_annotation_subplot(letter+"_new",outer_border,ax_annot)
@@ -3179,11 +3423,14 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                                    x_order, hue, text_offset,
                                                    use_fixed_offset, loc,
                                                    hue_order, included_data,
-                                                    max_yrange,
-                                                   y_offset, y_offset_to_box, 
-                                                    fontsize, color,
+                                                    max_yrange, y_range,
+                                                   y_offset, y_offset_to_box,
+                                                    fontsize,
+                                                    stat_star_annot_font_size_factor,
+                                                    color,
                                                     line_height, line_width,
-                                                    show_test_name)
+                                                    show_test_name,
+                                                    data_plot_kwds)
 
     # plot a title above all plots (in ax_labels)
     if (type(plot_title) != type(None)):
@@ -3234,7 +3481,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         add_grid_lines(ax, y_range, plot_type, line_width, line_width_thin,
                        show_y_minor_ticks)
 
-    set_y_ticks(ax, y_tick_interval, show_y_minor_ticks)
+    for ax in all_axs.values():
+        set_y_ticks(ax, y_tick_interval, show_y_minor_ticks)
 
     if y_ticks is not None:
         for ax in all_axs.values():
@@ -3243,12 +3491,11 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     if x_ticks is not None:
         for ax in all_axs.values():
             ax.set_xticks(x_ticks)
+            ax.set_xticklabels(x_ticks)
 
-    if zero_x_tick_as_int:
-        _convert_zero_in_axis_to_int(all_axs, "x")
 
-    if zero_y_tick_as_int:
-        _convert_zero_in_axis_to_int(all_axs, "y")
+    # if zero_y_tick_as_int:
+    #     _convert_zero_in_axis_to_int(all_axs, "y")
 
     # y_ticks = ax.get_yticks()
     # if y_range[0] is not None:
@@ -3281,5 +3528,29 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         # otherwise there would not be grid lines between plots
         add_background_grid_lines_to_plots(all_axs, col_order,
                                            line_width, letter)
+
+    if y_tick_labels is not None:
+        for ax in all_axs.values():
+            ax.set_yticklabels(y_tick_labels)
+
+    if x_tick_labels is not None:
+        for ax in all_axs.values():
+            ax.set_xticklabels(x_tick_labels)
+    # if zero_x_tick_as_int:
+    #     _convert_zero_in_axis_to_int(all_axs, "x")
+
+    if center_x_axis_label_under_all_plots:
+        min_x = 1
+        max_x = 0
+        min_y = 1
+        for ax in all_axs.values():
+            min_x = min(min_x, ax.get_position().x0)
+            max_x = max(max_x, ax.get_position().x1)
+            min_y = min(min_y, ax.get_position().y0)
+
+        mid_x = min_x + (max_x - min_x)/2
+
+        plt.gcf().text(mid_x, outer_border[2], x_axis_label_centered,
+                       ha="center", va="bottom")
 
     return axs_by_position, ax_annot, test_result_list
