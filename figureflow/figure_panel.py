@@ -11506,7 +11506,8 @@ class FigurePanel():
 
     def rescale_font_size(self, font_size_factor = None,
                           font_size=None,
-                          linespacing=0.92):
+                          linespacing=0.92,
+                          add_new_text=True):
         """
         Only possible for single images with single pptx files for now!
         Only the first slide of the pptx file will be considered.
@@ -11525,6 +11526,15 @@ class FigurePanel():
                                 that has a font size >= 30 pt in powerpoint
         :param font_size: font_size to use, if None, use default of figure_panel
         :param linespacing: spacing of lines when text includes line breaks
+        :param add_new_text: Whether new text should be added after powerpoint
+            text was removed. This is useful when editing the text first using
+            the edit_panel function to change text position. New text can then
+            be added through the printed add_text functions. Thus adding the
+            powerpoint text through rescale_font_size directly is not needed
+            and would lead to duplicated text. Alternatively to doing this,
+            text can also be directly deleted in the powerpoint file (then
+            rescale_font_size is not needed at all anymore) (but deleting it
+            in the pptx file is irreversible of course).
         """
 
         if FigurePanel._is_none(font_size):
@@ -11739,6 +11749,8 @@ class FigurePanel():
 
         image = image[y_slice, x_slice]
 
+        # remove old text from powerpoint by replacing corresponding area
+        # with fill value (which is the median intensity in the text area)
         for text in all_texts:
             x0 = int(text["x0"] * image_width)
             x1 = int(text["x1"] * image_width)
@@ -11759,7 +11771,12 @@ class FigurePanel():
                 text["color"] = "black"
             else:
                 text["color"] = "white"
-            
+
+        # stop script here (after old text is removed)
+        # if no new text should be added
+        if not add_new_text:
+            return
+
         ax.images[0]._A = image
         
         #  draw text in ax again at same position but new size
