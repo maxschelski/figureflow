@@ -25,6 +25,7 @@ import struct
 from matplotlib import patches
 from scipy import ndimage
 # import cv2
+import pprint
 
 import functools
 import seaborn as sb
@@ -226,13 +227,14 @@ class FigurePanel():
         # get outer border as relative coordinates in whole figure (min=0,max=1)
         self._calculate_outer_border_ax_grid()
 
-        if (not self.video) & show_letter:
-            # if letter ever is hidden, its probably because it is added
-            #  before all the other things are added in the panel
-            # probably also an addition error of the padding could be the cause
-            self._add_letter_subplot(letter)
-
         self._initiate_label_dicts()
+
+        if (self.figure.panel_to_edit == self.letter):
+            # only add letter panel first if the current panel is edited
+            # otherwise it is better to add it as the last thing so that it
+            # is never hidden
+            self._add_letter_subplot(self.letter)
+
 
 
     def set_image_scaling(self, x_scale = 1, y_scale = 1):
@@ -251,6 +253,7 @@ class FigurePanel():
                     order_of_categories=None, focus=None, show_focus_in=None,
                     interpolate_images="None",
                     dimension_equal="heights", scale_images=True,
+                    flip_images=None,
                     auto_image_sub_param=None, make_image_size_equal=None,
                     auto_enlarge=True,enlarged_image_site="left",
                     simple_remapping=False,
@@ -327,6 +330,8 @@ class FigurePanel():
                             however, it might be a problem
                             if it is important for the data
                             to be equally scaled in the entire panel
+        :param flip_images: On which axis the images should be flipped
+            (allowed avalues: "x" or "y"). If None, images will not be flipped.
         :param auto_image_sub_param: String. Substring in panel file names that
                                     defines how images should be grouped
                                     into image_sub automatically
@@ -477,6 +482,8 @@ class FigurePanel():
         self.interpolate_images = interpolate_images
 
         self.sub_padding_factor = sub_padding_factor
+
+        self.flip_images = flip_images
 
         if type(channels_to_show_first_nonzoomed_timeframe) == type(None):
             channels_to_show_first_nonzoomed_timeframe = []
@@ -893,6 +900,19 @@ class FigurePanel():
                                                       zoom_nb_padding,
                                                       show_single_zoom_numbers)
 
+        if ((not self.video) & self.show_letter):
+            if (self.figure.panel_to_edit == self.letter):
+                return
+            # add letter subplot as last thing so that it is never hidden by
+            # other elements plotted on top. For example Images that only have
+            # whitespace at the position of the letter would still cover up
+            # the letter if they are plotted after the letter subplot.
+            # However, if the current panel is edited, the letter has to be
+            # plotted first, since it otherwise will be on top and thus
+            # capture all mouse events - making it impossible to interact with
+            # the panel in the GUI.
+            self._add_letter_subplot(self.letter)
+
     def _initiate_show_images_variables(self):
         self.y_space = 0
         self.x_space = 0
@@ -1275,8 +1295,8 @@ class FigurePanel():
 
             if (len(self.all_panel_imgs) > 1) & (file_name.find(".csv") != -1):
                 raise Exception("The data file '{}' can only be used "
-                                "if a single file is provided "
-                                "for the panel.".format(file_name))
+                                "if files are provided for the panel, "
+                                "but no images.".format(file_name))
 
             data_dict, img_width, img_height = self._get_image_properties(file_path)
 
@@ -1582,8 +1602,6 @@ class FigurePanel():
                 images_by_pre_identity[pre_identity] = all_imgs
                 
         return images_by_pre_identity, identity_val_map
-
-
 
 
     def _get_img_dict_by_pre_identity(self, inv_map):
@@ -4253,6 +4271,19 @@ class FigurePanel():
                 #                       aligned_rect_w)]
                 #
                 # # single_image = single_image[83:113, 128:160]
+                
+                if self.flip_images is not None:
+                    if self.flip_images == "x":
+                        single_image = np.flip(single_image, 1)
+                    elif self.flip_images == "y":
+                        single_image = np.flip(single_image, 0)
+                    else:
+                        raise ValueError("For the parameter 'flip_images' "
+                                         "in the show_images function, only "
+                                         "'x' and 'y' are allowed values. "
+                                         f"Instead, the value "
+                                         f"{self.flip_images} was used.")
+
 
                 im = ax.imshow(single_image, cmap=cmap_for_img, clim=img_range,
                                alpha=1,
@@ -7387,9 +7418,9 @@ class FigurePanel():
         return (col,row)
 
     def _validate_data_file(self):
-        if len(self.panel_file_paths) != 1:
-            raise Exception("Only showing data from a single data file "
-                            "is supported.")
+        # if len(self.panel_file_paths) != 1:
+        #     raise Exception("Only showing data from a single data file "
+        #                     "is supported.")
         if ((self.panel_file_paths[0].find(".csv") == -1) &
                 ((self.panel_file_paths[0].find(".feather") == -1))):
             raise Exception("Only showing data from a csv or feather file "
@@ -7461,7 +7492,7 @@ class FigurePanel():
         for column in data_columns:
             unique_values = data[column].drop_duplicates().dropna()
             if len(unique_values) == 0:
-                print("Column : NO NON-NAN VALUES!")
+                print(column +" : NO NON-NAN VALUES!")
             else:
                 # for object columns min and max sometimes dont work
                 # since different file formats collide (e.g. strings with None)
@@ -7519,9 +7550,8 @@ class FigurePanel():
             # if values is only one value convert to list to make it iterable
             if type(values) not in [list, tuple]:
                 final_query = column + values
-                print(final_query)
                 # included_indices = new_included_data.query(final_query).index
-                included_indices = new_included_data.eval(final_query).index
+                included_indices = new_included_data.eval(final_query)
             else:
                 # convert all values to to correct type if types differ
                 if new_included_data[column].dtype != type(values[0]):
@@ -7820,12 +7850,13 @@ class FigurePanel():
                   average_columns = None,
                   baseline=0, columns_same_in_groups=None,
                   renaming_dicts = None,
+                  nan_fill_val=-1,
                   width_y_axis = 0, col_labels_every_row = False,
                   sub_padding_y_factor = 0.25, show_y_label_in_all_rows = None,
                   normalize_after_data_exclusion=True,
                   video_frame=None,
                   use_same_y_ranges=True, increase_padding_above = True,
-                  digits_round_all_columns=4,
+                  digits_round_all_columns=6,
                   for_measuring=False,
                   **kwargs):
         """
@@ -7991,6 +8022,10 @@ class FigurePanel():
                         for checking for matches, values must be lists
                         otherwise, it is assumed that it is a query
                         and will be executed as pandas dataframe query string
+        :param nan_fill_val: Value that should be used to fill up NaN values
+            in DataFrame. A numeric value is recommended to prevent type
+            conversion problems for columns that are numeric. NaN values
+            in the y column/s will not be replaced.
         :param col_labels_every_row: Bool; whether column labels above
                                     should be shown in every row
                                     of the facet plot
@@ -8065,6 +8100,24 @@ class FigurePanel():
             
         if round_columns is None:
             round_columns = []
+
+        # fill NaN in columns that are not numeric and not the y
+        # the y column should not be filled to not change actual y values
+        for column in self.data.columns:
+            if pd.api.types.is_numeric_dtype(self.data[column]):
+                self.data[column].fillna(nan_fill_val, inplace=True)
+            else:
+                is_y = False
+                if type(self.y) in [tuple, list]:
+                    for one_y in self.y:
+                        if column == one_y:
+                            is_y = True
+                else:
+                    if self.y == column:
+                        is_y = True
+                if is_y:
+                    continue
+                self.data[column].fillna(str(nan_fill_val), inplace=True)
 
         # get plot_type, needed for get_basic_statistics
         # to know if it is a continuous data plot type
@@ -8226,12 +8279,13 @@ class FigurePanel():
             column_name = special_columns.get(round_column, round_column)
             try:
                 data[column_name].astype(float)
-            except:
+            except ValueError:
+                print(ValueError)
                 round_columns.remove(round_column)
                 print(f"WARNING: The column {column_name} was removed from the "
                       f"parameter 'round_columns' since this column could not be "
                       f"converted to a numerical datatype.")
-            
+
         (data, round_columns,
          inclusion_criteria) = self._round_data(data, inclusion_criteria,
                                                 round_columns, round_digits)
@@ -8241,9 +8295,12 @@ class FigurePanel():
         if scale_columns == None:
             scale_columns = {}
 
-        for column, scaling_factor in scale_columns.items():
+        for column, scaling in scale_columns.items():
             data[column] = data[column].astype(float)
-            data[column] *= scaling_factor
+            if callable(scaling):
+                data[column] = scaling(data[column])
+            else:
+                data[column] *= scaling
 
         all_ordered_vals = {}
         all_ordered_vals[x] = self.x_order
@@ -8377,13 +8434,18 @@ class FigurePanel():
         else:
             data = self._remove_unpaired_data(data, pair_unit_columns,
                                              col, x, hue)
-        
+
         (axs_by_position,
          ax_annot) = self._plot_simple_row(data, x, y, hue, col, for_measuring,
                                           increase_padding_above,
                                           inner_border,
                                           show_legend, **kwargs)
 
+        if (not self.video) & self.show_letter:
+            # if letter ever is hidden, its probably because it is added
+            #  before all the other things are added in the panel
+            # probably also an addition error of the padding could be the cause
+            self._add_letter_subplot(self.letter)
         return axs_by_position, ax_annot
 
     def _plot_multi_rows(self, inner_border, show_legend, **kwargs):
@@ -8433,7 +8495,7 @@ class FigurePanel():
                                                                                  row_values,
                                                                                  show_legend,
                                                                                  **kwargs)
-        print(time.time() - start)
+
         fig_size = plt.gcf().get_size_inches()
         max_x_axis_height = max_x_axis_height_px / (fig_size[1] * plt.gcf().dpi)
         height_x_axis = max_x_axis_height / self.fig_height_available
@@ -9134,7 +9196,6 @@ class FigurePanel():
         if self.plot_type in plot_types_no_higher_pad_below:
             increase_padding_below = False
 
-
         if increase_padding_below:
             inner_border = self._do_increase_of_padding_below_plot(inner_border,
                                                                   data, x, col,
@@ -9195,9 +9256,9 @@ class FigurePanel():
                 nb_x_vals = len(x_order)
 
         # add padding to top of plot
-        if (nb_col_vals == 1) & (nb_x_vals == 1):
-            # POTENTIAL BUG / PROBLEM! for top why is inner_border 2 changed?
-            inner_border[2] += self.padding[1][0]/2 / fig_height
+        # if (nb_col_vals == 1) & (nb_x_vals == 1):
+        #     # POTENTIAL BUG / PROBLEM! for top why is inner_border 2 changed?
+        #     inner_border[2] += self.padding[1][0]/2 / fig_height
         return inner_border
 
 
@@ -9451,7 +9512,9 @@ class FigurePanel():
                 if round_digits == 0:
                     allowed_col_vals = [int(val) for val in allowed_col_vals]
                 else:
-                    allowed_col_vals = list(np.round(allowed_col_vals))
+                    allowed_col_vals = list(np.round([float(val)
+                                                      for val
+                                                      in allowed_col_vals]))
                 inclusion_criteria_dict[round_column] = allowed_col_vals
             correct_round_columns.append(round_column)
             data[round_column] = data[round_column].astype(float)
@@ -9615,10 +9678,20 @@ class FigurePanel():
             for val in ordered_vals:
                 all_col_vals = data[ordered_col].drop_duplicates().values
                 match_found = False
+                correct_col_val = ""
+                # first check for exact match
                 for col_val in all_col_vals:
-                    if val in col_val:
+                    if val == col_val:
                         match_found = True
+                        correct_col_val = col_val
                         break
+                # then check for partial match
+                if not match_found:
+                    for col_val in all_col_vals:
+                        if val in col_val:
+                            match_found = True
+                            correct_col_val = col_val
+                            break
                 if not match_found:
                     print(f"WARNING: For the ordered values for the "
                                      f"column {ordered_col}, the value "
@@ -9626,7 +9699,8 @@ class FigurePanel():
                                      f"value in the data and therefore "
                           f"excluded.")
                 else:
-                    new_ordered_vals.append(col_val)
+                    new_ordered_vals.append(correct_col_val)
+
             if len(new_ordered_vals) != len(set(new_ordered_vals)):
                 raise ValueError("While trying to correct the values in the "
                                  f"_order parameter for the column "
@@ -9667,7 +9741,6 @@ class FigurePanel():
                                                                   renaming_dict,
                                                                   excluded_keys=
                                                                    excluded_keys)
-
             mached_indices = matched_data.index.values
             column = renaming_dict["__target-column__"]
             value_to_replace = renaming_dict["__from__"]
@@ -9705,7 +9778,7 @@ class FigurePanel():
 
         return (axs_by_position, ax_annotations)
 
-    def get_basic_statistics(self, N_columns = "date", n_columns = None,
+    def get_basic_statistics(self, N_columns = None, n_columns = None,
                              show_stats=False, show_from_ungrouped_data=None,
                              show_from_grouped_data = None):
         """
@@ -9728,10 +9801,22 @@ class FigurePanel():
         """
         if type(N_columns) == str:
             N_columns = [N_columns]
+        
+        if (N_columns is None) & (n_columns is None):
+            raise ValueError("For getting basic statistics for the panel "
+                             f"{self.panel_letter} n_columns or N_columns "
+                             f"need to be defined.")
+
+        if N_columns is None:
+            N_columns = [n_columns[0]]
         # get values for combined data
 
         if show_stats:
             print(self.test_result_list)
+
+        pd.set_option('display.max_rows', 500)
+        pd.set_option('display.max_columns', 500)
+        pd.set_option('display.width', 1000)
 
         continuous_plot_types = ["line", "regression", "scatter"]
 
@@ -9755,6 +9840,7 @@ class FigurePanel():
             data = self.grouped_data.obj
             combined_stat_vals = pd.DataFrame(columns=columns)
             combined_stat_vals.loc[0,"mean"] = data[self.y].mean()
+            combined_stat_vals.loc[0,"median"] = data[self.y].median()
             combined_stat_vals.loc[0,"std"] = data[self.y].std()
             combined_stat_vals.loc[:,"min"] = self.data[self.y].min()
             combined_stat_vals.loc[:,"max"] = self.data[self.y].max()
@@ -9776,7 +9862,9 @@ class FigurePanel():
         grouped_columns = list(grouped_means.index.names)
         grouped_means.reset_index(inplace=True)
         statistic_vals = grouped_means.loc[:,grouped_columns]
+
         statistic_vals.loc[:,"mean"] = self.grouped_data.mean().reset_index()[self.y]
+        statistic_vals.loc[:,"median"] = self.grouped_data.median().reset_index()[self.y]
         statistic_vals.loc[:,"min"] = self.grouped_data.min().reset_index()[self.y]
         statistic_vals.loc[:,"max"] = self.grouped_data.max().reset_index()[self.y]
         statistic_vals.loc[:,"std"] = self.grouped_data.std().reset_index()[self.y]
@@ -11377,6 +11465,44 @@ class FigurePanel():
                 ax.text(**text, picker=True,
                         transform=ax.transAxes)
 
+    def _deeper_into_xml(self, xml_element, current_path, xml_parsed):
+        """
+        Go into xml tree depth-first.
+        """
+        # print(12345, xml_element)
+        for child in xml_element.iterchildren():
+            # print(dir(child), type(child.tag))#, str(child.shape_name))#
+            if child.tag.endswith("}t"):
+                final_path = copy.copy(current_path)
+                final_path.reverse()
+                # final_path = [{child.tag: child}, *final_path]
+                final_path = [child.text, child.tag.split("}")[-1], *final_path]
+                xml_parsed.append(final_path)
+                continue
+            new_element = child.tag.split("}")[-1] #{child.tag: child}
+            new_path = copy.copy(current_path)
+            new_path.append(new_element)
+            xml_parsed = self._deeper_into_xml(child, new_path, xml_parsed)
+        return xml_parsed
+
+
+    def _get_equation_from_xml(self, xml_element, xml_parsed,
+                               map_start, map_end):
+        """
+        Go into xml tree depth-first.
+        """
+        # print(12345, xml_element)
+        for child in xml_element.iterchildren():
+            # print(dir(child), type(child.tag))#, str(child.shape_name))#
+            tag_short = child.tag.split("}")[-1]
+            if tag_short == "t":
+                xml_parsed += child.text.replace("\u00A0", "\\ ")
+                continue
+            xml_parsed += map_start.get(tag_short, "")
+            xml_parsed = self._get_equation_from_xml(child, xml_parsed,
+                                                     map_start, map_end)
+            xml_parsed += map_end.get(tag_short, "")
+        return xml_parsed
 
     def rescale_font_size(self, font_size_factor = None,
                           font_size=None,
@@ -11388,12 +11514,15 @@ class FigurePanel():
         to work properly... before saving it as an image!
         It therefore also just works with pngs saved from powerpoint
         (not with e.g. jpeg)
-        Font sizes above 40 will be scaled according to font_size_factor.
+        Font sizes of at least 30 will be scaled according to font_size_factor.
         For all other text self.font_size will be used
         and optionally multiplied with font_size_factor
+        Font color is not extracted at the moment. Instead, black text is used
+        on top of a lighter background and white text on top of a darker
+        background.
 
         :param font_size_factor: font_size factor by which to scale text
-                                that has a font size > 40 pt in powerpoint
+                                that has a font size >= 30 pt in powerpoint
         :param font_size: font_size to use, if None, use default of figure_panel
         :param linespacing: spacing of lines when text includes line breaks
         """
@@ -11460,55 +11589,43 @@ class FigurePanel():
         # find all text fields in pptx &
         # get position of each text field, relative on the dimensions
         all_texts = []
-        for shape in pptx.slides[0].shapes:
-            if not hasattr(shape,"text"):
-                continue
+        # print(pptx.slides[0].shapes)
+        # print(dir(pptx.slides[0]._element.spTree))
+        # print(pptx.slides[0]._element.spTree.xml)
+        # print(pptx.slides[0].shapes)
+        # dasd
+        # print(pptx.slides[0]._element.getchildren())
+        # print(pptx.slides[0].element.items())
+        # print(pptx.slides[0].element.values())
+        # print(dir(pptx.slides[0]))
+        # extract math objects
 
-            if shape.text == "":
-                continue
+        map_start = {}
+        map_start["sub"] = "_{"
+        map_start["d"] = "("
+        map_start["num"] = "\\frac{"
+        map_start["den"] = "{"
 
-            text_frame = shape.text_frame
-            new_text = {}
-            new_text["shape"] = shape
-            # only making tighter from right appears to work,
-            #  the rest exposes some text
-            # dont know why...
+        map_end = {}
+        map_end["sub"] = "}"
+        map_end["d"] = ")"
+        map_end["num"] = "}"
+        map_end["den"] = "}"
 
-
-            # get rotation, found by Karim Elgazar:
-            xfrm = shape._element.spPr.get_or_add_xfrm()
-            if xfrm.get("rot") is not None:
-                rotation =  (180+ int(xfrm.get("rot")) // 60000)%360
-            else:
-                rotation = None
-            # if rotation is None:
-            new_text["x0"] = (shape.left - pptx_dim["x0"]) / pptx_dim["width"]  # + text_frame.margin_left
-            # new_text["x0"] = (shape.left - pptx_dim["x0"]) / pptx_dim[
-            #     "width"]  # + text_frame.margin_left
-            new_text["x1"] = (shape.left + shape.width - pptx_dim["x0"]) / pptx_dim["width"]#  - text_frame.margin_right
-            new_text["width"] = new_text["x0"] - new_text["x1"]
-            new_text["y0"] = (shape.top- pptx_dim["y0"]) / pptx_dim["height"]# + + text_frame.margin_top
-            new_text["y1"] = (shape.top + shape.height - pptx_dim["y0"]) / pptx_dim["height"] #
-            new_text["height"] = new_text["y0"] - new_text["y1"]
-            if rotation in [90, 270]:
-                x0 = new_text["x0"] - new_text["width"]/2 + new_text["height"]/2
-                new_text["x0"] = x0
-                new_text["x1"] = x0 - new_text["height"]
-                y0 = new_text["y0"] + new_text["width"]/2.5
-                new_text["y0"] = y0
-                new_text["y1"] = y0 - new_text["width"]
-
-            new_text["text"] = shape.text
-            new_text["margin_left"] = text_frame.margin_left / pptx_dim["width"]
-            new_text["margin_right"] = text_frame.margin_right / pptx_dim["width"]
-            new_text["margin_top"] = text_frame.margin_top / pptx_dim["height"]
-            new_text["margin_bottom"] = text_frame.margin_bottom / pptx_dim["height"]
-
+        
+        # for child in pptx.slides[0]._element.spTree:
+        #     xml_parsed = self._get_equation_from_xml(child, "",
+        #                                              map_start, map_end)
             
-            new_text["rotation"] = rotation
-            new_text["alignment"] = str(text_frame.paragraphs[0].alignment)
-            new_text["fontsize"] = text_frame.paragraphs[0].runs[0].font.size.pt
-            all_texts.append(new_text)
+        # pprint(parsed_xml)
+        # print({"a":[{"b":"d"},
+        #              {"c":"e"}]})
+        # for text_element in parsed_xml:
+        #     print(text_element)
+        # print(parsed_xml)
+        # print(len(parsed_xml))
+        # dasd
+
 
         # in ax image, delete portions of the image with text
         image = self._get_img_from_axis(ax)
@@ -11525,12 +11642,103 @@ class FigurePanel():
         y_axis = image_alpha.any(1)
         # [::-1] reverses the array, still,
         #  I like np.flip more because its more easily understandable
-        x_slice = slice(x_axis.argmax(),width - np.flip(x_axis).argmax())#; 
-        y_slice = slice(y_axis.argmax(),height - np.flip(y_axis).argmax())#; 
+        image_x0 = x_axis.argmax()
+        image_x1 = width - np.flip(x_axis).argmax()
+        image_y0 = y_axis.argmax()
+        image_y1 = height - np.flip(y_axis).argmax()
+        x_slice = slice(image_x0, image_x1)#;
+        y_slice = slice(image_y0,image_y1)#;
+
+        image_width = abs(image_x0 - image_x1) #image.shape[-2]
+        image_height = abs(image_y0 - image_y1)#image.shape[-3]
+
+        for shape in pptx.slides[0].shapes:
+            if not hasattr(shape,"text"):
+                continue
+
+            xml_parsed = self._get_equation_from_xml(shape._sp, "",
+                                                     map_start, map_end)
+
+            # print(self._deeper_into_xml(shape._sp, [], []))
+            # print(xml_parsed, shape._sp.xml)
+            #
+            # xml_parsed = "*\\frac{resources_{available}}{resources_{total}}"
+            text = shape.text
+            if (text == "") & (len(xml_parsed) > 0):
+                text = r"$"+xml_parsed+"$"
+            
+            if text == "":
+                continue
+
+            text_frame = shape.text_frame
+            new_text = {}
+            new_text["shape"] = shape
+            # only making tighter from right appears to work,
+            #  the rest exposes some text
+            # dont know why...
+
+            pptx_ratio = pptx_dim["width"] / pptx_dim["height"]
+            image_ratio = image_width / image_height
+
+            # pptx_dim["width"] *= pptx_ratio/image_ratio
+            # pptx_dim["height"] /= pptx_ratio/image_ratio
+
+            # get rotation, found by Karim Elgazar:
+            xfrm = shape._element.spPr.get_or_add_xfrm()
+            if xfrm.get("rot") is not None:
+                rotation =  (180+ int(xfrm.get("rot")) // 60000)%360
+            else:
+                rotation = None
+            # if rotation is None:
+            new_text["x0"] = (shape.left - pptx_dim["x0"]) / pptx_dim["width"]  # + text_frame.margin_left
+            # new_text["x0"] = (shape.left - pptx_dim["x0"]) / pptx_dim[
+            #     "width"]  # + text_frame.margin_left
+            new_text["x1"] = (shape.left + shape.width - pptx_dim["x0"]) / pptx_dim["width"]#  - text_frame.margin_right
+            new_text["width"] = new_text["x0"] - new_text["x1"]
+
+            new_text["y0"] = (shape.top- pptx_dim["y0"]) / pptx_dim["height"]# + + text_frame.margin_top
+            new_text["y1"] = (shape.top + shape.height - pptx_dim["y0"]) / pptx_dim["height"] #
+            new_text["height"] = new_text["y0"] - new_text["y1"]
+
+            if rotation in [90, 270]:
+                corrected_width = new_text["width"] * image_width / image_height
+                corrected_height = (new_text["height"] *
+                                    image_height / image_width)
+
+                x0 = new_text["x0"]  + corrected_height/2 - new_text["width"]/2
+                new_text["x0"] = x0
+                new_text["x1"] = x0 - corrected_height
+                y0 = new_text["y0"] + corrected_width/2 - new_text["height"]/2
+                new_text["y0"] = y0
+                new_text["y1"] = y0 - corrected_width
+                new_text["width"] = corrected_width
+                new_text["height"] = corrected_height
+
+            new_text["text"] = text
+            new_text["margin_left"] = text_frame.margin_left / pptx_dim["width"]
+            new_text["margin_right"] = text_frame.margin_right / pptx_dim["width"]
+            new_text["margin_top"] = text_frame.margin_top / pptx_dim["height"]
+            new_text["margin_bottom"] = text_frame.margin_bottom / pptx_dim["height"]
+
+            new_text["rotation"] = rotation
+            new_text["alignment"] = str(text_frame.paragraphs[0].alignment)
+            font_weight = "normal"
+            if len(text_frame.paragraphs[0].runs) == 0:
+                new_text["fontsize"] = 20
+            else:
+                font_object = text_frame.paragraphs[0].runs[0].font
+                if font_object.bold is not None:
+                    if font_object.bold:
+                        font_weight = "bold"
+                if font_object.size is None:
+                    new_text["fontsize"] = 20
+                else:
+                    new_text["fontsize"] = font_object.size.pt
+            new_text["font_weight"] = font_weight
+            all_texts.append(new_text)
+
         image = image[y_slice, x_slice]
 
-        image_width = image.shape[-2]
-        image_height = image.shape[-3]
         for text in all_texts:
             x0 = int(text["x0"] * image_width)
             x1 = int(text["x1"] * image_width)
@@ -11545,17 +11753,22 @@ class FigurePanel():
                 fill_val_arrays.append(image[y0:y1,x0-1,:])
             if x1 < image.shape[1]-1:
                 fill_val_arrays.append(image[y0:y1,x1+1,:])
-            fill_val = np.median(np.concatenate(fill_val_arrays), axis=[0,1])
+            fill_val = np.median(np.concatenate(fill_val_arrays), axis=[0])
             image[y0:y1, x0:x1, :] = fill_val
+            if (fill_val[:3].max() > 150) |(fill_val[3] == 0):
+                text["color"] = "black"
+            else:
+                text["color"] = "white"
             
         ax.images[0]._A = image
         
         #  draw text in ax again at same position but new size
         for text in all_texts:
             rotation = text["rotation"]
-
+            hor_alignment = "center"
             # for now assumes that alignment of "none" is "left"
-            if text["alignment"].find("None") != -1:
+            if ((text["alignment"].find("None") != -1) |
+                    (text["alignment"].find("LEFT") != -1)):
                 x0 = text["x0"] # + text["margin_left"]
                 #  y0 = text["y0"] # + text["margin_top"]
                 if rotation in [90, 270]:
@@ -11594,7 +11807,7 @@ class FigurePanel():
 
             text_fontsize = copy.copy(font_size)
 
-            if text["fontsize"] > 40:
+            if text["fontsize"] >= 30:
                 text_fontsize *= 2
             else:
                 if not FigurePanel._is_none(font_size_factor):
@@ -11603,6 +11816,8 @@ class FigurePanel():
             new_text = ax.text(x0, 1-y0, text["text"],
                                 picker=True,
                                 rotation=text["rotation"],
+                               color=text["color"],
+                               fontweight = text["font_weight"],
                                 horizontalalignment=hor_alignment,
                                 verticalalignment=vert_alignment,
                                 label="__rescaled_text__",
