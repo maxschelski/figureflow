@@ -4532,7 +4532,6 @@ class FigurePanel():
                     px_cropped = self.cropped_positions[position]
                     x -= px_cropped[0]
                     y -= px_cropped[2]
-
         return x, y
 
 
@@ -7836,8 +7835,10 @@ class FigurePanel():
 
 
     def show_data(self, x=None, y=None, x_labels=[], hue=None, hue_labels=[],
-                  col=None, col_labels=[], row=None, row_labels=[],
+                  col=None, col_labels=[], row=None, 
+                  ratio= None, row_labels=[],
                   x_order=None, col_order=None, hue_order=None, row_order=None,
+                  ratio_pairs=None, ratio_func=None,
                   order_vals_before_changing_vals=False,
                   inclusion_criteria= None,show_legend=None,
                   round_columns=None,round_digits=0,
@@ -7891,6 +7892,9 @@ class FigurePanel():
             See description of x_labels for details.
         :param row: column of data used for plots in different rows
                     (generating a columns of plots)
+        :param ratio: Column for which to calculate ratio of rows with
+            defined ratio_pair values. If a function other than a simple ratio
+            should be calculated, use the ratio_func argument.
         :param row_labels: list of tuples to change values in row column.
             See description of x_labels for details.
         :param x_order: list of x values after applying the changes
@@ -7931,6 +7935,17 @@ class FigurePanel():
             the original values before applying the changes of row_labels.
             Determines the order of row values.
             For more details see "x_order".
+        :param ratio_pairs: List with pairs of values in the ratio column that
+            should be used to calculate the ratio (or, if defined, used as
+            input to the ratio_func. The first value in each pair is the first
+            input to the ratio_func or the numerator in the ratio, while the
+            second value in each pair is the second input to the ratio_func or
+            the denominator in the ratio.
+        :param ratio_func: Function that receives two inputs, the first
+            and second are the data (pandas.Series objects)
+            from the first and second value of each
+            ratio pair in the ratio column, respectively. Allows calculating
+            arbitrary computations of data.
         :param order_vals_before_changing_vals: Whether the _order parameters
             (e.g. x_order, hue_order, etc) include values before changing values
             with the _labels parameters or not. Default to allow compatibility
@@ -8185,6 +8200,27 @@ class FigurePanel():
 
         data = self.data
 
+        # make sure that round columns can be converted to numeric values
+        # otherwise, remove round column
+        special_columns = {"__x__":self.x,
+                           "__hue__":self.hue,
+                           "__col__":self.col,
+                           "__row__":self.row}
+        for round_column in round_columns:
+            column_name = special_columns.get(round_column, round_column)
+            try:
+                data[column_name].astype(float)
+            except ValueError:
+                print(ValueError)
+                round_columns.remove(round_column)
+                print(f"WARNING: The column {column_name} was removed from the "
+                      f"parameter 'round_columns' since this column could not be "
+                      f"converted to a numerical datatype.")
+
+        (data, round_columns,
+         inclusion_criteria) = self._round_data(data, inclusion_criteria,
+                                                round_columns, round_digits)
+
         if normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria,
                                       digits_round_all_columns)
@@ -8269,38 +8305,11 @@ class FigurePanel():
                                      smoothing_rad, hue, col, row)
 
 
-        # make sure that round columns can be converted to numeric values
-        # otherwise, remove round column
-        special_columns = {"__x__":self.x,
-                           "__hue__":self.hue,
-                           "__col__":self.col,
-                           "__row__":self.row}
-        for round_column in round_columns:
-            column_name = special_columns.get(round_column, round_column)
-            try:
-                data[column_name].astype(float)
-            except ValueError:
-                print(ValueError)
-                round_columns.remove(round_column)
-                print(f"WARNING: The column {column_name} was removed from the "
-                      f"parameter 'round_columns' since this column could not be "
-                      f"converted to a numerical datatype.")
-
-        (data, round_columns,
-         inclusion_criteria) = self._round_data(data, inclusion_criteria,
-                                                round_columns, round_digits)
-
         self.inclusion_criteria = inclusion_criteria
 
         if scale_columns == None:
             scale_columns = {}
 
-        for column, scaling in scale_columns.items():
-            data[column] = data[column].astype(float)
-            if callable(scaling):
-                data[column] = scaling(data[column])
-            else:
-                data[column] *= scaling
 
         all_ordered_vals = {}
         all_ordered_vals[x] = self.x_order
@@ -8329,7 +8338,6 @@ class FigurePanel():
         for transformation in self.data_transformations:
             data[y] = transformation(data[y])
 
-
         # check whether multiple columns for y were provided
         multiple_y = False
         if (type(self.y) in self.itertypes):
@@ -8348,6 +8356,9 @@ class FigurePanel():
                     show_legend = True
                 elif (nb_hue > 1) & (not show_x_axis):
                     show_legend = True
+
+                
+            
 
         # correct ordered vals to actual column values
         ordered_vals = {}
@@ -8434,6 +8445,50 @@ class FigurePanel():
         else:
             data = self._remove_unpaired_data(data, pair_unit_columns,
                                              col, x, hue)
+
+        if (ratio is not None) & (ratio_pairs is not None):
+            # this only works if the combination of [x, hue, col, row, ratio]
+            # defines a unique set of values in the data is used
+            if ratio_func is None:
+                ratio_func = lambda x,y: x/y
+
+            index_columns = [x]
+            for index_column in [hue, col, row]:
+                # do not index by the ratio column
+                # otherwise it is not possible to divide
+                if index_column  == ratio:
+                    continue
+                if index_column is None:
+                    continue
+                index_columns.append(index_column)
+            drop_columns = []
+            for drop_column in data.columns:
+                if drop_column in [x, y, hue, col, row, ratio]:
+                    continue
+                else:
+                    drop_columns.append(drop_column)
+            ratio_data = []
+            for ratio_pair in ratio_pairs:
+                data_pair = []
+                for ratio_val in ratio_pair:
+                    data_one_element = data.loc[data[ratio] == ratio_val]
+                    data_one_element = data_one_element.drop(drop_columns,
+                                                             axis=1)
+                    data_pair.append(data_one_element.set_index(index_columns))
+                ratio_data_pair = pd.DataFrame(ratio_func(data_pair[0][y],
+                                                          data_pair[1][y]))
+                ratio_data_pair[ratio] = "_".join(ratio_pair)
+                ratio_data.append(ratio_data_pair)
+            ratio_data = pd.concat(ratio_data).reset_index()
+            data = ratio_data
+
+
+        for column, scaling in scale_columns.items():
+            data[column] = data[column].astype(float)
+            if callable(scaling):
+                data[column] = scaling(data[column])
+            else:
+                data[column] *= scaling
 
         (axs_by_position,
          ax_annot) = self._plot_simple_row(data, x, y, hue, col, for_measuring,
@@ -9514,7 +9569,8 @@ class FigurePanel():
                 else:
                     allowed_col_vals = list(np.round([float(val)
                                                       for val
-                                                      in allowed_col_vals]))
+                                                      in allowed_col_vals],
+                                                     round_digits))
                 inclusion_criteria_dict[round_column] = allowed_col_vals
             correct_round_columns.append(round_column)
             data[round_column] = data[round_column].astype(float)
@@ -11368,7 +11424,8 @@ class FigurePanel():
 
     def add_text_on_image(self, texts, images =None,
                           show_in_rows=None, show_in_columns=None,
-                          position_in_abs_data_coords=True):
+                          position_in_abs_data_coords=True,
+                          remove_rescaled_text=False):
         """
         Add text on image, also delete all text that was added by function
         "rescale_font_size". Therefore should be specifically used for 
@@ -11416,12 +11473,13 @@ class FigurePanel():
             if not position_allowed:
                 continue
 
-            # delete text already added by function rescale_font_size
-            for child in ax.get_children():
-                if not isinstance(child, matplotlib.text.Text):
-                    continue
-                if child.get_label() == "__rescaled_text__":
-                    child.remove()
+            if remove_rescaled_text:
+                # delete text already added by function rescale_font_size
+                for child in ax.get_children():
+                    if not isinstance(child, matplotlib.text.Text):
+                        continue
+                    if child.get_label() == "__rescaled_text__":
+                        child.remove()
 
             pre_identity = self.pos_to_pre_identity_map[ax_position]
 
