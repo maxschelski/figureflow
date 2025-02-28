@@ -26,6 +26,7 @@ from matplotlib import patches
 from scipy import ndimage
 # import cv2
 import pprint
+import math
 
 import functools
 import seaborn as sb
@@ -77,6 +78,7 @@ class FigurePanel():
                  height, x_pos, width, letter_fontsize,
                  hor_alignment="left", vert_alignment="top",
                  show_letter=True, padding="DEFAULT",
+                 capital_panel_letter=False,
                  size_factor=1, increase_size_fac=1,
                  font_size=7, video=False,
                  animate_panel=None):
@@ -137,6 +139,7 @@ class FigurePanel():
 
         self.panel_pptxs = panel_pptxs
         self.show_letter = show_letter
+        self.capital_panel_letter = capital_panel_letter
         self.data = data
         # create copy of data
         self.data_orig = pd.DataFrame(data)
@@ -167,6 +170,10 @@ class FigurePanel():
                             letter_fontsize_inch / 2],
                             [letter_fontsize_inch / 2,
                              letter_fontsize_inch / 2]]
+            # self.padding = [[0.04,
+            #                 0.04],
+            #                 [0.04,
+            #                  0.04]]
 
         else:
             # expand padding into nested list where the first dimension
@@ -229,11 +236,11 @@ class FigurePanel():
 
         self._initiate_label_dicts()
 
-        if (self.figure.panel_to_edit == self.letter):
-            # only add letter panel first if the current panel is edited
-            # otherwise it is better to add it as the last thing so that it
-            # is never hidden
-            self._add_letter_subplot(self.letter)
+        # if (self.figure.panel_to_edit == self.letter):
+        #     # only add letter panel first if the current panel is edited
+        #     # otherwise it is better to add it as the last thing so that it
+        #     # is never hidden
+        self._add_letter_subplot(self.letter)
 
 
 
@@ -5687,6 +5694,9 @@ class FigurePanel():
             padding_size_y = self.ypadding / fig_size[1]
             # add the panel letter
             label = "letter subplot "+str(letter)
+            if hasattr(self, "ax_letter"):
+                self.ax_letter.remove()
+
             self.ax_letter = fig.add_subplot(label = "letter subplot - " + str(letter))
             # remove outer padding again since letter should be within this padding
             letter_x0 = self.outer_border[0]#  - padding_size_x
@@ -5709,10 +5719,16 @@ class FigurePanel():
                                         fraction_of_fontsize_lowered *
                                         (fig.dpi / 72)) / ax_letter_height_px )
 
-            self.ax_letter.annotate(letter,xy=(0,y_position_letter),
-                                    fontsize=self.letter_fontsize,va="center",
-                                    ha="left",
-                                    fontweight="bold")
+            if self.capital_panel_letter:
+                letter = letter.upper()
+            else:
+                letter = letter.lower()
+
+            self.letter_text = self.ax_letter.annotate(letter,
+                                                       xy=(0,y_position_letter),
+                                                       fontsize=self.letter_fontsize,
+                                                       va="center", ha="left",
+                                                       fontweight="bold")
             self.ax_letter.set_axis_off()
 
     def label_category(self, category, texts, site=None, font_size=None,
@@ -7839,6 +7855,7 @@ class FigurePanel():
                   ratio= None, row_labels=[],
                   x_order=None, col_order=None, hue_order=None, row_order=None,
                   ratio_pairs=None, ratio_func=None,
+                  y_operation_cols = None, y_operation_func = None,
                   order_vals_before_changing_vals=False,
                   inclusion_criteria= None,show_legend=None,
                   round_columns=None,round_digits=0,
@@ -7946,6 +7963,14 @@ class FigurePanel():
             from the first and second value of each
             ratio pair in the ratio column, respectively. Allows calculating
             arbitrary computations of data.
+        :param y_operation_cols: Columns which should be supplied to
+            y_operation_func to calculate a new y value. The original set y
+            value will not be used, instead the newly calculated values will
+            be used for y.
+        :param y_operation_func: Function to which the y_operation_cols will
+            be supplied. It should have as many arguments as there are columns
+            in y_operation_cols defined. The original set y value will not be
+            used, instead the newly calculated values will be used for y.
         :param order_vals_before_changing_vals: Whether the _order parameters
             (e.g. x_order, hue_order, etc) include values before changing values
             with the _labels parameters or not. Default to allow compatibility
@@ -8084,7 +8109,8 @@ class FigurePanel():
             raise ValueError("A column for 'x' must be supplied "
                              "or set beforehand.")
 
-        if self._is_none(self.y) & self._is_none(y):
+        if ((self._is_none(self.y) & self._is_none(y)) &
+                (y_operation_cols is None)):
             raise ValueError("A column for 'y' must be supplied "
                              "or set beforehand.")
 
@@ -8096,7 +8122,7 @@ class FigurePanel():
         else:
             self.x = x
 
-        if self._is_none(hue):
+        if hue is None:
             hue = self.hue
         else:
             self.hue = hue
@@ -8111,6 +8137,12 @@ class FigurePanel():
         if self._is_none(y):
             y = self.y
         else:
+            self.y = y
+
+        self.ratio = ratio
+
+        if (y is None) & (y_operation_cols is not None):
+            y = y_operation_cols
             self.y = y
             
         if round_columns is None:
@@ -8195,6 +8227,9 @@ class FigurePanel():
             self.show_y_label_in_all_rows = show_y_label_in_all_rows
             self.pair_unit_columns = pair_unit_columns
             self.use_same_y_ranges = use_same_y_ranges
+
+            self.y_operation_func = y_operation_func
+            self.y_operation_cols = y_operation_cols
         
         self._validate_data_file()
 
@@ -8231,25 +8266,87 @@ class FigurePanel():
         # normalize values to within cateogiry
         # norm_cats is a list of categories for which normalization
         if normalize_y:
-            data[y] = self._normalize_data(data, y, norm_y_cats, hue, col, row,
-                                          normalize_y_by)
+            if type(self.y) in [tuple, list]:
+                for one_y in self.y:
+                    data[one_y] = self._normalize_data(data, y, norm_y_cats,
+                                                       hue, col, row,
+                                                       normalize_y_by)
+
+            else:
+                data[y] = self._normalize_data(data, y, norm_y_cats, hue, col,
+                                               row, normalize_y_by)
         
         if normalize_x:
             data[x] = self._normalize_data(data, x, norm_x_cats, hue, col, row,
                                           normalize_x_by)
 
-
         if not normalize_after_data_exclusion:
             data = self._exclude_data(data, inclusion_criteria,
                                       digits_round_all_columns)
-        
-        if type(hue) in [tuple, list]:
-            new_hue = "_".join(hue)
-            data[new_hue] = ""
-            for sub_hue in hue:
-                data[new_hue] += data[sub_hue].astype(str)
-            hue = new_hue
-            self.hue = new_hue
+
+        if ((self.y_operation_func is not None) &
+                (self.y_operation_cols is not None)):
+
+            def execute_operation_func(data, y_operation_func,
+                                       y_operation_cols):
+                function_params = []
+                data = data.reset_index()
+                for operation_col in y_operation_cols:
+                    function_params.append(data[operation_col])
+                return y_operation_func(*function_params)
+
+            # y_operation_cols are the columns that should be used in the
+            # function y_operation_func
+            # the new column will be called __operation__ and thus will be
+            # the new y
+            y = "__operation__"
+            self.y = y
+            # group data by x, hue and col values
+            # then execute operation func on operation cols
+            group_columns = []
+            if x is not None:
+                group_columns.append(x)
+            if hue is not None:
+                group_columns.append(hue)
+            if col is not None:
+                group_columns.append(col)
+            data = data.groupby(group_columns).apply(
+                execute_operation_func, self.y_operation_func,
+                                         self.y_operation_cols).reset_index()
+            # put data into the correct column
+            data["__operation__"] = data[0]
+            
+            # check whether any of the columns in x, hue or col was used
+            # as an operation column.
+            # In that case data cannot be separated by this column anymore
+            # since the column is used to calculate a new value
+            # therefore either set the value of this separation colum
+            # (for hue and col) to zero or replace it with a new column that
+            # includes all data (for x)
+            for operation_col in y_operation_cols:
+                if operation_col == x:
+                    x = "__new__"
+                    data["__new__"] = 0
+                if operation_col == hue:
+                    hue = None
+                    self.hue = hue
+                if operation_col == col:
+                    col = None
+                    self.col = col
+
+        special_cols = {"hue": hue,
+                        "col": col,
+                        "row": row,
+                        "ratio":ratio}
+        for col_name, col in special_cols.items():
+            if type(col) in [tuple, list]:
+                new_col = "_".join(col)
+                data[new_col] = ""
+                for col_nb, sub_col in enumerate(col):
+                    if col_nb > 0:
+                        data[new_col] += "_"
+                    data[new_col] += data[sub_col].astype(str)
+                setattr(self, col_name, new_col)
 
         if len(data) == 0:
             raise ValueError("The inclusion criteria {} that were defined "
@@ -8266,7 +8363,7 @@ class FigurePanel():
 
         if remove_outliers:
             data_box_columns = []
-            for data_box_column in [x, col, hue]:
+            for data_box_column in [x, self.col, self.hue]:
                 if data_box_column is not None:
                     data_box_columns.append(data_box_column)
             data = data.groupby(data_box_columns,
@@ -8283,26 +8380,28 @@ class FigurePanel():
         else:
             all_y = [self.y]
 
-        columns_to_drop_na_from = [*all_y, x, hue, col]
+        columns_to_drop_na_from = [*all_y, x, self.hue, self.col]
         for column in columns_to_drop_na_from:
             if column != None:
                 data = data.dropna(subset=[column])
 
         # convert all categorisation columns to string in order
         #  to make replacing values possible
-        for column in [x,hue,col]:
+        for column in [x, self.hue, self.col]:
             if column != None:
                 data[column] = data[column].apply(str)
 
         data = self._exclude_data_with_column_vals_not_in_all_groups(columns_same_in_groups,
                                                                     data, x,
-                                                                    hue, col)
+                                                                    self.hue,
+                                                                     self.col)
 
         # remove baseline from values before processing numbers further
         data[y] = data[y] - baseline
 
         data[y] = self._smoothen_data(data, y, ["hue", "col", "row"],
-                                     smoothing_rad, hue, col, row)
+                                     smoothing_rad, self.hue, self.col, 
+                                      self.row)
 
 
         self.inclusion_criteria = inclusion_criteria
@@ -8313,17 +8412,17 @@ class FigurePanel():
 
         all_ordered_vals = {}
         all_ordered_vals[x] = self.x_order
-        all_ordered_vals[hue] = self.hue_order
-        all_ordered_vals[col] = self.col_order
-        all_ordered_vals[row] = self.row_order
+        all_ordered_vals[self.hue] = self.hue_order
+        all_ordered_vals[self.col] = self.col_order
+        all_ordered_vals[self.row] = self.row_order
         sorted_ordered_vals = self._get_sorted_ordered_vals(data,
                                                             all_ordered_vals,
                                                             round_columns,
                                                             round_digits)
         self.x_order = sorted_ordered_vals[x]
-        self.hue_order = sorted_ordered_vals[hue]
-        self.col_order = sorted_ordered_vals[col]
-        self.row_order = sorted_ordered_vals[row]
+        self.hue_order = sorted_ordered_vals[self.hue]
+        self.col_order = sorted_ordered_vals[self.col]
+        self.row_order = sorted_ordered_vals[self.row]
 
         # only replace row values now
         # this is needed since the row_value
@@ -8343,8 +8442,8 @@ class FigurePanel():
         if (type(self.y) in self.itertypes):
             multiple_y = True
 
-        if hue is not None:
-            nb_hue_x = len(self.data[[x, hue]].drop_duplicates())
+        if self.hue is not None:
+            nb_hue_x = len(self.data[[x, self.hue]].drop_duplicates())
             nb_x = len(self.data[x].drop_duplicates())
             nb_hue = len(self.data[x].drop_duplicates())
             # if x and hue are the same, hue categories are already
@@ -8356,9 +8455,6 @@ class FigurePanel():
                     show_legend = True
                 elif (nb_hue > 1) & (not show_x_axis):
                     show_legend = True
-
-                
-            
 
         # correct ordered vals to actual column values
         ordered_vals = {}
@@ -8376,19 +8472,19 @@ class FigurePanel():
             all_ordered_vals[col] = self.col_order
             if order_vals_before_changing_vals:
                 all_ordered_vals[x] = self.x_order
-                all_ordered_vals[hue] = self.hue_order
-                all_ordered_vals[row] = self.row_order
+                all_ordered_vals[self.hue] = self.hue_order
+                all_ordered_vals[self.row] = self.row_order
             strs_to_replace = {}
             strs_to_replace[x] = x_labels
-            strs_to_replace[hue] = hue_labels
-            strs_to_replace[col] = col_labels
+            strs_to_replace[self.hue] = hue_labels
+            strs_to_replace[self.col] = col_labels
             all_ordered_vals = self._replace_strs_in_orders(all_ordered_vals,
                                                             strs_to_replace)
             self.col_order = all_ordered_vals[col]
             if order_vals_before_changing_vals:
                 self.x_order = all_ordered_vals[x]
-                self.hue_order = all_ordered_vals[hue]
-                self.row_order = all_ordered_vals[row]
+                self.hue_order = all_ordered_vals[self.hue]
+                self.row_order = all_ordered_vals[self.row]
 
         #  create facet plot made out of several sub figure panels
         #  within the current figure panel
@@ -8410,8 +8506,9 @@ class FigurePanel():
         # for each row depending on strings that were replaced
         strs_to_replace = {}
         strs_to_replace[x] = x_labels
-        strs_to_replace[hue] = hue_labels
-        strs_to_replace[col] = col_labels
+        strs_to_replace[self.hue] = hue_labels
+        strs_to_replace[self.col] = col_labels
+        strs_to_replace[self.row] = row_labels
         data = self._replace_strs_in_data(data, strs_to_replace)
 
         data = self._rename_column_values(data, renaming_dicts)
@@ -8419,16 +8516,18 @@ class FigurePanel():
         # correct ordered vals to actual column values
         ordered_vals = {}
         ordered_vals[x] = self.x_order
-        ordered_vals[hue] = self.hue_order
-        ordered_vals[col] = self.col_order
+        ordered_vals[self.hue] = self.hue_order
+        ordered_vals[self.col] = self.col_order
+        ordered_vals[self.row] = self.row_order
         ordered_vals = self._correct_ordered_vals(data, ordered_vals)
         x_order = ordered_vals[x]
-        hue_order = ordered_vals[hue]
-        col_order = ordered_vals[col]
+        hue_order = ordered_vals[self.hue]
+        col_order = ordered_vals[self.col]
+        row_order = ordered_vals[self.row]
         # first remove all data defined through the _order variables
         property_names = ["col", "x", "hue"]
-        column_infos = zip([col, x, hue], [col_order,
-                                           x_order, hue_order])
+        column_infos = zip([self.col, x, self.hue],
+                           [col_order, x_order, hue_order])
         for prop_nb, (column_name, column_order) in enumerate(column_infos):
             if (column_name is None) | (column_order is None):
                 continue
@@ -8444,16 +8543,16 @@ class FigurePanel():
             kwargs["connect_paired_data_points"] = False
         else:
             data = self._remove_unpaired_data(data, pair_unit_columns,
-                                             col, x, hue)
+                                             self.col, x, self.hue)
 
-        if (ratio is not None) & (ratio_pairs is not None):
+        if (self.ratio is not None) & (ratio_pairs is not None):
             # this only works if the combination of [x, hue, col, row, ratio]
             # defines a unique set of values in the data is used
             if ratio_func is None:
-                ratio_func = lambda x,y: x/y
+                ratio_func = lambda x,y: x.mean()/y.mean()
 
             index_columns = [x]
-            for index_column in [hue, col, row]:
+            for index_column in [self.hue, self.col, self.row]:
                 # do not index by the ratio column
                 # otherwise it is not possible to divide
                 if index_column  == ratio:
@@ -8463,7 +8562,8 @@ class FigurePanel():
                 index_columns.append(index_column)
             drop_columns = []
             for drop_column in data.columns:
-                if drop_column in [x, y, hue, col, row, ratio]:
+                if drop_column in [x, y, self.hue, self.col, self.row,
+                                   self.ratio]:
                     continue
                 else:
                     drop_columns.append(drop_column)
@@ -8471,16 +8571,19 @@ class FigurePanel():
             for ratio_pair in ratio_pairs:
                 data_pair = []
                 for ratio_val in ratio_pair:
-                    data_one_element = data.loc[data[ratio] == ratio_val]
+                    data_one_element = data.loc[data[self.ratio] == ratio_val]
                     data_one_element = data_one_element.drop(drop_columns,
                                                              axis=1)
                     data_pair.append(data_one_element.set_index(index_columns))
-                ratio_data_pair = pd.DataFrame(ratio_func(data_pair[0][y],
-                                                          data_pair[1][y]))
-                ratio_data_pair[ratio] = "_".join(ratio_pair)
+                ratio_data_pair = pd.DataFrame(ratio_func(
+                    data_pair[0][y].groupby(index_columns),
+                    data_pair[1][y].groupby(index_columns)))
+
+                ratio_data_pair[self.ratio] = "_".join(ratio_pair)
                 ratio_data.append(ratio_data_pair)
             ratio_data = pd.concat(ratio_data).reset_index()
             data = ratio_data
+
 
 
         for column, scaling in scale_columns.items():
@@ -8491,7 +8594,8 @@ class FigurePanel():
                 data[column] *= scaling
 
         (axs_by_position,
-         ax_annot) = self._plot_simple_row(data, x, y, hue, col, for_measuring,
+         ax_annot) = self._plot_simple_row(data, x, y, self.hue, self.col,
+                                           for_measuring,
                                           increase_padding_above,
                                           inner_border,
                                           show_legend, **kwargs)
@@ -9560,26 +9664,34 @@ class FigurePanel():
         for round_column in round_columns:
             if round_column in special_columns.keys():
                 round_column = special_columns[round_column]
-            for inclusion_criteria_dict in inclusion_criteria:
-                if round_column not in inclusion_criteria_dict:
-                    continue
-                allowed_col_vals = inclusion_criteria_dict[round_column]
-                if round_digits == 0:
-                    allowed_col_vals = [int(val) for val in allowed_col_vals]
-                else:
-                    allowed_col_vals = list(np.round([float(val)
-                                                      for val
-                                                      in allowed_col_vals],
-                                                     round_digits))
-                inclusion_criteria_dict[round_column] = allowed_col_vals
-            correct_round_columns.append(round_column)
-            data[round_column] = data[round_column].astype(float)
-            if round_digits == 0:
-                data[round_column] = data[round_column].astype(int)
-            else:
-                data[round_column] = data[round_column].round(round_digits)
-            data[round_column] = data[round_column].apply(str)
+            # if multiple hue columns were defined, it is possible that a single
+            # special column entry is actually multiple columns
+            # For that reason treat all round columns as lists and go through
+            # each one (which is most often only one item)
+            if type(round_column) not in [list, tuple]:
+                round_column = [round_column]
+            for one_round_column in round_column:
+                for inclusion_criteria_dict in inclusion_criteria:
 
+                    if one_round_column not in inclusion_criteria_dict:
+                        continue
+                    allowed_col_vals = inclusion_criteria_dict[one_round_column]
+                    if round_digits == 0:
+                        allowed_col_vals = [int(val) for val in allowed_col_vals]
+                    else:
+                        allowed_col_vals = list(np.round([float(val)
+                                                          for val
+                                                          in allowed_col_vals],
+                                                         round_digits))
+                    inclusion_criteria_dict[one_round_column] = allowed_col_vals
+                correct_round_columns.append(one_round_column)
+                data[one_round_column] = data[one_round_column].astype(float)
+                if round_digits == 0:
+                    data[one_round_column] = data[one_round_column].astype(int)
+                else:
+                    data[one_round_column] = data[one_round_column].round(round_digits)
+                data[one_round_column] = data[one_round_column].apply(str)
+                
         return data, correct_round_columns, inclusion_criteria
 
     @staticmethod
@@ -9809,7 +9921,15 @@ class FigurePanel():
         return data
 
     def _plot_results(self, data, x, y, inner_border, for_measuring, **kwargs):
-        
+
+        # # self.outer_border = [x0_outer, x1_outer, y0_outer, y1_outer]
+        #  # uncomment to see the borders of the panel
+        #  # helpful to judge if boxes are properly aligned
+        # bg_ax = plt.gcf().add_axes([inner_border[0],
+        #                         inner_border[2],
+        #                         inner_border[1] - inner_border[0],
+        #                         inner_border[3] - inner_border[2],
+        #                         ])
         size_factor = self.size_factor * self.increase_size_fac
         # get box dicts of one group and plot data of that group
         output = statannot.plot_and_add_stat_annotation(data = data,
@@ -9824,6 +9944,7 @@ class FigurePanel():
                                                         for_measuring = for_measuring,
                                                         pair_unit_columns =
                                                         self.pair_unit_columns,
+                                                        _letter_text=self.letter_text,
                                                         **kwargs)
 
         (axs_by_position,
@@ -9860,7 +9981,7 @@ class FigurePanel():
         
         if (N_columns is None) & (n_columns is None):
             raise ValueError("For getting basic statistics for the panel "
-                             f"{self.panel_letter} n_columns or N_columns "
+                             f"{self.letter} n_columns or N_columns "
                              f"need to be defined.")
 
         if N_columns is None:
@@ -9881,14 +10002,14 @@ class FigurePanel():
         #for other other plots by default only stats of
         #grouped data
         if self.plot_type in continuous_plot_types:
-            if self._is_none(show_from_ungrouped_data):
+            if show_from_ungrouped_data is None:
                 show_from_ungrouped_data = True
-            if self._is_none(show_from_grouped_data):
+            if show_from_grouped_data is None:
                 show_from_grouped_data = False
         else:
-            if self._is_none(show_from_ungrouped_data):
+            if show_from_ungrouped_data is None:
                 show_from_ungrouped_data = False
-            if self._is_none(show_from_grouped_data):
+            if show_from_grouped_data is None:
                 show_from_grouped_data = True
 
         if show_from_ungrouped_data:
@@ -11421,6 +11542,53 @@ class FigurePanel():
                                 **kwargs)
 
             ax.add_line(line)
+
+
+    def add_text_on_plot(self, texts):
+        """
+        Add text on image, also delete all text that was added by function
+        "rescale_font_size". Therefore should be specifically used for
+        adding text on illustrations. Figure editor GUI will output code
+        that uses this function.
+
+        :param texts: list of dicts describing text.
+                      Each key of dict is one parameter to axis.text function
+                      and each value the corresponding parameter value
+                      (x, y and s have to be defined. Other parameters
+                      like font_size are optional. See matplotlib docs:
+                      "https://matplotlib.org/stable/api/_as_gen/
+                      matplotlib.axes.Axes.text.html")
+                      Changing the font size is not recommended, so that
+                      font size is uniform across the entire figure.
+        :param position_in_abs_data_coords: Whether the position of the text
+                                        is in data coordinates, which means
+                                        that they will be at the same x,y
+                                        coordinate position, for each zoom
+                                        and the overview image -
+                                        this can be at completely different
+                                        positions in the axes and may
+                                        not be in the axes at all (and
+                                        will therefore not be shown); if False
+                                        position is as axes fraction and will
+                                        not be corrected for zoom
+        """
+        # define functions to prevent line length going over limit
+        # but still keeping clear function names
+        coords_from_data_to_axes = self._transform_coords_from_data_to_axes
+
+        for ax_position, ax in self.all_axs.items():
+
+            # copy text objects so that they stay the same across axes
+            texts_this_ax = copy.deepcopy(texts)
+
+            for text_nb, text in enumerate(texts_this_ax):
+
+                if "fontsize" not in text:
+                    text["fontsize"] = self.font_size
+                if "verticalalignment" not in text:
+                    text["verticalalignment"] = "center"
+                ax.text(**text, picker=True,
+                        transform=ax.transData)
 
     def add_text_on_image(self, texts, images =None,
                           show_in_rows=None, show_in_columns=None,
