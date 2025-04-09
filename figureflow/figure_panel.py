@@ -10,6 +10,7 @@ import pandas as pd
 from . import statannot
 from matplotlib import pyplot as plt
 import matplotlib
+from matplotlib.patches import Polygon
 from matplotlib.colors import LinearSegmentedColormap
 import inspect
 import os
@@ -10142,6 +10143,7 @@ class FigurePanel():
     def draw_on_image(self, targets, direction, images = None,
                       style="arrow",color="white", size = 40,
                       direction_from_head_to_tail=True,
+                      fill_circle=False,
                       arrow_width_factor=0.125,
                       arrow_head_width_factor=0.625,
                       arrow_head_length_factor=0.625, **kwargs):
@@ -10316,15 +10318,51 @@ class FigurePanel():
 
                     x_img_px = x_inch / ax_width_inch * width
                     y_img_px = y_inch / ax_height_inch * height
-                    ax.plot(x_img_px, y_img_px, marker="*",
-                            markersize=size, mew=size/100, c=color)
+                    # dasd
+                    # ax.plot(x_img_px, y_img_px,
+                    #         marker="*",
+                    #         transform=ax.transData,
+                    #         markersize=size,
+                    #         mew=size/100,
+                    #         c=color)
+                    # print(x_img_px, y_img_px)
+                    def create_star(center=(0, 0), radius=1, num_points=5, rotation=0):
+                        cx, cy = center
+                        points = []
+                        angle = np.pi / num_points  # 36 degrees for 5-pointed star
+                        rotation_rad = np.radians(rotation)
+
+                        for i in range(2 * num_points):
+                            r = radius if i % 2 == 0 else radius / 2
+                            theta = i * angle + rotation_rad
+                            x = cx + r * np.cos(theta)
+                            y = cy + r * np.sin(theta)
+                            points.append((x, y))
+                        return points
+
+                    star_points = create_star(center=(new_target[0],
+                                                      new_target[1]),
+                                              radius=size,
+                                              num_points=5,
+                                              rotation=-18)
+
+                    star_patch = Polygon(star_points, closed=True, color=color,
+                                         edgecolor=None)
+
+                    # Add to plot
+                    ax.add_patch(star_patch)
+
+                    # ax.scatter(new_target[0], new_target[1],
+                    #            s=10, marker='*', color=color,
+                    #            zorder=3)
 
                 elif style =="circle":
                     
                     circle1 = plt.Circle((new_target[0],
                                           new_target[1]), size,
                                          edgecolor=color,
-                                         fill=False
+                                         fill=fill_circle,
+                                         color=color,
                                          )
                     ax.add_patch(circle1)
 
