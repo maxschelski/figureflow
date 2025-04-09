@@ -9,7 +9,7 @@ class LinePlot():
     def __init__(self, x, y, hue, data, hue_order, plot_colors, ax,
                  x_range, ci=95, plot_line_group_cols=None,
                  plot_line_group_alpha=0.1, dashes=None,
-                 use_dashes_for_hue=False,
+                 use_dashes_for_hue=False, estimator="mean",
                  **kwargs):
         """
 
@@ -30,6 +30,7 @@ class LinePlot():
         self.plot_line_group_alpha = plot_line_group_alpha
         self.dashes = dashes
         self.use_dashes_for_hue = use_dashes_for_hue
+        self.estimator = estimator
 
         if type(hue) == type(None):
             nb_colors = 1
@@ -56,7 +57,7 @@ class LinePlot():
 
         plot = sns.relational._LinePlotter(
                 data=self.data, variables=self.variables,
-                estimator="mean", ci=self.ci, n_boot=1000, seed=None,
+                estimator=self.estimator, ci=self.ci, n_boot=1000, seed=None,
                 sort=None, err_style="band", err_kws=None, legend="full")
 
         plot.map_hue(palette=self.plot_colors, order=self.hue_order, norm=None)
