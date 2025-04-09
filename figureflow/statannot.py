@@ -7,8 +7,10 @@ import matplotlib.pyplot as plt
 from matplotlib import lines
 import matplotlib.transforms as mtransforms
 from matplotlib import ticker as mplticker
+from matplotlib import patches
 from matplotlib.font_manager import FontProperties
 from matplotlib.legend_handler import HandlerLine2D
+from matplotlib import ticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -572,8 +574,8 @@ def plot_data(ax, x, y, plot_hue, hue_column, data, x_order, hue_order,
 
     plot_object = get_plotting_class(plot_type)
 
-    if plot_colors == -1:
-        plot_colors = sns.xkcd_palette(["white","grey"])
+    # if plot_colors is None:
+    #     plot_colors = sns.xkcd_palette(["white","grey"])
 
     plotter = plot_object(x=x, y=y, hue=plot_hue, data=data,
                           x_order=x_order, hue_order=hue_order,
@@ -591,10 +593,99 @@ def plot_data(ax, x, y, plot_hue, hue_column, data, x_order, hue_order,
 
     return plot, labels_to_add
 
-
-def add_column_plot_title_above_all_plots(ax_annot, all_axs, outer_border,
+def add_boxed_plot_title_above_all_plots(ax_labels, all_axs, outer_border,
                                           plot_title, line_width,
-                                          col_label_padding, fontsize):
+                                          col_label_padding, fontsize,
+                                         title_box_colors, _letter_text,
+                                         inner_padding):
+    fig = plt.gcf()
+    # set title and move plot down (by decreasing height) accordingly afterwards
+
+    # first set title to get the height of it which is necessary as padding
+    # to move it into the border of the panel
+
+
+
+    min_x = 1
+    max_x = 0
+    min_y = 1
+    max_y = 0
+    for ax in all_axs.values():
+        min_x = min(min_x, ax.get_position().x0)
+        max_x = max(max_x, ax.get_position().x1)
+        min_y = min(min_y, ax.get_position().y0)
+        max_y = max(max_y, ax.get_position().y1)
+
+    panel_letter_size = _letter_text.get_window_extent(renderer =
+                                                       fig.canvas.renderer)
+    panel_letter_end = panel_letter_size.x1/(fig.get_size_inches()[0]*fig.dpi)
+
+    # convert from points to pixels
+    inner_padding *= fig.dpi/72
+    # convert from pixels to figure coordinates
+    inner_padding /= (fig.get_size_inches()[0]*fig.dpi)
+
+    # make sure that the box is not colliding with the panel letter
+    min_x = max(outer_border[0], panel_letter_end+inner_padding)#+inner_padding
+    max_x = outer_border[1]#-inner_padding
+    # min_y = outer_border[2]
+
+    mid_x = min_x + (max_x - min_x) / 2
+
+    title = ax_labels.text(mid_x, outer_border[3], plot_title,
+                           # fontsize=fontsize,
+                   ha="center", va="bottom")
+    renderer = fig.canvas.get_renderer()
+    col_label_height_px = title.get_window_extent(renderer).height
+    # not sure why divided by 10... little bit of confusion why this works well
+    col_label_padding_px = points_to_pixels(col_label_padding) / 10
+
+    # # not sure why divided by 10...little bit of confusion why this works well
+    # col_label_padding_px = points_to_pixels(col_label_padding) / 10
+    col_label_height = ((col_label_height_px
+                         # +col_label_padding_px
+                         ) /
+                        (fig.get_size_inches()[0] * fig.dpi))
+
+
+    title.remove()
+    title = ax_labels.text(mid_x, outer_border[3] - col_label_height, plot_title,
+                           # fontsize=fontsize,
+                          transform=fig.transFigure,
+                           ha="center", va="bottom",
+                           )
+
+    nb_colors = len(title_box_colors)
+    width_one_color = (max_x - min_x)/nb_colors
+    for color_nb, title_box_color in enumerate(title_box_colors):
+        # Create a new rectangle patch that extends horizontally
+        patch = patches.FancyBboxPatch(
+            (min_x + width_one_color*color_nb,
+            outer_border[3] - col_label_height*0.94),
+            width= width_one_color,  # New width
+            height=col_label_height*1.1,  # Unchanged height
+            boxstyle="square,pad=0",
+            transform=fig.transFigure,
+            linewidth=0,
+            edgecolor=None,
+            facecolor=title_box_color,
+            zorder=title.get_zorder() - 1  # Place it behind the text
+        )
+        ax_labels.patches.append(patch)
+
+
+    col_label_height += ((col_label_padding_px
+                         ) /
+                        (fig.get_size_inches()[0] * fig.dpi))
+    return col_label_height
+
+
+def add_column_plot_title_above_all_plots(ax_labels, all_axs, outer_border,
+                                          plot_title, line_width,
+                                          col_label_padding, fontsize,
+                                          plot_title_across_whole_width,
+                                          _letter_text, inner_padding
+                                          ):
     fig = plt.gcf()
     # set title and move plot down (by decreasing height) accordingly afterwards
 
@@ -609,11 +700,27 @@ def add_column_plot_title_above_all_plots(ax_annot, all_axs, outer_border,
         max_x = max(max_x, ax.get_position().x1)
         min_y = min(min_y, ax.get_position().y0)
 
+    if plot_title_across_whole_width:
+        panel_letter_size = _letter_text.get_window_extent(renderer =
+                                                           fig.canvas.renderer)
+        panel_letter_end = panel_letter_size.x1/(fig.get_size_inches()[0]
+                                                 * fig.dpi)
+
+        # convert from points to pixels
+        inner_padding *= fig.dpi/72
+        # convert from pixels to figure coordinates
+        inner_padding /= (fig.get_size_inches()[0]*fig.dpi)
+
+        # make sure that the box is not colliding with the panel letter
+        min_x = max(outer_border[0], panel_letter_end+inner_padding)#+inner_padding
+        max_x = outer_border[1]
+
     mid_x = min_x + (max_x - min_x) / 2
 
-    title = plt.gcf().text(mid_x, outer_border[3], plot_title,
+    title = ax_labels.text(mid_x, outer_border[3], plot_title,
+                          transform=plt.gcf().transFigure,
                    ha="center", va="bottom")
-
+    # dasd
     renderer = fig.canvas.get_renderer()
     col_label_height_px = title.get_window_extent(renderer).height
     fig = plt.gcf()
@@ -633,18 +740,26 @@ def add_column_plot_title_above_all_plots(ax_annot, all_axs, outer_border,
                         lw=line_width, c="black",
                         solid_capstyle="projecting")
     line.set_clip_on(False)
-    ax_annot.add_line(line)
+    ax_labels.add_line(line)
 
     title.remove()
-    title = plt.gcf().text(mid_x, outer_border[3] - col_label_height, plot_title,
-                           ha="center", va="bottom")
 
+    # if the title should scale along with the figure,
+    # it has to be ax.transAxes and not transFigure
+    # but then all sizes have to be rescaled to the axis as well.
+
+    title = ax_labels.text(mid_x, outer_border[3] - col_label_height,
+                           plot_title,
+                          transform=plt.gcf().transFigure,
+                           ha="center", va="bottom")
+    # dasd
     col_label_height += ((col_label_padding_px
                          ) /
                         (fig.get_size_inches()[0] * fig.dpi))
     return col_label_height
 
-def add_column_plot_title_above(ax_annot, col_val, col_label_padding, fontsize):
+def add_column_plot_title_above(ax_annot, col_val, col_label_padding, fontsize,
+                                col_label_weight):
     fig = plt.gcf()
     # set title and move plot down (by decreasing height) accordingly afterwards
 
@@ -652,6 +767,7 @@ def add_column_plot_title_above(ax_annot, col_val, col_label_padding, fontsize):
     # to move it into the border of the panel
     title = ax_annot.set_title(col_val, pad = col_label_padding,
                                loc="center", fontsize=fontsize,
+                               fontweight=col_label_weight,
                                x=0.5, ha="center", va="bottom")
     renderer = fig.canvas.get_renderer()
     col_label_height_px = title.get_window_extent(renderer).height#2 for va="baseline"
@@ -1087,7 +1203,7 @@ def plot_stat_annot_text(ax, text, y, x1, x2, text_offset, fontsize,
         annotation_clip=False)
     ann_list.append(ann)
     ylim = ax.get_ylim()
-    # dasd
+
 
     plt.draw()
     y_top_annot = None
@@ -1213,6 +1329,7 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
                         show_legend,
                         borderaxespad_, legend_handle_length,
                         legend_handle_vert_alignment,
+                        n_legend_columns,
                         show_x_label_in_all_columns,
                         leave_space_for_legend,
                         data_is_continuous,
@@ -1285,6 +1402,7 @@ def set_legend_and_axes(ax, col_order, plot_nb, hue_order,
 
         legend = plt.legend(handles[0:nb_labels], hue_order,
                             bbox_to_anchor=(1, 1), loc=2,
+                            ncol=n_legend_columns, columnspacing=0.7,
                             fontsize=fontsize_points, frameon=False,
                             borderpad=0, handletextpad=legend_spacing,
                             borderaxespad=borderaxespad_, title=legend_title,
@@ -1624,7 +1742,8 @@ def get_axis_dimension(ax, axis, type, baseline):
 def finetune_plot(ax, box_structs, col, col_order, perform_stat_test,
                   line_width, line_width_thin, inner_padding, fontsize,
                   col_val, plot_type, vertical_lines, show_col_labels_below,
-                  always_show_col_label, add_line_above_x_axis_label):
+                  always_show_col_label, add_line_above_x_axis_label,
+                  center_x_axis_label_under_all_plots):
 
     # add vertical light-grey line for each box
     # to see better to which plot a statistic annotation refers
@@ -1666,15 +1785,19 @@ def finetune_plot(ax, box_structs, col, col_order, perform_stat_test,
         x_axis_ticks = ax.xaxis.get_ticklabel_extents(fig.canvas.get_renderer())
         label_pad = 0
         if (x_axis_ticks[0].height > 0):
-            line_x = [x0, x1]
-            line_y_pos = (ax.get_ylim()[0] - rel_height_text *
-                           (y_lim - ax.get_ylim()[0]))
-            line_y = [line_y_pos, line_y_pos]
+            # dont draw a line above the x axis label if the x axis label
+            # will actually only be added at the end below all plots
+            # The line drawn here would only be below one plot.
+            if not center_x_axis_label_under_all_plots:
+                line_x = [x0, x1]
+                line_y_pos = (ax.get_ylim()[0] - rel_height_text *
+                               (y_lim - ax.get_ylim()[0]))
+                line_y = [line_y_pos, line_y_pos]
 
-            # line_y = - rel_height_text
-            ax = draw_line(line_x=line_x, line_y=line_y,
-                           line_width=line_width, color="black", ax=ax)
-            label_pad += line_width + 2 * inner_padding
+                # line_y = - rel_height_text
+                ax = draw_line(line_x=line_x, line_y=line_y,
+                               line_width=line_width, color="black", ax=ax)
+            label_pad += line_width + inner_padding
 
         ax.set_xlabel(x_axis_label, labelpad=label_pad)
 
@@ -1847,7 +1970,7 @@ def plot_comparison_to_control_within_x(box_pairs_of_x, hue_order, x_val, hue,
         y = box_dict['ymax'] + y_offset_to_box
         text = pval_texts[box_pair]
 
-        ann_list, y_top_annot,ax = plot_stat_annot_text(
+        ann_list, y_top_annot, ax = plot_stat_annot_text(
             ax, text, y, x, x, text_offset, fontsize,
             stat_star_annot_font_size_factor, h, use_fixed_offset, ann_list)
 
@@ -1920,10 +2043,12 @@ def get_box_dict_pairs_grouped_by_ranking(all_boxes_sorted,
 def draw_line(line_x,line_y,line_width,color,ax, transform=None):
     if type(transform) == type(None):
         transform= ax.transData
+
     line = lines.Line2D(line_x, line_y, lw=line_width, c=color,
                         transform=transform, solid_capstyle="projecting")
     line.set_clip_on(False)
     ax.add_line(line)
+
     return ax
 
 
@@ -1956,8 +2081,8 @@ def update_plot_and_arrays(y_stack_arr, y_top_annot, x1, x2, all_ax_data,
         ylim = ax_data.get_ylim()
 
         if loc == 'inside':
-            if (0.98 * y_stack_max) > (ylim[1]):
-                ax_data.set_ylim((ylim[0], 0.98*y_stack_max))
+            if (1 * y_stack_max) > (ylim[1]):
+                ax_data.set_ylim((ylim[0], 1*y_stack_max))
             else:
                 ax_data.set_ylim((ylim[0], ylim[1]))
         elif loc == 'outside':
@@ -1966,7 +2091,7 @@ def update_plot_and_arrays(y_stack_arr, y_top_annot, x1, x2, all_ax_data,
             # changing the limits of the axis (which would also change the y
             # axis and move the y axis label)
             original_range = ylim[1] - ylim[0]
-            new_range = (0.98 * y_stack_max) - ylim[0]
+            new_range = (1 * y_stack_max) - ylim[0]
             relative_change = (new_range/original_range)
             axis_size = ax_data.get_position()
             # then set new axis position with reduced height and reduced width
@@ -1975,12 +2100,17 @@ def update_plot_and_arrays(y_stack_arr, y_top_annot, x1, x2, all_ax_data,
                                  axis_size.height/relative_change])
 
     # if loc == 'outside':
-    if (y_stack_max*1.06) > (ylim[1]):
-        ax.set_ylim((ylim[0], y_stack_max*1.06))
+    if (y_stack_max*1) > (ylim[1]):
+        ax.set_ylim((ylim[0], y_stack_max*1))
     else:
         ax.set_ylim((ylim[0], ylim[1]))
     # elif loc == 'outside':
     #         ax.set_ylim((ylim[0], ylim[1]))
+
+    # ax_size = ax.get_window_extent()
+    # px_width = (plt.gcf().get_size_inches() * plt.gcf().dpi)[0]
+    # bg_ax = plt.gcf().add_axes([ax_size.x0/px_width, ax_size.y0/px_width,
+    #                            ax_size.width/px_width, ax_size.height/px_width])
 
     return all_ax_data,annotated_pairs,y_stack_arr,ax
 
@@ -2080,7 +2210,6 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
         i_ymax_in_range_x1_x2 = np.where(y_stack_arr[1, :] ==
                                          ymax_in_range_x1_x2)[0][0]
 
-
         # Choose the best offset depending on wether there is an annotation below
         # at the x position in the range [x1, x2] where the stack is the highest
         if y_stack_arr[2, i_ymax_in_range_x1_x2] == 0:
@@ -2116,9 +2245,8 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
         # from there go down and draw line from outer to inner significant box
         line_x = [x_box, x_box, x_mid, x_mid, x_outer, x_inner]
         line_y = [y, y + h, y + h, y+h/2,y+h/2,y+h/2]
-
         ax = draw_line(line_x, line_y, line_width, color, ax)
-        
+
         # annotate significance
         # move label closer to line for stars
         if pval_text.find("*") != -1:
@@ -2137,7 +2265,6 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
             ax, pval_text, y_text, x_mid, x_box, text_offset, fontsize,
             stat_star_annot_font_size_factor, h_text, use_fixed_offset, ann_list)
 
-
         if (site == "right") | ("right" not in box_struct_pairs_split):
             (all_ax_data,
              annotated_pairs,
@@ -2146,6 +2273,7 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
                                           all_ax_data, ax, annotated_pairs,
                                           ymax_in_range_x1_x2, pval_text,
                                           box_struct_pair, loc, y_range)
+
         # if only one pair is in box_struct_pairs_sorted, don't draw line down,
         # there is already a line down to half the height
         # dont understand comment above anymore -
@@ -2163,7 +2291,6 @@ def annotate_box_pair_group(box_struct_pairs, box_tuple, box, y_stack_arr,
             line_y = [y + h/2, y]
 
             ax = draw_line(line_x, line_y, line_width, color, ax)
-
 
     return ax, all_ax_data,annotated_pairs,y_stack_arr,ann_list
 
@@ -2189,6 +2316,7 @@ def get_x_shift_to_hor_center_plot(ax, x_shift, col_order, nb_x_vals, total_nb_c
     # add space between groups to width of all plots
     total_width_between_groups = (group_padding * (len(col_order) - 1) /
                                   fig.get_size_inches()[0])
+
     if auto_scale_group_padding:
         total_width_between_groups *= auto_width_reduction_factor
 
@@ -2407,9 +2535,17 @@ def add_labels_within_ax(all_labels_to_add):
 
         label_to_add["label_method"](**params)
 
-def set_y_ticks(ax, y_tick_interval, show_y_minor_ticks):
+def set_y_ticks(ax, y_tick_interval, show_y_minor_ticks, y_tick_interval_minor):
     if show_y_minor_ticks:
-        ax.minorticks_on()
+
+        if y_tick_interval_minor is None:
+            if y_tick_interval is not None:
+                y_tick_interval_minor = y_tick_interval / 2
+        if y_tick_interval_minor is not None:
+            ax.yaxis.set_minor_locator(
+                ticker.MultipleLocator(y_tick_interval_minor))
+        else:
+            ax.minorticks_on()
         ax.xaxis.set_tick_params(which='minor', bottom=False, length=0)
 
     if y_tick_interval is not None:
@@ -2475,7 +2611,7 @@ def add_grid_lines(ax, y_range, plot_type, line_width, line_width_thin,
         line_color = "0.8"
 
     ax.grid(b=True, color=line_color, linestyle='-', which="major",
-            axis="y", linewidth=line_width)
+            axis="y", linewidth=line_width_thin)
 
     if plot_type == "line":
         # visible needs to be set True for line plots
@@ -2487,9 +2623,9 @@ def add_grid_lines(ax, y_range, plot_type, line_width, line_width_thin,
                 axis="x", linewidth=line_width_thin)
 
     if show_y_minor_ticks:
-        ax.grid(visible=True, b=False, color=line_color, linestyle='-',
-                which="minor", axis="y", linewidth=line_width_thin)
-
+        ax.grid(visible=True, b=True,
+                color=line_color, linestyle='-',
+                which="minor", axis="y", linewidth=line_width_thin/2)
 
 def overhanging_axis_tick_labels_into_inner_border(all_x_tick_overhangs,
                                                    all_axs, ax_annot,
@@ -2696,7 +2832,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  plot_type="box", data_plot_kwds=None,
                                  show_data_points=True,
                                  connect_paired_data_points=True,
-                                 plot_colors=-1,
+                                 plot_colors=None,
                                  box_pairs=[],
                                  perform_stat_test=True, pvalues=None,
                                  test=None, stats_params=None,
@@ -2710,11 +2846,15 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  loc='inside',
                                  print_stat_test_results=False,
                                  plot_title = None,
+                                 plot_title_across_whole_width=True,
+                                 plot_boxed_title=None, title_box_colors=None,
                                  show_col_labels_above = False,
                                  show_col_labels_below=True,
                                  add_line_above_x_axis_label=False,
                                  always_show_col_label=False,
-                                 col_label_padding=4,
+                                 col_label_padding=2,
+                                 col_label_padding_without_col_labels=4,
+                                 col_label_weight="normal",
                                  show_row_label = False,
                                  row_label_text=None,
                                  row_label_orientation = "vert",
@@ -2727,10 +2867,12 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  leave_space_for_x_tick_overhang=False,
                                  y_range = None,
                                  y_scale = "linear",
+                                 x_scale = "linear",
                                  show_y_axis=True,
                                  neg_y_vals=True,
                                  y_axis_label=None,y_tick_interval=None,
                                  show_y_minor_ticks=False,
+                                 y_tick_interval_minor=None,
                                  x_ticks=None, y_ticks=None,
                                  y_tick_labels=None,
                                  x_tick_labels=None,
@@ -2739,19 +2881,20 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  axis_padding=10,
                                  hor_alignment ="left",
                                  use_fixed_offset=False,
-                                 line_offset_to_box=None, line_offset=None,
+                                 line_offset_to_box=0.02, line_offset=0.03,
                                  text_offset=2, line_width=0.8,
                                  line_width_thin=0.3,
                                  line_height=0.1,
                                  legend_title=None,
                                  legend_handle_length=2,
                                  legend_handle_vert_alignment="top",
+                                 n_legend_columns=1,
                                  legend_spacing = 0.25,
                                  leave_space_for_legend=False,
                                  borderaxespad_ = 0.2,
                                  box_width=0.4,
                                  group_padding=0.04,
-                                 auto_scale_group_padding = True,
+                                 auto_scale_group_padding = False,
                                  inner_padding=1,
                                  vertical_lines=False,
                                  add_background_lines = True,
@@ -2759,7 +2902,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                  background_color="0.98",
                                  outer_border=None,fig=None, figure_panel=None,
                                  letter=None, fontsize='medium',
-                                 for_measuring=False, size_factor=1,):
+                                 for_measuring=False, size_factor=1,
+                                 _letter_text=None):
     """
     Plot data row and add statistical annotations on top.
 
@@ -2868,6 +3012,14 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     :param print_stat_test_results: Whether all the statistic test information should be printed
     :param plot_title: String; Title of the plot that will be added
                         above the plot
+    :param plot_title_across_whole_width: Whether the plot_title should be
+        extended across the whole axis or just across the plot itself (excluding
+        the width of the axis label, tick labels, legend width, etc.)
+    :param plot_boxed_title: String, Title that will be in a colored box above
+        all other title of the plot and across the entire width of the plot
+    :param title_box_colors: List of colors to use for boxed title. The box will
+        be divided into as many even parts as colors are defined. The order
+        of the colors will also be used for the parts of the box.
     :param show_col_labels_above: Whether to show col labels above the plot,
                                     if True, show_col_labels_below will be set
                                     to False
@@ -2875,6 +3027,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
     :param always_show_col_label: Whether to always show col labels (also if
                                     there was only one col value)
     :param col_label_padding: Label padding for cols
+    :param col_label_weight: Font weight of col labels: "normal" or "bold"
     :param show_row_label: Bool; Whether there should be a label displayed
                             right of the rightmost plot when True, legend
                             will not be displayed automatically (both together
@@ -2901,6 +3054,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                             in the other rows.
     :param y_range: List of minimum and maximum y value
     :param y_scale: Scale on y_axis (e.g. "linear" or "log")
+    :param x_scale: Scale on x_axis (e.g. "linear" or "log")
     :param show_y_axis: Whether to show the y axis
     :param neg_y_vals: are there data points below zero, if not lowest y axis
                         value is 0 (margin settings will make it lower
@@ -2937,6 +3091,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         (3 line breaks), "center" will align the legend handle between the
         second and third line and "top" will align it in the middle of the first
         line.
+    :param n_legend_columns: The number of columns for the legend.
     :param legend_spacing: space between legend handles (color boxes)
                             and legend text
     :param leave_space_for_legend: Internal parameter to indicate whether
@@ -2948,7 +3103,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                      scaled by width of one column in inches / 2
     :param group_padding: space between two cols in inches -
                             scaled by width of one column in inches / 2
-    :param auto_scale_group_padding: Bool; Whether defined group_padding should
+    :param auto_scale_group_padding: Bool; NOT WORKING AT THE MOMENT!
+                                            Whether defined group_padding should
                                             be scaled automatically
                                             Autoscaling scales space between
                                             plots as much as the size of plots
@@ -2988,9 +3144,12 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
 
     plot_object = get_plotting_class(plot_type)
 
+    if (not show_col_labels_above) | (col is None):
+        col_label_padding = col_label_padding_without_col_labels
+
     data_is_continuous = plot_object.CONTINUOUS_X
 
-    if plot_colors == -1:
+    if plot_colors is None:
         plot_colors = sns.xkcd_palette(["white", "grey"])
 
     if show_col_labels_above:
@@ -3186,7 +3345,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
 
         ax.set_ylim(y_range[0], y_range[1])
 
-        set_y_ticks(ax, y_tick_interval, show_y_minor_ticks)
+        set_y_ticks(ax, y_tick_interval, show_y_minor_ticks,
+                    y_tick_interval_minor)
         set_x_ticks(ax, x_tick_interval, x_range)
 
         # advance currentColumn ticker
@@ -3209,7 +3369,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
             auto_width_reduction_factor = 0
         
         ax.set_yscale(y_scale)
-        
+        ax.set_xscale(x_scale)
+
         # plot boxplot and swarmplot and get box_plotter
         # object (necessary to extract information about boxes later)
         box_plotter, labels_to_add = plot_data(ax, x, y, plot_hue, hue,
@@ -3231,7 +3392,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
             title_above = col_val
             col_label_height = add_column_plot_title_above(ax, title_above,
                                                            col_label_padding,
-                                                           fontsize)
+                                                           fontsize,
+                                                           col_label_weight)
             coords = ax.get_position()
             # change in size cannot be included in y_shift
             # since y shift is shift from bottom and not from top
@@ -3266,6 +3428,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                                        show_legend, borderaxespad_,
                                                        legend_handle_length,
                                                          legend_handle_vert_alignment,
+                                                         n_legend_columns,
                                                        show_x_label_in_all_columns,
                                                        leave_space_for_legend,
                                                        data_is_continuous,
@@ -3463,6 +3626,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
 
     # add ax_annot again with same position to make it appear on top of all other plots
     ax_annot = add_annotation_subplot(letter+"_new",outer_border,ax_annot)
+    ax_annot.set_ylim(last_y_lim)
 
     # exclude data based on order given for different columns
     included_data = exclude_data(data,col,col_order,x,x_order,hue,hue_order)
@@ -3517,7 +3681,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                                         fontsize, col_val, plot_type,
                                         vertical_lines, show_col_labels_below,
                                         always_show_col_label,
-                                        add_line_above_x_axis_label)
+                                        add_line_above_x_axis_label,
+                                        center_x_axis_label_under_all_plots)
         # get the additional y shift due to adding a line above the x axis label
         final_add_y_shift = max(add_y_shift, final_add_y_shift)
 
@@ -3544,7 +3709,8 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
                        show_y_minor_ticks)
 
     for ax in all_axs.values():
-        set_y_ticks(ax, y_tick_interval, show_y_minor_ticks)
+        set_y_ticks(ax, y_tick_interval, show_y_minor_ticks,
+                    y_tick_interval_minor)
 
     if y_ticks is not None:
         for ax in all_axs.values():
@@ -3595,6 +3761,7 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
         for ax in all_axs.values():
             ax.set_yticklabels(y_tick_labels)
 
+
     if x_tick_labels is not None:
         for ax in all_axs.values():
             ax.set_xticklabels(x_tick_labels)
@@ -3612,18 +3779,40 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
 
         mid_x = min_x + (max_x - min_x)/2
 
-        plt.gcf().text(mid_x, outer_border[2], x_axis_label_centered,
-                       ha="center", va="bottom")
+        # if (x_axis_ticks[0].height > 0):
+        line_x = [min_x, max_x]
+        # line_y_pos = (ax.get_ylim()[0] - rel_height_text *
+        #                (y_lim - ax.get_ylim()[0]))
+        # line_y = [line_y_pos, line_y_pos]
 
+        # line_y = - rel_height_text
+
+        axis_label_text = plt.gcf().text(mid_x, outer_border[2],
+                                           x_axis_label_centered,
+                                           ha="center", va="bottom")
+
+        if add_line_above_x_axis_label:
+            fig = plt.gcf()
+            renderer = fig.canvas.get_renderer()
+            lab_text_height_px = axis_label_text.get_window_extent(renderer).height
+            # # not sure why divided by 10...little bit of confusion why this works well
+            col_label_padding_px = points_to_pixels(col_label_padding) / 10
+            lab_text_height = ((lab_text_height_px
+                                 +col_label_padding_px/2
+                                 ) /
+                                (fig.get_size_inches()[0] * fig.dpi))
+
+            ax = draw_line(line_x=line_x, line_y=[outer_border[2]+lab_text_height,
+                                                  outer_border[2]+lab_text_height],
+                           line_width=line_width, color="black", ax=ax_annot,
+                           transform=plt.gcf().transFigure)
 
     # plot a title above all plots (in ax_labels)
-    if (type(plot_title) != type(None)):
-        col_label_height = add_column_plot_title_above_all_plots(ax_labels,
-                                                                 all_axs,
-                                                                 outer_border,
-                                                       plot_title, line_width,
-                                                       col_label_padding,
-                                                       fontsize)
+    if (plot_title is not None):
+        col_label_height = add_column_plot_title_above_all_plots(
+            ax_labels, all_axs, outer_border, plot_title, line_width,
+            col_label_padding, fontsize, plot_title_across_whole_width,
+            _letter_text, inner_padding)
 
         # move all data plots down
         for ax in all_axs.values():
@@ -3634,5 +3823,27 @@ def plot_and_add_stat_annotation(data=None, x=None, y=None, hue=None, col=None,
             coords = ax.get_position()
             ax.set_position([coords.x0, coords.y0, coords.width,
                                  coords.height - col_label_height])
+
+
+    # plot a title above all plots (in ax_labels)
+    if (type(plot_boxed_title) != type(None)):
+        if title_box_colors is None:
+            title_box_colors = plot_colors
+        col_label_height = add_boxed_plot_title_above_all_plots(
+            ax_labels, all_axs, outer_border, plot_boxed_title,
+            line_width, col_label_padding, fontsize, title_box_colors,
+        _letter_text, inner_padding)
+
+        if plot_title is None:
+            # move all data plots down
+            for ax in all_axs.values():
+                coords = ax.get_position()
+                ax.set_position([coords.x0, coords.y0, coords.width,
+                                 coords.height - col_label_height])
+
+            for ax in [ax_annot, ax_labels]:
+                coords = ax.get_position()
+                ax.set_position([coords.x0, coords.y0, coords.width,
+                                     coords.height - col_label_height])
 
     return axs_by_position, ax_annot, test_result_list
